@@ -1,0 +1,16 @@
+  <dialog id="schedule">
+    <form method="dialog" id="schedule-form">
+      <header><h2>Schedule Audit Visit</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="scheduleId" type="hidden">
+      <label>Outlet<select name="outlet"><option>Select outlet</option></select></label>
+      <label>Location<select name="zone"></select></label>
+      <label>Scheduled Date<input name="scheduledDate" type="date" value="2026-08-28"></label>
+      <label>Auditor<input name="auditor" placeholder="Who will audit?"></label>
+      <label>Status<select name="status"><option>Pending</option><option>Completed</option><option>Cancelled</option></select></label>
+      <label>Remarks<textarea name="remarks" placeholder="Any notes..."></textarea></label>
+      <footer class="form-actions split-actions">
+        <button class="danger" type="button" data-delete-current-schedule hidden>Delete</button>
+        <button class="primary" value="default">Schedule</button>
+      </footer>
+    </form>
+  </dialog>

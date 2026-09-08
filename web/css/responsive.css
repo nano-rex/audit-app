@@ -1,0 +1,53 @@
+@media (max-width: 760px) {
+  .app-header {
+    padding: 12px 18px;
+  }
+
+  .brand {
+    min-width: 170px;
+  }
+
+  .nav-row {
+    margin-left: 0;
+  }
+
+  .tabs {
+    gap: 4px;
+  }
+
+  .unit-select {
+    margin-left: 0;
+  }
+
+  main {
+    padding-inline: 16px;
+  }
+
+  .stats,
+  .unit-grid,
+  .outlets,
+  .chart-grid,
+  .work-grid,
+  .inspect-layout,
+  .filter {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid,
+  .check-item {
+    grid-template-columns: 1fr;
+  }
+
+  .check-notes {
+    grid-column: auto;
+  }
+
+  .today-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .quick-actions {
+    justify-content: flex-start;
+  }
+}

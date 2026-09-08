@@ -1,0 +1,6 @@
+android/build/
+web/__pycache__/
+web/data/*.db
+web/data/*.db-*
+.DS_Store
+*.pyc

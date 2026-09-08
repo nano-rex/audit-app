@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ottotree Audit</title>
+  <link rel="stylesheet" href="styles.css?v=20260908-photo-storage">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <h1>Ottotree Audit</h1>
+      <p>Loudspeaker & Mini Studio operations</p>
+    </div>
+    <div class="account-strip" data-account-strip hidden>
+      <span data-auth-user></span>
+      <button class="outline" type="button" data-open-change-password>Change Password</button>
+      <button class="outline" type="button" data-logout>Logout</button>
+    </div>
+    <div class="nav-row">
+      <nav class="tabs" aria-label="Audit sections">
+        <button class="active" data-tab="today">To-do</button>
+        <button data-tab="inspections">Inspections</button>
+        <button data-tab="findings">Findings</button>
+        <button data-tab="work-orders">Work Orders</button>
+        <button data-tab="equipment">Equipment</button>
+        <button data-tab="reports">Reports</button>
+        <button data-tab="categories">Categories</button>
+        <button data-tab="departments">Departments</button>
+        <button data-tab="outlets">Outlets</button>
+        <button data-tab="users">Users</button>
+        <button data-tab="roles">Roles</button>
+      </nav>
+      <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="tab-menu" aria-label="Open tab menu">☰</button>
+      <div class="tab-menu" id="tab-menu" hidden>
+        <h2>Tabs</h2>
+        <div data-menu-tabs></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- include: html/tabs/today.html -->
+    <!-- include: html/tabs/inspections.html -->
+    <!-- include: html/tabs/findings.html -->
+    <!-- include: html/tabs/work-orders.html -->
+    <!-- include: html/tabs/equipment.html -->
+    <!-- include: html/tabs/reports.html -->
+    <!-- include: html/tabs/categories.html -->
+    <!-- include: html/tabs/departments.html -->
+    <!-- include: html/tabs/outlets.html -->
+    <!-- include: html/tabs/users.html -->
+    <!-- include: html/tabs/roles.html -->
+  </main>
+
+  <!-- include: html/dialogs/new-audit.html -->
+  <!-- include: html/dialogs/work-order.html -->
+  <!-- include: html/dialogs/schedule.html -->
+  <!-- include: html/dialogs/captain.html -->
+  <!-- include: html/dialogs/equipment.html -->
+  <!-- include: html/dialogs/location.html -->
+  <!-- include: html/dialogs/department.html -->
+  <!-- include: html/dialogs/category.html -->
+  <!-- include: html/dialogs/outlet.html -->
+  <!-- include: html/dialogs/user.html -->
+  <!-- include: html/dialogs/role.html -->
+  <!-- include: html/dialogs/zone.html -->
+  <!-- include: html/dialogs/auth.html -->
+
+  <script src="js/auth.js?v=20260909-login"></script>
+  <script src="js/state.js?v=20260908-photo-storage"></script>
+  <script src="js/utils.js?v=20260908-photo-storage"></script>
+  <script src="js/setup.js?v=20260908-photo-storage"></script>
+  <script src="js/rows.js?v=20260908-photo-storage"></script>
+  <script src="js/dashboard.js?v=20260908-photo-storage"></script>
+  <script src="js/inspections.js?v=20260908-photo-storage"></script>
+  <script src="js/navigation.js?v=20260908-photo-storage"></script>
+  <script src="js/events.js?v=20260908-photo-storage"></script>
+  <script src="js/forms.js?v=20260908-photo-storage"></script>
+  <script src="js/boot.js?v=20260908-photo-storage"></script>
+</body>
+</html>

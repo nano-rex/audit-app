@@ -1,0 +1,60 @@
+    <section id="inspections" class="tab-panel">
+      <div class="sub-tabs">
+        <button class="active" type="button" data-inspection-subtab="guided">Guided Inspection</button>
+        <button type="button" data-inspection-subtab="history">Inspection History</button>
+      </div>
+      <section class="inspection-subpanel active" data-inspection-panel="guided">
+        <section class="inspect-layout">
+          <form class="panel inspection-form" id="inspection-form">
+            <h2>Guided Inspection</h2>
+            <input name="inspectionSessionId" type="hidden">
+            <div class="inspection-name-display" data-current-inspection-name>New inspection</div>
+            <div class="form-grid">
+              <label>Outlet<select name="outlet"></select></label>
+              <label>Inspector<input name="auditor" placeholder="Who is inspecting?"></label>
+              <label>Inspection Date<input name="auditDate" type="date"></label>
+            </div>
+            <div class="progress-strip">
+              <span data-inspection-progress>0% complete</span>
+              <progress value="0" max="100" data-inspection-progress-bar></progress>
+            </div>
+            <div class="zone-progress-list" data-inspection-zone-progress></div>
+            <div class="checklist" data-checklist></div>
+            <section class="signature-strip">
+              <button class="outline" type="button" data-open-signature="auditedBy">Audited By</button>
+              <button class="outline" type="button" data-open-signature="verifiedBy">Verified By</button>
+              <button class="outline" type="button" data-open-signature="acknowledgedBy">Acknowledged By</button>
+              <div data-signature-status></div>
+            </section>
+            <footer class="form-actions">
+              <a class="button-link outline disabled" data-export-inspection-pdf href="#">Export PDF</a>
+              <button class="primary" type="button" data-save-inspection-progress>Save Progress</button>
+            </footer>
+          </form>
+          <aside class="panel">
+            <h2>Inspection Standard</h2>
+            <div class="flow-list">
+              <span><b>1</b> Select an outlet</span>
+              <span><b>2</b> Work through each zone and location</span>
+              <span><b>3</b> Mark every criterion tick or cross</span>
+              <span><b>4</b> Cross opens a prefilled work order request</span>
+            </div>
+          </aside>
+        </section>
+      </section>
+      <section class="inspection-subpanel" data-inspection-panel="history">
+        <section class="panel">
+          <h2>Inspection History</h2>
+          <div class="history-toolbar">
+            <label>Search<input id="inspection-history-search" placeholder="Search inspection history"></label>
+            <span data-inspection-history-count>0 records</span>
+          </div>
+          <div class="list compact-list history-list" data-inspection-history></div>
+          <footer class="pager">
+            <button class="outline" type="button" data-history-prev>Previous</button>
+            <span data-history-page>Page 1</span>
+            <button class="outline" type="button" data-history-next>Next</button>
+          </footer>
+        </section>
+      </section>
+    </section>

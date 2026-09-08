@@ -1,0 +1,15 @@
+  <dialog id="zone-dialog">
+    <form method="dialog" id="zone-form">
+      <header><h2>Zone Setup</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="zoneId" type="hidden">
+      <div class="form-grid">
+        <label>Name<input name="name" placeholder="Zone-1"></label>
+        <label>Description<input name="description" placeholder="Optional zone note"></label>
+      </div>
+      <section class="zone-location-picker">
+        <h3>Locations</h3>
+        <div data-zone-location-options></div>
+      </section>
+      <button class="primary" value="default">Save Zone</button>
+    </form>
+  </dialog>

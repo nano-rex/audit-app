@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login | Ottotree Audit</title>
+  <link rel="stylesheet" href="styles.css?v=20260909-auth-pages">
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <form class="auth-card" id="login-page-form">
+      <h1>Ottotree Audit</h1>
+      <h2>Login</h2>
+      <label>Email<input name="email" type="email" autocomplete="username" placeholder="admin@ottotree.local" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <label class="inline-check"><input name="remember" type="checkbox"> Remember me</label>
+      <p class="form-message" data-auth-page-message></p>
+      <button class="primary" type="submit">Login</button>
+      <a class="button-link outline" href="/register.html">Register Account</a>
+      <button class="plain-link" type="button" data-page-forgot-password>Forgot password</button>
+    </form>
+  </main>
+  <script src="js/auth-pages.js?v=20260909-auth-pages"></script>
+</body>
+</html>

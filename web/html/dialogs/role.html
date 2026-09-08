@@ -1,0 +1,13 @@
+  <dialog id="role-dialog">
+    <form method="dialog" id="role-form">
+      <header><h2>Role Setup</h2><button value="cancel">x</button></header>
+      <input name="roleId" type="hidden">
+      <label>Role Name<input name="name" placeholder="Auditor"></label>
+      <label>Description<textarea name="description" placeholder="What this role is responsible for"></textarea></label>
+      <section class="permission-picker">
+        <h3>Accessible Sections</h3>
+        <div data-role-permissions></div>
+      </section>
+      <button class="primary" value="default">Save Role</button>
+    </form>
+  </dialog>

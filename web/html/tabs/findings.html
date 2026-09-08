@@ -1,0 +1,18 @@
+    <section id="findings" class="tab-panel">
+      <section class="panel filter">
+        <h2>Findings</h2>
+        <label>Search<input id="finding-search" placeholder="Search findings"></label>
+        <label>Outlet<select id="finding-filter-outlet"></select></label>
+        <label>Location<select id="finding-filter-location"><option value="">All locations</option></select></label>
+        <label>Department<select id="finding-filter-department"></select></label>
+        <label>Category<select id="finding-filter-category"></select></label>
+        <label>Priority<select id="finding-filter-priority"><option value="">All priorities</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+        <label>Status<select id="finding-filter-status"><option value="">All statuses</option><option>Assigned</option><option>In Progress</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
+      </section>
+      <section class="work-grid">
+        <article class="panel">
+          <h2>Audit Findings</h2>
+          <div class="list compact-list" data-findings></div>
+        </article>
+      </section>
+    </section>

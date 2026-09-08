@@ -1,0 +1,19 @@
+  <dialog id="user-dialog">
+    <form method="dialog" id="user-form">
+      <header><h2>User Setup</h2><button value="cancel">x</button></header>
+      <input name="userId" type="hidden">
+      <div class="form-grid">
+        <label>Name<input name="name" placeholder="User name"></label>
+        <label>Email<input name="email" type="email" placeholder="name@example.com"></label>
+        <label>Role<select name="role"></select></label>
+        <label>Department<select name="department"></select></label>
+        <label>Title<input name="title" placeholder="Job title"></label>
+        <label>Password<input name="password" type="password" autocomplete="new-password" placeholder="Leave blank unless setting/resetting"></label>
+      </div>
+      <label>Responsibilities<textarea name="responsibilities" placeholder="Main responsibilities or ownership"></textarea></label>
+      <label class="inline-check"><input name="active" type="checkbox" checked> Active user</label>
+      <label class="inline-check"><input name="resetRequired" type="checkbox"> Require password change on next login</label>
+      <label class="inline-check"><input name="resetPassword" type="checkbox"> Reset password to the value entered above</label>
+      <button class="primary" value="default">Save User</button>
+    </form>
+  </dialog>

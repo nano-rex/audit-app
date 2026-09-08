@@ -1,0 +1,13 @@
+  <dialog id="category-dialog">
+    <form method="dialog" id="category-form">
+      <header><h2>Category Setup</h2><button value="cancel">x</button></header>
+      <input name="categoryId" type="hidden">
+      <div class="form-grid">
+        <label>Name<input name="name" placeholder="AV Equipment"></label>
+        <label>Sequence<input name="sequence" type="number" min="0" step="1" placeholder="1"></label>
+      </div>
+      <label>Description<textarea name="description" placeholder="What this category should be used for"></textarea></label>
+      <label class="inline-check"><input name="active" type="checkbox" checked> Active</label>
+      <button class="primary" value="default">Save Category</button>
+    </form>
+  </dialog>

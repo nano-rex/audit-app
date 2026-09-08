@@ -1,0 +1,61 @@
+    <section id="outlets" class="tab-panel">
+      <div class="sub-tabs">
+        <button class="active" type="button" data-outlet-subtab="outlet-records">Outlets</button>
+        <button type="button" data-outlet-subtab="zone-records">Zones</button>
+        <button type="button" data-outlet-subtab="location-records">Locations</button>
+      </div>
+      <section class="outlet-subpanel active" data-outlet-panel="outlet-records">
+        <section class="panel filter">
+          <h2>Outlets</h2>
+          <label>Search<input id="outlet-search" placeholder="Search outlets"></label>
+          <button class="primary" type="button" data-open-outlet>Add Outlet</button>
+        </section>
+        <section class="work-grid">
+          <article class="panel">
+            <h2>Outlets</h2>
+            <div class="admin-list" data-outlet-records></div>
+            <section class="help-block" aria-label="Outlet setup help">
+              <h3>How Outlets Work</h3>
+              <p>Outlets control the locations users can select when scheduling visits, running inspections, registering equipment, and reviewing reports.</p>
+              <dl>
+                <dt>Outlet Code</dt>
+                <dd>The short store or branch code used across inspections, schedules, equipment, and reports.</dd>
+                <dt>Outlet Location</dt>
+                <dd>Where the outlet is located, such as the mall, branch area, city, or floor.</dd>
+              </dl>
+            </section>
+          </article>
+        </section>
+      </section>
+      <section class="outlet-subpanel" data-outlet-panel="zone-records">
+        <section class="panel filter">
+          <h2>Zones</h2>
+          <label>Outlet<select id="zone-outlet"></select></label>
+          <button class="primary" type="button" data-open-zone>Add Zone</button>
+        </section>
+        <section class="work-grid">
+          <article class="panel">
+            <h2>Zones</h2>
+            <div class="admin-list" data-zone-records></div>
+            <section class="help-block" aria-label="Zone setup help">
+              <h3>How Zones Work</h3>
+              <p>Zones group multiple locations under one inspection area so staff can inspect by area instead of choosing locations one by one.</p>
+            </section>
+          </article>
+        </section>
+      </section>
+      <section class="outlet-subpanel" data-outlet-panel="location-records">
+        <section class="work-grid">
+          <article class="panel">
+            <h2>Locations</h2>
+            <div class="form-grid">
+              <label>Outlet<select id="location-outlet"></select></label>
+            </div>
+            <footer class="form-actions">
+              <button class="primary" type="button" data-open-location>Add Location</button>
+            </footer>
+            <div class="admin-list" data-location-records></div>
+          </article>
+        </section>
+      </section>
+    </section>

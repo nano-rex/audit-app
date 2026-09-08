@@ -1,0 +1,27 @@
+  <dialog id="new-audit">
+    <form method="dialog" id="new-audit-form">
+      <header><h2>New Audit - Ottotree</h2><button value="cancel">x</button></header>
+      <label>Outlet<select name="outlet"><option>Select outlet</option></select></label>
+      <label>Audit Date<input name="auditDate" type="date"></label>
+      <label>Auditor Name<input name="auditor" placeholder="Who is auditing?"></label>
+      <fieldset>
+        <legend>Audit Type</legend>
+        <label><input type="radio" name="auditType" value="Standard" checked> Standard (1-4 Scale)</label>
+        <label><input type="radio" name="auditType" value="Quick"> Quick (Yes/No)</label>
+      </fieldset>
+      <aside class="guide">
+        <b>Scoring Guide</b>
+        <span>1 = Not Acceptable - Needs immediate follow-up</span>
+        <span>2 = Below Standard - Issues to address</span>
+        <span>3 = Good - Acceptable performance</span>
+        <span>4 = Excellent - Meets all standards</span>
+      </aside>
+      <section class="question-card">
+        <b data-question-section>Main Entrance</b>
+        <strong data-question-title>Big Headphone Display</strong>
+        <span data-question-copy>Is the big headphone display present and in good condition?</span>
+      </section>
+      <label>Total Score<input name="score" type="number" min="0" max="100" placeholder="0 - 100"></label>
+      <button class="primary" value="default">Save Audit</button>
+    </form>
+  </dialog>

@@ -1,0 +1,39 @@
+  <dialog id="change-password-dialog" class="auth-dialog">
+    <form method="dialog" id="change-password-form">
+      <header><h2>Change Password</h2><button value="cancel">x</button></header>
+      <label>Current Password<input name="oldPassword" type="password" autocomplete="current-password" required></label>
+      <label>New Password<input name="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <label>Confirm New Password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
+      <p class="form-message" data-change-password-message></p>
+      <button class="primary" type="submit">Save Password</button>
+    </form>
+  </dialog>
+
+  <dialog id="photo-mark-dialog" class="photo-mark-dialog">
+    <form method="dialog" id="photo-mark-form">
+      <header><h2>Mark Photo</h2><button value="cancel">x</button></header>
+      <div class="mark-toolbar">
+        <button class="outline active" type="button" data-mark-tool="rect">Rectangle</button>
+        <button class="outline" type="button" data-mark-tool="circle">Circle</button>
+        <button class="outline" type="button" data-mark-tool="freehand">Freehand</button>
+        <input name="markText" placeholder="Text note">
+        <button class="outline" type="button" data-mark-tool="text">Text</button>
+        <button class="outline" type="button" data-mark-undo>Undo</button>
+        <button class="outline" type="button" data-mark-clear>Clear</button>
+      </div>
+      <canvas width="960" height="640" data-photo-mark-canvas></canvas>
+      <button class="primary" type="submit">Save Marked Photo</button>
+    </form>
+  </dialog>
+
+  <dialog id="signature-dialog">
+    <form method="dialog" id="signature-form">
+      <header><h2 data-signature-title>Signature</h2><button value="cancel">x</button></header>
+      <label>Name<input name="signatureName" placeholder="Signer name"></label>
+      <canvas width="720" height="260" data-signature-canvas></canvas>
+      <footer class="form-actions split-actions">
+        <button class="outline" type="button" data-signature-clear>Clear</button>
+        <button class="primary" type="submit">Save Signature</button>
+      </footer>
+    </form>
+  </dialog>

@@ -1,0 +1,36 @@
+    <section id="today" class="tab-panel active">
+      <section class="today-hero">
+        <div>
+          <span>Field Workspace</span>
+          <h2><span data-unit-text></span> inspections for today</h2>
+        </div>
+        <div class="quick-actions">
+          <!--<button class="primary" data-jump-tab="inspections">Start Inspection</button>-->
+          <!--<button class="outline">Scan QR</button>-->
+          <button class="outline" data-open="schedule">Schedule Visit</button>
+        </div>
+      </section>
+
+      <section class="stats">
+        <article><span>Scheduled Visits</span><strong data-today="scheduled">0</strong></article>
+        <article><span>Pending Uploads</span><strong data-today="uploads">0</strong></article>
+        <article><span>Follow-up Needed</span><strong class="warn" data-today="followups">0</strong></article>
+        <article><span>Open Tasks</span><strong data-today="tasks">0</strong></article>
+      </section>
+
+      <section class="work-grid">
+        <article class="panel">
+          <h2>Follow-up Scheduled Works</h2>
+          <div class="list compact-list" data-today-schedules></div>
+        </article>
+        <article class="panel">
+          <h2>On-site Flow</h2>
+          <div class="flow-list">
+            <span><b>1</b> Scan outlet, room, or equipment QR</span>
+            <span><b>2</b> Complete checklist by location</span>
+            <span><b>3</b> Attach clear photos immediately</span>
+            <span><b>4</b> Submit report or create follow-up work order</span>
+          </div>
+        </article>
+      </section>
+    </section>

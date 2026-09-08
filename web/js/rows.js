@@ -1,0 +1,210 @@
+function departmentRow(row) {
+  return `
+    <li>
+      <b>${escapeHtml(row.code)}</b>
+      <span>${escapeHtml(row.description || "No description")} | ${escapeHtml(row.responsibilities || "No responsibilities")}</span>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-department='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-department="${row.id}">Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function outletRow(row) {
+  return `
+    <li>
+      <b>${escapeHtml(row.code)}</b>
+      <span>${escapeHtml(row.location || "No location")} | ${escapeHtml(row.description || "No description")}</span>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-outlet='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-outlet="${row.id}">Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function categoryRow(row) {
+  return `
+    <li>
+      <b>${escapeHtml(row.sequence || 0)}. ${escapeHtml(row.name)}</b>
+      <span>${escapeHtml(row.description || "No description")} | ${row.active ? "Active" : "Inactive"}</span>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-category='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-category="${row.id}">Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function roleRow(row) {
+  return `
+    <li>
+      <div>
+        <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
+        <span>${escapeHtml(row.description || "No description")}</span>
+        <span>${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "No access selected")}</span>
+      </div>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-role='${escapeAttr(JSON.stringify(row))}' ${row.protected ? "disabled" : ""}>Edit</button>
+        <button type="button" class="danger" data-delete-role="${row.id}" ${row.protected ? "disabled" : ""}>Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function userRow(row) {
+  const status = row.active === 0 || row.active === false ? "Inactive" : "Active";
+  const login = row.last_login_at || row.lastLoginAt || "Never logged in";
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(row.name)} - ${escapeHtml(row.role)}</b>
+        <span>${escapeHtml(row.email)} | ${escapeHtml(row.department || "No department")} | ${escapeHtml(row.title || "No title")} | ${escapeHtml(row.responsibilities || "No responsibilities")}</span>
+        <span>${escapeHtml(status)} | Last login: ${escapeHtml(login)}${row.reset_required || row.resetRequired ? " | Password change required" : ""}</span>
+      </div>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-user='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-user="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
+function locationRow(row) {
+  return `
+    <li>
+      <b>${escapeHtml(row.name)}</b>
+      <span>${escapeHtml(row.size || "No size")} | ${escapeHtml(row.equipment || "No equipment assigned")}</span>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-location='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-location="${row.id}">Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function zoneRow(row) {
+  return `
+    <li>
+      <div>
+        <b>${escapeHtml(row.name)}</b>
+        <span>${escapeHtml(row.outlet_code)} | ${escapeHtml((row.locations || []).join(", ") || "No locations")} | ${escapeHtml(row.description || "No description")}</span>
+      </div>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-zone='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-zone="${row.id}">Delete</button>
+      </span>
+    </li>
+  `;
+}
+
+function equipmentRow(row) {
+  const status = row.operational_status || row.health_status || "Operational";
+  const statusClass = status === "Replace" || status === "Out of Service" ? "warn" : status === "Needs Attention" || status === "Monitor" ? "monitor" : "";
+  const name = row.name || row.asset_id || row.code || "Equipment";
+  const type = row.type || row.equipment_type || "Equipment";
+  const code = row.code || row.asset_id || "";
+  const location = row.location || row.zone || "No location";
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(name)} - ${escapeHtml(type)}</b>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(code)} | ${escapeHtml(row.brand || "No brand")} ${escapeHtml(row.model || "")}</span>
+      </div>
+      <span class="row-actions">
+        <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>
+        <button type="button" class="outline" data-edit-equipment='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-equipment="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
+function workOrderRow(row) {
+  const confirmation = row.outlet_confirmed ? "Outlet confirmed" : "Awaiting outlet confirmation";
+  const reference = row.work_order_ref || `#${row.id}`;
+  const pic = row.pic || row.assignee || "No PIC";
+  const completion = row.completion_date ? `Completed ${row.completion_date}` : "No completion date";
+  const verification = row.verified_at ? `Verified ${row.verified_at}` : "";
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(reference)} ${escapeHtml(row.title)}</b>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No category")} | ${escapeHtml(row.assignee)}</span>
+        <span>${escapeHtml(pic)} | ${escapeHtml(completion)}${verification ? ` | ${escapeHtml(verification)}` : ""}${row.action_taken ? ` | ${escapeHtml(row.action_taken)}` : ""}</span>
+      </div>
+      <span class="row-actions">
+        <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)} - ${confirmation}</small></strong>
+        <button type="button" class="outline" data-edit-work-order='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-work-order="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
+function findingRow(row) {
+  const reference = row.finding_ref || `F-${row.id}`;
+  const auditReference = row.audit_ref || `Audit ${row.audit_id}`;
+  const department = row.assigned_department || "Unassigned";
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(reference)} ${escapeHtml(row.category || "No category")}</b>
+        <span>${escapeHtml(auditReference)} | ${escapeHtml(row.outlet)} | ${escapeHtml(row.location)}</span>
+        <span>${escapeHtml(department)} | ${escapeHtml(row.pic || "No PIC")} | ${escapeHtml(row.comment || "No comment")}</span>
+        ${row.corrective_action || row.completion_date ? `<span>${escapeHtml(row.corrective_action || "No action taken")} | ${escapeHtml(row.completion_date || "No completion date")}</span>` : ""}
+        ${row.verified_at || row.closed_at ? `<span>${escapeHtml(row.verified_by || "No verifier")} | ${escapeHtml(row.verified_at || "No verification date")} | ${escapeHtml(row.closed_at || "Not closed")}</span>` : ""}
+      </div>
+      <span class="row-actions">
+        <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
+      </span>
+    </article>
+  `;
+}
+function scheduleRow(row) {
+  const matchingSession = inspectionHistoryCache.find((session) =>
+    session.outlet === row.outlet
+    && session.audit_date === row.scheduled_date
+    && session.auditor === row.auditor
+    && session.status !== "Completed"
+  );
+  const displayName = matchingSession?.inspection_name || `${row.outlet}_${row.scheduled_date}_${row.id}`;
+  const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "No saved time";
+  const status = matchingSession
+    ? inspectionHistoryProgressStatus(matchingSession)
+    : { className: "status-untouched", label: "Not Started (0%)" };
+  return `
+    <article data-schedule-id="${row.id}">
+      <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
+        <b>${escapeHtml(displayName)}</b>
+        <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(savedAt)}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor)}</span>
+      </div>
+      <span class="row-actions">
+        <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
+        <button type="button" class="primary" data-open-schedule='${escapeAttr(JSON.stringify(row))}'>Open</button>
+        <button type="button" class="outline" data-edit-schedule='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+      </span>
+    </article>
+  `;
+}
+
+function auditRow(row) {
+  return `
+    <article>
+      <div><b>${escapeHtml(row.outlet)}</b><span>${escapeHtml(row.branch)} - ${escapeHtml(row.audit_date)}</span></div>
+      <strong class="${row.score >= 90 ? "excellent" : ""}">${row.score}<small>${escapeHtml(row.rating)}</small></strong>
+    </article>
+  `;
+}
+
+function rankingRow(row, rank) {
+  return `
+    <article>
+      <em>${rank}</em>
+      <div><b>${escapeHtml(row.outlet)}</b><span>${escapeHtml(row.branch)} - ${escapeHtml(row.audit_date)}</span></div>
+      <strong class="${row.latest >= 90 ? "excellent" : ""}">${row.latest}<small>${row.latest >= 90 ? "Excellent" : "Good"}</small></strong>
+    </article>
+  `;
+}
