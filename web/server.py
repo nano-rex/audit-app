@@ -6,6 +6,7 @@ import sqlite3
 import time
 from io import StringIO
 import csv
+import html
 import hashlib
 import os
 import secrets
@@ -61,9 +62,15 @@ DEFAULT_SCORING_SETTINGS = {
     "belowBand": 60,
 }
 DEFAULT_REPORT_SETTINGS = {
-    "companyName": "Ottotree",
+    "companyName": "Audit App",
     "departmentHeader": "Facilities Department",
-    "logoText": "OTTOTREE",
+    "logoText": "AUDIT",
+    "appTitle": "Audit App",
+    "appSubtitle": "Facilities audit workspace",
+    "businessUnitLabel": "Facilities",
+    "todayHeading": "inspections for today",
+    "reportHeading": "monthly audit report",
+    "loginTitle": "Audit App",
 }
 DEFAULT_SYSTEM_SETTINGS = {
     "emailEnabled": False,
@@ -94,6 +101,7 @@ APP_TABS = (
 INCLUDE_PATTERN = re.compile(r"<!--\s*include:\s*([a-zA-Z0-9_./-]+)\s*-->")
 SESSION_TOKENS = {}
 DEFAULT_PASSWORD = "password123"
+SUPER_ROLE = "Super"
 
 
 def today_date():
@@ -144,7 +152,7 @@ def public_user(row):
     if not row:
         return None
     permissions = []
-    if row["role"] == "Admin":
+    if row["role"] == SUPER_ROLE:
         permissions = [tab[0] for tab in APP_TABS]
     else:
         with connect() as db:
@@ -166,8 +174,8 @@ def public_user(row):
     }
 
 
-def is_admin_user(user):
-    return bool(user and user.get("role") == "Admin")
+def is_super_user(user):
+    return bool(user and user.get("role") == SUPER_ROLE)
 
 
 def workflow_dates(payload):
@@ -191,6 +199,22 @@ def read_setting(db, key, fallback=None):
         return json.loads(row["value"])
     except json.JSONDecodeError:
         return row["value"]
+
+
+def branding_settings():
+    with connect() as db:
+        return {
+            "appTitle": read_setting(db, "report.appTitle", DEFAULT_REPORT_SETTINGS["appTitle"]),
+            "appSubtitle": read_setting(db, "report.appSubtitle", DEFAULT_REPORT_SETTINGS["appSubtitle"]),
+            "companyName": read_setting(db, "report.companyName", DEFAULT_REPORT_SETTINGS["companyName"]),
+            "departmentHeader": read_setting(db, "report.departmentHeader", DEFAULT_REPORT_SETTINGS["departmentHeader"]),
+            "logoText": read_setting(db, "report.logoText", DEFAULT_REPORT_SETTINGS["logoText"]),
+            "logoUrl": read_setting(db, "report.logoUrl", ""),
+            "businessUnitLabel": read_setting(db, "report.businessUnitLabel", DEFAULT_REPORT_SETTINGS["businessUnitLabel"]),
+            "todayHeading": read_setting(db, "report.todayHeading", DEFAULT_REPORT_SETTINGS["todayHeading"]),
+            "reportHeading": read_setting(db, "report.reportHeading", DEFAULT_REPORT_SETTINGS["reportHeading"]),
+            "loginTitle": read_setting(db, "report.loginTitle", DEFAULT_REPORT_SETTINGS["loginTitle"]),
+        }
 
 
 def calculate_due_date(created_at, due_days):
@@ -849,8 +873,10 @@ def add_locations_to_default_zone(db, outlet, now=None):
 def seed_users(db):
     now = int(time.time() * 1000)
     default_hash = hash_password(DEFAULT_PASSWORD)
+    db.execute("UPDATE users SET role = ? WHERE role = 'Admin'", (SUPER_ROLE,))
+    db.execute("UPDATE OR IGNORE users SET email = 'super@audit-app.local', name = 'Super User', title = 'Super' WHERE lower(email) = 'admin@ottotree.local'")
     rows = [
-        ("Admin User", "Admin", "admin@ottotree.local", "SSD", "Admin", "Full system administration"),
+        ("Super User", SUPER_ROLE, "super@audit-app.local", "SSD", "Super", "Full system administration"),
     ]
     for row in rows:
         db.execute(
@@ -864,21 +890,26 @@ def seed_users(db):
 
 def seed_roles(db):
     now = int(time.time() * 1000)
+    full_permissions = json.dumps([tab[0] for tab in APP_TABS])
     role_rows = [
         ("Auditor", "Field inspection access", ["today", "inspections", "equipment", "reports"]),
         ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
     ]
+    if db.execute("SELECT id FROM roles WHERE name = ?", (SUPER_ROLE,)).fetchone():
+        db.execute("DELETE FROM roles WHERE name = 'Admin'")
+    else:
+        db.execute("UPDATE roles SET name = ?, description = 'Built-in full access role' WHERE name = 'Admin'", (SUPER_ROLE,))
     db.execute(
         """
         INSERT OR IGNORE INTO roles (name, description, permissions_json, protected, created_at)
-        VALUES ('Admin', 'Built-in full access role', ?, 1, ?)
+        VALUES (?, 'Built-in full access role', ?, 1, ?)
         """,
-        (json.dumps([tab[0] for tab in APP_TABS]), now),
+        (SUPER_ROLE, full_permissions, now),
     )
     db.execute(
-        "UPDATE roles SET permissions_json = ?, protected = 1 WHERE name = 'Admin'",
-        (json.dumps([tab[0] for tab in APP_TABS]),),
+        "UPDATE roles SET permissions_json = ?, protected = 1 WHERE name = ?",
+        (full_permissions, SUPER_ROLE),
     )
     for name, description, permissions in role_rows:
         db.execute(
@@ -925,6 +956,14 @@ def seed_settings(db):
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
             (key, json.dumps(value)),
         )
+    db.execute(
+        "UPDATE app_settings SET value = ? WHERE key = 'report.companyName' AND value = ?",
+        (json.dumps(DEFAULT_REPORT_SETTINGS["companyName"]), json.dumps("Ottotree")),
+    )
+    db.execute(
+        "UPDATE app_settings SET value = ? WHERE key = 'report.logoText' AND value = ?",
+        (json.dumps(DEFAULT_REPORT_SETTINGS["logoText"]), json.dumps("OTTOTREE")),
+    )
 
 
 def rating(score):
@@ -1193,9 +1232,10 @@ def report(unit):
 
 def report_csv(unit):
     data = report(unit)
+    brand = branding_settings()
     out = StringIO()
     writer = csv.writer(out)
-    writer.writerow(["Ottotree Audit Report", unit])
+    writer.writerow([f"{brand['appTitle']} Report", unit])
     writer.writerow([])
     writer.writerow(["Audits", "Completed", "Pending", "Average Score", "Open Work Orders", "Total Findings", "Priority", "Non-Priority", "Completion Rate"])
     summary = data["monthlySummary"]
@@ -1326,9 +1366,10 @@ def comments(record_type="", record_id=0):
 
 def report_xls(unit):
     data = report(unit)
+    brand = branding_settings()
     rows = [
         "<table>",
-        "<tr><th colspan='2'>Ottotree Audit Report</th></tr>",
+        f"<tr><th colspan='2'>{html.escape(brand['appTitle'])} Report</th></tr>",
     ]
     for key, value in data["monthlySummary"].items():
         rows.append(f"<tr><td>{key}</td><td>{value}</td></tr>")
@@ -1685,6 +1726,7 @@ def normalized_inspection_name(session):
 
 
 def inspection_pdf(session):
+    brand = branding_settings()
     items = session["items"]
     total_items = len(items)
     passed_items = sum(1 for item in items if item.get("passed"))
@@ -1696,8 +1738,8 @@ def inspection_pdf(session):
     completed_findings = sum(1 for item in findings if item.get("status") in ("Completed", "Verified", "Closed"))
     outstanding_findings = max(0, len(findings) - completed_findings)
     lines = [
-        "OTTOTREE AUDIT REPORT",
-        "Facilities Department",
+        f"{brand['appTitle'].upper()} REPORT",
+        brand["departmentHeader"],
         f"Inspection: {session.get('inspection_name') or inspection_name(session)}",
         f"Inspection ID: {session['id']}",
         f"Audit Reference: {session.get('audit_ref') or 'Draft'}",
@@ -1818,6 +1860,8 @@ class Handler(BaseHTTPRequestHandler):
     def require_auth(self, parsed):
         if not parsed.path.startswith("/api/"):
             return True
+        if parsed.path == "/api/branding":
+            return True
         if parsed.path.startswith("/api/auth/"):
             return True
         if self.current_user():
@@ -1835,6 +1879,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"ok": False, "error": "Login required"}, status=401)
                 return
             self.json({"ok": True, "user": user})
+            return
+        if parsed.path == "/api/branding":
+            self.json(branding_settings())
             return
         if parsed.path == "/api/dashboard":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
@@ -1894,15 +1941,15 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/reports/export.json":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(json.dumps(report(unit), indent=2).encode("utf-8"), "application/json", "ottotree-report.json")
+            self.download(json.dumps(report(unit), indent=2).encode("utf-8"), "application/json", "audit-report.json")
             return
         if parsed.path == "/api/reports/export.csv":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(report_csv(unit), "text/csv", "ottotree-report.csv")
+            self.download(report_csv(unit), "text/csv", "audit-report.csv")
             return
         if parsed.path == "/api/reports/export.xls":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(report_xls(unit), "application/vnd.ms-excel", "ottotree-report.xls")
+            self.download(report_xls(unit), "application/vnd.ms-excel", "audit-report.xls")
             return
         if parsed.path == "/api/admin":
             self.json(admin_records())
@@ -1990,7 +2037,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
             return
         if parsed.path == "/api/auth/forgot-password":
-            self.json({"ok": True, "message": "Ask an administrator to reset this user's password from Users setup."})
+            self.json({"ok": True, "message": "Ask a Super user to reset this user's password from Users setup."})
             return
         if parsed.path == "/api/auth/register":
             name = (payload.get("name") or "").strip()
@@ -2012,7 +2059,7 @@ class Handler(BaseHTTPRequestHandler):
                 except sqlite3.IntegrityError:
                     self.json({"ok": False, "error": "An account with this email already exists"}, status=409)
                     return
-            self.json({"ok": True, "message": "Account registered. An admin must activate it and assign a role before login."})
+            self.json({"ok": True, "message": "Account registered. A Super user must activate it and assign a role before login."})
             return
         if parsed.path == "/api/auth/change-password":
             user = self.current_user()
@@ -2404,8 +2451,8 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                 )
             elif parsed.path == "/api/users":
-                if not is_admin_user(self.current_user()):
-                    self.json({"ok": False, "error": "Admin access required"}, status=403)
+                if not is_super_user(self.current_user()):
+                    self.json({"ok": False, "error": "Super access required"}, status=403)
                     return
                 password = payload.get("password") or DEFAULT_PASSWORD
                 db.execute(
@@ -2428,12 +2475,12 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                 )
             elif parsed.path == "/api/roles":
-                if not is_admin_user(self.current_user()):
-                    self.json({"ok": False, "error": "Admin access required"}, status=403)
+                if not is_super_user(self.current_user()):
+                    self.json({"ok": False, "error": "Super access required"}, status=403)
                     return
                 name = (payload.get("name") or "New Role").strip()
-                if name.lower() == "admin":
-                    self.json({"ok": False, "error": "The Admin role is built in and cannot be recreated"}, status=400)
+                if name.lower() in ("admin", "super"):
+                    self.json({"ok": False, "error": "The Super role is built in and cannot be recreated"}, status=400)
                     return
                 db.execute(
                     """
@@ -2475,6 +2522,9 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                 )
             elif parsed.path == "/api/settings":
+                if not is_super_user(self.current_user()):
+                    self.json({"ok": False, "error": "Super access required"}, status=403)
+                    return
                 for key, value in (payload.get("settings") or {}).items():
                     db.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
             elif parsed.path == "/api/comments":
@@ -2570,8 +2620,8 @@ class Handler(BaseHTTPRequestHandler):
             if not user_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_admin_user(self.current_user()):
-                self.json({"ok": False, "error": "Admin access required"}, status=403)
+            if not is_super_user(self.current_user()):
+                self.json({"ok": False, "error": "Super access required"}, status=403)
                 return
             with connect() as db:
                 password = payload.get("password") or ""
@@ -2613,8 +2663,8 @@ class Handler(BaseHTTPRequestHandler):
             if not role_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_admin_user(self.current_user()):
-                self.json({"ok": False, "error": "Admin access required"}, status=403)
+            if not is_super_user(self.current_user()):
+                self.json({"ok": False, "error": "Super access required"}, status=403)
                 return
             with connect() as db:
                 role = db.execute("SELECT protected FROM roles WHERE id = ?", (int(role_id),)).fetchone()
@@ -2622,11 +2672,11 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_error(404)
                     return
                 if role["protected"]:
-                    self.json({"ok": False, "error": "The Admin role cannot be changed"}, status=400)
+                    self.json({"ok": False, "error": "The Super role cannot be changed"}, status=400)
                     return
                 name = (payload.get("name") or "New Role").strip()
-                if name.lower() == "admin":
-                    self.json({"ok": False, "error": "Admin is reserved"}, status=400)
+                if name.lower() in ("admin", "super"):
+                    self.json({"ok": False, "error": "Super is reserved"}, status=400)
                     return
                 cursor = db.execute(
                     """
@@ -3088,8 +3138,8 @@ class Handler(BaseHTTPRequestHandler):
             if not record_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_admin_user(self.current_user()):
-                self.json({"ok": False, "error": "Admin access required"}, status=403)
+            if not is_super_user(self.current_user()):
+                self.json({"ok": False, "error": "Super access required"}, status=403)
                 return
             with connect() as db:
                 cursor = db.execute("DELETE FROM users WHERE id = ?", (int(record_id),))
@@ -3103,8 +3153,8 @@ class Handler(BaseHTTPRequestHandler):
             if not record_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_admin_user(self.current_user()):
-                self.json({"ok": False, "error": "Admin access required"}, status=403)
+            if not is_super_user(self.current_user()):
+                self.json({"ok": False, "error": "Super access required"}, status=403)
                 return
             with connect() as db:
                 role = db.execute("SELECT name, protected FROM roles WHERE id = ?", (int(record_id),)).fetchone()
@@ -3112,7 +3162,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_error(404)
                     return
                 if role["protected"]:
-                    self.json({"ok": False, "error": "The Admin role cannot be deleted"}, status=400)
+                    self.json({"ok": False, "error": "The Super role cannot be deleted"}, status=400)
                     return
                 cursor = db.execute("DELETE FROM roles WHERE id = ?", (int(record_id),))
                 db.execute("UPDATE users SET role = '' WHERE role = ?", (role["name"],))
@@ -3234,6 +3284,6 @@ if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", "41883"))
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"Serving Ottotree Audit at http://127.0.0.1:{port}")
+    print(f"Serving Audit App at http://127.0.0.1:{port}")
     print(f"SQLite database: {DB_PATH}")
     server.serve_forever()

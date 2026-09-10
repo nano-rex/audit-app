@@ -585,9 +585,15 @@ document.getElementById("system-settings-form")?.addEventListener("submit", asyn
   const integrations = formValue(form, "integrations", "").split(",").map((item) => item.trim()).filter(Boolean);
   await requestJson("/api/settings", "POST", {
     settings: {
-      "report.companyName": formValue(form, "companyName", "Ottotree"),
+      "report.companyName": formValue(form, "companyName", "Audit App"),
       "report.departmentHeader": formValue(form, "departmentHeader", "Facilities Department"),
       "report.logoUrl": formValue(form, "logoUrl", ""),
+      "report.appTitle": formValue(form, "appTitle", "Audit App"),
+      "report.appSubtitle": formValue(form, "appSubtitle", "Facilities audit workspace"),
+      "report.businessUnitLabel": formValue(form, "businessUnitLabel", "Facilities"),
+      "report.todayHeading": formValue(form, "todayHeading", "inspections for today"),
+      "report.reportHeading": formValue(form, "reportHeading", "monthly audit report"),
+      "report.loginTitle": formValue(form, "loginTitle", "Audit App"),
       "system.emailEnabled": channels.includes("Email"),
       "system.whatsappEnabled": channels.includes("WhatsApp"),
       "system.pushEnabled": channels.includes("Push"),

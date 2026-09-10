@@ -3,7 +3,16 @@ const questionSection = document.querySelector("[data-question-section]");
 const questionTitle = document.querySelector("[data-question-title]");
 const questionCopy = document.querySelector("[data-question-copy]");
 const checklistContainer = document.querySelector("[data-checklist]");
-const currentUnit = "Ottotree";
+const brandingDefaults = {
+  appTitle: "Audit App",
+  appSubtitle: "Facilities audit workspace",
+  businessUnitLabel: "Facilities",
+  todayHeading: "inspections for today",
+  reportHeading: "monthly audit report",
+  loginTitle: "Audit App",
+};
+let branding = { ...brandingDefaults };
+let currentUnit = branding.businessUnitLabel;
 const allTabs = [
   { id: "today", label: "To-do" },
   { id: "inspections", label: "Inspections" },

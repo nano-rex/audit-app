@@ -1,6 +1,6 @@
-# Ottotree Audit Web
+# Audit App Web
 
-SQLite-backed web version of the Ottotree Audit prototype.
+SQLite-backed web version of the audit application.
 
 ## Structure
 

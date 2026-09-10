@@ -152,7 +152,13 @@ function populateSettingsForms() {
     },
   };
   const report = {
-    companyName: getSetting("report.companyName", "Ottotree"),
+    appTitle: getSetting("report.appTitle", "Audit App"),
+    appSubtitle: getSetting("report.appSubtitle", "Facilities audit workspace"),
+    businessUnitLabel: getSetting("report.businessUnitLabel", "Facilities"),
+    todayHeading: getSetting("report.todayHeading", "inspections for today"),
+    reportHeading: getSetting("report.reportHeading", "monthly audit report"),
+    loginTitle: getSetting("report.loginTitle", "Audit App"),
+    companyName: getSetting("report.companyName", "Audit App"),
     departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
     logoUrl: getSetting("report.logoUrl", ""),
   };
@@ -176,7 +182,13 @@ function populateSettingsForms() {
   }
   const systemForm = document.getElementById("system-settings-form");
   if (systemForm) {
-    systemForm.elements.companyName.value = report.companyName || "Ottotree";
+    systemForm.elements.appTitle.value = report.appTitle;
+    systemForm.elements.appSubtitle.value = report.appSubtitle;
+    systemForm.elements.businessUnitLabel.value = report.businessUnitLabel;
+    systemForm.elements.todayHeading.value = report.todayHeading;
+    systemForm.elements.reportHeading.value = report.reportHeading;
+    systemForm.elements.loginTitle.value = report.loginTitle;
+    systemForm.elements.companyName.value = report.companyName || "Audit App";
     systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
     systemForm.elements.logoUrl.value = report.logoUrl || "";
     systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
@@ -234,7 +246,7 @@ function updateUserFilterSelects() {
 
 function updateUserRoleSelects() {
   document.querySelectorAll('select[name="role"]').forEach((select) => {
-    updateSelectOptions(select, setupOptions.roles || ["Admin"], true, "Select role");
+    updateSelectOptions(select, setupOptions.roles || ["Super"], true, "Select role");
   });
 }
 

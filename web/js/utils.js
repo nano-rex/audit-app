@@ -20,6 +20,31 @@ function setCurrentInspectionName(value = "", mode = "New") {
   setText("[data-current-inspection-name]", value ? `${mode}: ${value}` : "New inspection");
 }
 
+async function loadBranding() {
+  try {
+    const response = await fetch("/api/branding");
+    if (response.ok) {
+      branding = { ...brandingDefaults, ...await response.json() };
+      currentUnit = branding.businessUnitLabel || branding.companyName || brandingDefaults.businessUnitLabel;
+    }
+  } catch (error) {
+    branding = { ...brandingDefaults };
+    currentUnit = branding.businessUnitLabel;
+  }
+  applyBranding();
+}
+
+function applyBranding() {
+  document.title = branding.appTitle || brandingDefaults.appTitle;
+  setText("[data-brand-title]", branding.appTitle || brandingDefaults.appTitle);
+  setText("[data-brand-subtitle]", branding.appSubtitle || brandingDefaults.appSubtitle);
+  setText("[data-today-heading]", branding.todayHeading || brandingDefaults.todayHeading);
+  setText("[data-report-heading]", branding.reportHeading || brandingDefaults.reportHeading);
+  unitTexts.forEach((node) => {
+    node.textContent = currentUnit;
+  });
+}
+
 function imageLabel(image) {
   if (typeof image === "string") return image;
   return image?.markedName || image?.name || "Image";

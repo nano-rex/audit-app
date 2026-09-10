@@ -1,12 +1,10 @@
 async function loadApp() {
   if (!currentUser && !await requireLogin()) return;
-  unitTexts.forEach((node) => {
-    node.textContent = currentUnit;
-  });
+  await loadBranding();
 
-  if (questionSection) questionSection.textContent = "Ottotree Checklist";
-  if (questionTitle) questionTitle.textContent = "Combined Store Readiness";
-  if (questionCopy) questionCopy.textContent = "Complete the Mini Studio and Loudspeaker checks together.";
+  if (questionSection) questionSection.textContent = `${currentUnit} Checklist`;
+  if (questionTitle) questionTitle.textContent = `${currentUnit} Readiness`;
+  if (questionCopy) questionCopy.textContent = "Complete the configured audit checks together.";
 
   await loadSetup();
   applyNavbarTabs();

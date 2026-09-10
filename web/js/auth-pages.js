@@ -24,6 +24,15 @@ async function pagePostJson(url, payload) {
 const params = new URLSearchParams(location.search);
 if (params.get("message")) pageMessage(params.get("message"));
 
+fetch("/api/branding").then((response) => response.ok ? response.json() : null).then((branding) => {
+  if (!branding) return;
+  const title = branding.loginTitle || branding.appTitle || "Audit App";
+  document.title = `${location.pathname.endsWith("/register.html") ? "Register" : "Login"} | ${title}`;
+  document.querySelectorAll("[data-auth-brand-title]").forEach((node) => {
+    node.textContent = title;
+  });
+}).catch(() => {});
+
 if (location.pathname.endsWith("/login.html")) {
   fetch("/api/auth/me").then((response) => {
     if (response.ok) location.href = "/";
