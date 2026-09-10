@@ -15,10 +15,12 @@
       <div class="mark-toolbar">
         <button class="outline active" type="button" data-mark-tool="rect">Rectangle</button>
         <button class="outline" type="button" data-mark-tool="circle">Circle</button>
+        <button class="outline" type="button" data-mark-tool="arrow">Arrow</button>
         <button class="outline" type="button" data-mark-tool="freehand">Freehand</button>
         <input name="markText" placeholder="Text note">
         <button class="outline" type="button" data-mark-tool="text">Text</button>
         <button class="outline" type="button" data-mark-undo>Undo</button>
+        <button class="outline" type="button" data-mark-redo>Redo</button>
         <button class="outline" type="button" data-mark-clear>Clear</button>
       </div>
       <canvas width="960" height="640" data-photo-mark-canvas></canvas>
@@ -30,6 +32,7 @@
     <form method="dialog" id="signature-form">
       <header><h2 data-signature-title>Signature</h2><button value="cancel">x</button></header>
       <label>Name<input name="signatureName" placeholder="Signer name"></label>
+      <label>Upload Signature<input name="signatureUpload" type="file" accept="image/*" data-signature-upload></label>
       <canvas width="720" height="260" data-signature-canvas></canvas>
       <footer class="form-actions split-actions">
         <button class="outline" type="button" data-signature-clear>Clear</button>

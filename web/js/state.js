@@ -11,11 +11,14 @@ const allTabs = [
   { id: "work-orders", label: "Work Orders" },
   { id: "equipment", label: "Equipment" },
   { id: "reports", label: "Reports" },
+  { id: "corrective-actions", label: "Corrective Actions" },
+  { id: "notifications", label: "Notifications" },
   { id: "categories", label: "Categories" },
   { id: "departments", label: "Departments" },
   { id: "outlets", label: "Outlets" },
   { id: "users", label: "Users" },
   { id: "roles", label: "Roles" },
+  { id: "settings", label: "Settings" },
 ];
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
 const setupOptions = {
@@ -24,6 +27,9 @@ const setupOptions = {
   outlets: [],
   zones: [],
   roles: [],
+  priorities: [],
+  auditTypes: [],
+  settings: {},
   tabs: allTabs,
 };
 let navbarTabs = [...defaultNavbarTabs];
@@ -36,6 +42,9 @@ let outletCache = [];
 let zoneCache = [];
 let userCache = [];
 let roleCache = [];
+let priorityCache = [];
+let auditTypeCache = [];
+let notificationCache = [];
 let workOrderCache = [];
 let findingCache = [];
 let inspectionItems = [];
@@ -53,6 +62,8 @@ const categoryFilters = { search: "" };
 const outletFilters = { search: "" };
 const userFilters = { search: "", role: "", department: "" };
 const roleFilters = { search: "" };
+const notificationFilters = { search: "", status: "" };
+const historyFilters = { dateFrom: "", dateTo: "", outlet: "", location: "", auditor: "", department: "", category: "", priority: "", status: "", pic: "" };
 const findingFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const workOrderFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const equipmentFilters = {

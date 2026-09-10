@@ -53,6 +53,54 @@ function roleRow(row) {
   `;
 }
 
+function priorityRow(row) {
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(row.name)}</b>
+        <span>${escapeHtml(row.classification)} | Due in ${escapeHtml(row.due_days)} day(s) | ${row.active ? "Active" : "Inactive"}</span>
+      </div>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-priority='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-priority="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
+function auditTypeRow(row) {
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(row.name)}</b>
+        <span>${escapeHtml(row.description || "No description")} | ${row.active ? "Active" : "Inactive"}</span>
+      </div>
+      <span class="row-actions">
+        <button type="button" class="outline" data-edit-audit-type='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="danger" data-delete-audit-type="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
+function notificationRow(row) {
+  const created = row.created_at ? new Date(row.created_at).toLocaleString() : "No date";
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(row.title)}</b>
+        <span>${escapeHtml(row.message || "No message")}</span>
+        <span>${escapeHtml(row.channel || "In-App")} | ${escapeHtml(created)} | ${escapeHtml(row.related_type || "General")}</span>
+      </div>
+      <span class="row-actions">
+        <strong class="${row.status === "Unread" ? "warn" : ""}">${escapeHtml(row.status || "Unread")}</strong>
+        <button type="button" class="outline" data-read-notification="${row.id}">Read</button>
+        <button type="button" class="danger" data-delete-notification="${row.id}">Delete</button>
+      </span>
+    </article>
+  `;
+}
+
 function userRow(row) {
   const status = row.active === 0 || row.active === false ? "Inactive" : "Active";
   const login = row.last_login_at || row.lastLoginAt || "Never logged in";
@@ -75,6 +123,7 @@ function locationRow(row) {
   return `
     <li>
       <b>${escapeHtml(row.name)}</b>
+      <span>${escapeHtml(row.floor || "No floor")} | ${escapeHtml(row.area || "No area")} | Order ${escapeHtml(row.display_order || 0)}</span>
       <span>${escapeHtml(row.size || "No size")} | ${escapeHtml(row.equipment || "No equipment assigned")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-location='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -127,15 +176,17 @@ function workOrderRow(row) {
   const pic = row.pic || row.assignee || "No PIC";
   const completion = row.completion_date ? `Completed ${row.completion_date}` : "No completion date";
   const verification = row.verified_at ? `Verified ${row.verified_at}` : "";
+  const sla = row.sla_status || "No SLA";
+  const due = row.due_date ? `Due ${row.due_date}` : "No due date";
   return `
     <article>
       <div>
         <b>${escapeHtml(reference)} ${escapeHtml(row.title)}</b>
         <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No category")} | ${escapeHtml(row.assignee)}</span>
-        <span>${escapeHtml(pic)} | ${escapeHtml(completion)}${verification ? ` | ${escapeHtml(verification)}` : ""}${row.action_taken ? ` | ${escapeHtml(row.action_taken)}` : ""}</span>
+        <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(sla)} | ${escapeHtml(completion)}${verification ? ` | ${escapeHtml(verification)}` : ""}${row.action_taken ? ` | ${escapeHtml(row.action_taken)}` : ""}</span>
       </div>
       <span class="row-actions">
-        <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)} - ${confirmation}</small></strong>
+        <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)} - ${confirmation}</small></strong>
         <button type="button" class="outline" data-edit-work-order='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-work-order="${row.id}">Delete</button>
       </span>

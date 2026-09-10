@@ -47,6 +47,16 @@
           <h2>Inspection History</h2>
           <div class="history-toolbar">
             <label>Search<input id="inspection-history-search" placeholder="Search inspection history"></label>
+            <label>From<input id="history-filter-from" type="date"></label>
+            <label>To<input id="history-filter-to" type="date"></label>
+            <label>Outlet<select id="history-filter-outlet"></select></label>
+            <label>Location<select id="history-filter-location"><option value="">All locations</option></select></label>
+            <label>Auditor<input id="history-filter-auditor" placeholder="Auditor"></label>
+            <label>Department<select id="history-filter-department"></select></label>
+            <label>Category<select id="history-filter-category"></select></label>
+            <label>Priority<select id="history-filter-priority"></select></label>
+            <label>Status<select id="history-filter-status"><option value="">All statuses</option><option>Draft</option><option>Completed</option></select></label>
+            <label>PIC<input id="history-filter-pic" placeholder="PIC"></label>
             <span data-inspection-history-count>0 records</span>
           </div>
           <div class="list compact-list history-list" data-inspection-history></div>

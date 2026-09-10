@@ -511,3 +511,24 @@ fieldset {
   pointer-events: auto;
   opacity: 0.45;
 }
+
+.settings-grid {
+  align-items: start;
+}
+
+.inline-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.checkbox-line {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.mini-chart .bars {
+  min-height: 0;
+}

@@ -86,6 +86,31 @@ function openRoleEditor(row = null) {
   dialog.showModal();
 }
 
+function openPriorityEditor(row = null) {
+  const form = document.getElementById("priority-form");
+  if (!form) return;
+  form.reset();
+  form.elements.priorityId.value = row?.id || "";
+  form.elements.name.value = row?.name || "";
+  form.elements.classification.value = row?.classification || "Priority";
+  form.elements.dueDays.value = row?.due_days ?? row?.dueDays ?? 3;
+  form.elements.active.checked = row ? Boolean(row.active) : true;
+  form.querySelector('button[type="submit"]').textContent = row ? "Save Changes" : "Save Priority";
+  form.scrollIntoView({ block: "nearest" });
+}
+
+function openAuditTypeEditor(row = null) {
+  const form = document.getElementById("audit-type-form");
+  if (!form) return;
+  form.reset();
+  form.elements.auditTypeId.value = row?.id || "";
+  form.elements.name.value = row?.name || "";
+  form.elements.description.value = row?.description || "";
+  form.elements.active.checked = row ? Boolean(row.active) : true;
+  form.querySelector('button[type="submit"]').textContent = row ? "Save Changes" : "Save Audit Type";
+  form.scrollIntoView({ block: "nearest" });
+}
+
 function openDepartmentEditor(row = null) {
   const dialog = document.getElementById("department-dialog");
   const form = document.getElementById("department-form");
@@ -154,6 +179,25 @@ function setWorkOrderCompletionPhotos(images) {
   }
 }
 
+async function loadWorkOrderComments(workOrderId = "") {
+  const section = document.querySelector("[data-work-order-comments-section]");
+  const list = document.querySelector("[data-work-order-comments]");
+  if (!section || !list) return;
+  section.hidden = !workOrderId;
+  if (!workOrderId) {
+    list.innerHTML = "";
+    return;
+  }
+  const response = await fetch(`/api/comments?type=work_order&id=${encodeURIComponent(workOrderId)}`);
+  const data = await response.json();
+  list.innerHTML = (data.items || []).length
+    ? data.items.map((row) => {
+      const created = row.created_at ? new Date(row.created_at).toLocaleString() : "No date";
+      return `<article><div><b>${escapeHtml(row.author || "User")}</b><span>${escapeHtml(created)}</span><span>${escapeHtml(row.comment || "")}</span></div></article>`;
+    }).join("")
+    : `<article><div><b>No comments</b><span>Add the first follow-up note.</span></div></article>`;
+}
+
 async function openWorkOrderEditor(row = null) {
   const dialog = document.getElementById("work-order-dialog");
   const form = document.getElementById("work-order-form");
@@ -171,6 +215,10 @@ async function openWorkOrderEditor(row = null) {
     form.elements.priority.value = row.priority || "Medium";
     form.elements.status.value = row.status || "Assigned";
     form.elements.assignee.value = row.assignee || "";
+    form.elements.dueDate.value = row.due_date || "";
+    form.elements.vendor.value = row.vendor || "";
+    form.elements.slaStatus.value = row.sla_status || "";
+    form.elements.cost.value = row.cost || "";
     form.elements.pic.value = row.pic || "";
     form.elements.title.value = row.title || "";
     form.elements.description.value = row.description || "";
@@ -188,6 +236,7 @@ async function openWorkOrderEditor(row = null) {
     form.querySelector('button[type="submit"]').textContent = "Save Work Order";
   }
   setWorkOrderCompletionPhotos(parseStoredImages(row?.completion_photo || "[]"));
+  await loadWorkOrderComments(row?.id || "");
   dialog.showModal();
 }
 
@@ -197,6 +246,9 @@ async function openLocationEditor(row = null) {
   form.reset();
   form.elements.locationId.value = row?.id || "";
   form.elements.name.value = row?.name || "";
+  form.elements.floor.value = row?.floor || "";
+  form.elements.area.value = row?.area || "";
+  form.elements.displayOrder.value = row?.display_order || row?.displayOrder || 0;
   form.elements.size.value = row?.size || "";
   form.querySelector("h2").textContent = row ? "Edit Location" : "Add Location";
   await populateLocationEquipmentSelect(row?.name || "");
@@ -346,6 +398,10 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     title: formValue(form, "title", "Work order"),
     description: formValue(form, "description", ""),
     assignee: formValue(form, "assignee", "Technical Support"),
+    dueDate: formValue(form, "dueDate", ""),
+    vendor: formValue(form, "vendor", ""),
+    slaStatus: formValue(form, "slaStatus", ""),
+    cost: Number(formValue(form, "cost", "0")) || 0,
     pic: formValue(form, "pic", ""),
     actionTaken: formValue(form, "actionTaken", ""),
     completionDate: formValue(form, "completionDate", ""),
@@ -476,6 +532,75 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
   loadApp();
 });
 
+document.getElementById("priority-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const id = formValue(form, "priorityId", "");
+  const payload = {
+    name: formValue(form, "name", "Priority"),
+    classification: formValue(form, "classification", "Priority"),
+    dueDays: Number(formValue(form, "dueDays", "0")) || 0,
+    active: Boolean(form.elements.active.checked),
+  };
+  await requestJson(id ? `/api/setup/priorities/${id}` : "/api/setup/priorities", id ? "PATCH" : "POST", payload);
+  form.reset();
+  form.elements.active.checked = true;
+  loadApp();
+});
+
+document.getElementById("audit-type-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const id = formValue(form, "auditTypeId", "");
+  const payload = {
+    name: formValue(form, "name", "Routine Audit"),
+    description: formValue(form, "description", ""),
+    active: Boolean(form.elements.active.checked),
+  };
+  await requestJson(id ? `/api/setup/audit-types/${id}` : "/api/setup/audit-types", id ? "PATCH" : "POST", payload);
+  form.reset();
+  form.elements.active.checked = true;
+  loadApp();
+});
+
+document.getElementById("scoring-settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  await requestJson("/api/settings", "POST", {
+    settings: {
+      "scoring.passMark": Number(formValue(form, "passMark", "80")) || 80,
+      "scoring.weighting": formValue(form, "weightingMode", "Equal"),
+      "scoring.excellentBand": Number(formValue(form, "excellentFrom", "90")) || 90,
+      "scoring.goodBand": Number(formValue(form, "goodFrom", "75")) || 75,
+      "scoring.belowBand": Number(formValue(form, "needsImprovementFrom", "60")) || 60,
+    },
+  });
+  loadApp();
+});
+
+document.getElementById("system-settings-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const channels = formValue(form, "channels", "In-App").split(",").map((item) => item.trim()).filter(Boolean);
+  const integrations = formValue(form, "integrations", "").split(",").map((item) => item.trim()).filter(Boolean);
+  await requestJson("/api/settings", "POST", {
+    settings: {
+      "report.companyName": formValue(form, "companyName", "Ottotree"),
+      "report.departmentHeader": formValue(form, "departmentHeader", "Facilities Department"),
+      "report.logoUrl": formValue(form, "logoUrl", ""),
+      "system.emailEnabled": channels.includes("Email"),
+      "system.whatsappEnabled": channels.includes("WhatsApp"),
+      "system.pushEnabled": channels.includes("Push"),
+      "system.preventiveMaintenanceEnabled": integrations.includes("Preventive Maintenance"),
+      "system.cmmsEnabled": integrations.includes("CMMS"),
+      "system.aiPhotoDetectionEnabled": integrations.includes("AI Photo Defect Detection"),
+      "system.aiSummaryEnabled": integrations.includes("AI Audit Summary"),
+      "system.aiRecommendationEnabled": integrations.includes("AI Corrective Recommendation"),
+    },
+  });
+  loadApp();
+});
+
 document.getElementById("location-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
@@ -483,6 +608,9 @@ document.getElementById("location-form").addEventListener("submit", async (event
   const payload = {
     outlet: selectedLocationOutlet,
     name: formValue(form, "name", "New Location"),
+    floor: formValue(form, "floor", ""),
+    area: formValue(form, "area", ""),
+    displayOrder: Number(formValue(form, "displayOrder", "0")) || 0,
     size: formValue(form, "size", ""),
     equipmentIds: [...form.elements.equipmentIds.selectedOptions].map((option) => Number(option.value)),
   };

@@ -4,7 +4,9 @@ async function loadDashboard() {
   setText('[data-today="scheduled"]', data.today.scheduled.length);
   setText('[data-today="uploads"]', data.today.pendingUploads);
   setText('[data-today="followups"]', data.today.followUps);
-  setText('[data-today="tasks"]', data.today.scheduled.length + data.today.pendingUploads + data.today.followUps);
+  setText('[data-today="dueSoon"]', data.today.dueSoon || 0);
+  setText('[data-today="overdue"]', data.today.overdue || 0);
+  setText('[data-today="tasks"]', data.today.scheduled.length + data.today.pendingUploads + data.today.followUps + (data.today.dueSoon || 0) + (data.today.overdue || 0));
 
   setHtml("[data-outlets]", data.outlets.map((outlet) => `
     <article>
@@ -35,6 +37,7 @@ async function loadWorkOrders() {
   workOrderCache = data.items;
   updateWorkOrderFilterSelects();
   renderWorkOrders();
+  renderCorrectiveActions();
 }
 
 async function loadFindings() {
@@ -108,6 +111,46 @@ function renderWorkOrders() {
     : `<article><div><b>No work orders found</b><span>Adjust search or filters, or add a new work order.</span></div></article>`);
 }
 
+function renderCorrectiveActions() {
+  const search = (document.getElementById("corrective-search")?.value || "").toLowerCase();
+  const outlet = document.getElementById("corrective-filter-outlet")?.value || "";
+  const department = document.getElementById("corrective-filter-department")?.value || "";
+  const status = document.getElementById("corrective-filter-status")?.value || "";
+  updateSelectOptions(document.getElementById("corrective-filter-outlet"), setupOptions.outlets, true, "All outlets");
+  updateSelectOptions(document.getElementById("corrective-filter-department"), setupOptions.departments, true, "All departments");
+  if (outlet) document.getElementById("corrective-filter-outlet").value = outlet;
+  if (department) document.getElementById("corrective-filter-department").value = department;
+  const rows = workOrderCache.filter((row) => {
+    const haystack = [row.work_order_ref, row.outlet, row.zone, row.request_type, row.title, row.action_taken, row.pic, row.status, row.sla_status].join(" ").toLowerCase();
+    return (!search || haystack.includes(search))
+      && (!outlet || row.outlet === outlet)
+      && (!department || row.request_type === department)
+      && (!status || row.status === status);
+  });
+  setHtml("[data-corrective-actions]", rows.length
+    ? rows.map(workOrderRow).join("")
+    : `<article><div><b>No corrective actions found</b><span>Work orders and finding follow-ups appear here.</span></div></article>`);
+}
+
+async function loadNotifications() {
+  const response = await fetch("/api/notifications");
+  const data = await response.json();
+  notificationCache = data.items || [];
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const search = notificationFilters.search.toLowerCase();
+  const rows = notificationCache.filter((row) => {
+    const haystack = [row.title, row.message, row.channel, row.status, row.related_type].join(" ").toLowerCase();
+    return (!search || haystack.includes(search))
+      && (!notificationFilters.status || row.status === notificationFilters.status);
+  });
+  setHtml("[data-notifications]", rows.length
+    ? rows.map(notificationRow).join("")
+    : `<article><div><b>No notifications found</b><span>Assigned, due soon, overdue, and completed notices appear here.</span></div></article>`);
+}
+
 async function loadEquipment() {
   const response = await fetch("/api/equipment");
   const data = await response.json();
@@ -169,9 +212,45 @@ async function loadReport() {
   document.querySelector('[data-report="audits"]').textContent = data.monthlySummary.audits;
   document.querySelector('[data-report="averageScore"]').textContent = `${data.monthlySummary.averageScore}/100`;
   document.querySelector('[data-report="openWorkOrders"]').textContent = data.monthlySummary.openWorkOrders;
+  document.querySelector('[data-report="auditsPending"]').textContent = data.monthlySummary.auditsPending || 0;
+  document.querySelector('[data-report="totalFindings"]').textContent = data.monthlySummary.totalFindings || 0;
+  document.querySelector('[data-report="priorityFindings"]').textContent = data.monthlySummary.priorityFindings || 0;
+  document.querySelector('[data-report="nonPriorityFindings"]').textContent = data.monthlySummary.nonPriorityFindings || 0;
+  document.querySelector('[data-report="overdueFindings"]').textContent = data.monthlySummary.overdueFindings || 0;
+  document.querySelector('[data-report="completionRate"]').textContent = `${data.monthlySummary.completionRate || 0}%`;
   document.querySelector("[data-report-critical]").innerHTML = data.criticalIssues.length
     ? data.criticalIssues.map(workOrderRow).join("")
     : `<article><div><b>No critical issues</b><span>High priority work orders will appear here.</span></div></article>`;
   document.querySelector("[data-export-json]").href = `/api/reports/export.json?unit=${encodeURIComponent(currentUnit)}`;
   document.querySelector("[data-export-csv]").href = `/api/reports/export.csv?unit=${encodeURIComponent(currentUnit)}`;
+  document.querySelector("[data-export-xls]").href = `/api/reports/export.xls?unit=${encodeURIComponent(currentUnit)}`;
+  renderReportCharts(data.charts || {});
+}
+
+function renderReportCharts(charts) {
+  const chartMap = [
+    ["priorityVsNonPriority", "Priority vs Non-Priority"],
+    ["findingsByDepartment", "Issues by Department"],
+    ["findingsByArea", "Issues by Area"],
+    ["findingsByCategory", "Issues by Category"],
+    ["monthlyAuditTrend", "Monthly Audit Trend"],
+    ["findingsTrend", "Findings Trend"],
+    ["departmentPerformance", "Department Performance"],
+    ["locationPerformance", "Location Performance"],
+    ["categoryPerformance", "Category Performance"],
+  ];
+  setHtml("[data-report-charts]", chartMap.map(([key, label]) => {
+    const source = charts[key] || [];
+    const entries = Array.isArray(source)
+      ? source.map((row) => [row.label || row.month || row.outlet || "Unassigned", row.count ?? row.average ?? row.score ?? 0])
+      : Object.entries(source);
+    return `
+      <article class="panel mini-chart">
+        <h2>${escapeHtml(label)}</h2>
+        <div class="bars">${entries.length ? entries.map(([name, value]) => `
+          <label>${escapeHtml(name)}<span style="--value:${Math.min(100, Number(value) || 0)}">${escapeHtml(value)}</span></label>
+        `).join("") : `<p class="muted">No data</p>`}</div>
+      </article>
+    `;
+  }).join(""));
 }

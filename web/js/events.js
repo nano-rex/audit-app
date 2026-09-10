@@ -79,6 +79,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const editPriorityButton = event.target.closest("[data-edit-priority]");
+  if (editPriorityButton) {
+    openPriorityEditor(JSON.parse(editPriorityButton.dataset.editPriority));
+    return;
+  }
+
+  const editAuditTypeButton = event.target.closest("[data-edit-audit-type]");
+  if (editAuditTypeButton) {
+    openAuditTypeEditor(JSON.parse(editAuditTypeButton.dataset.editAuditType));
+    return;
+  }
+
   const editLocationButton = event.target.closest("[data-edit-location]");
   if (editLocationButton) {
     openLocationEditor(JSON.parse(editLocationButton.dataset.editLocation));
@@ -156,6 +168,34 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const priorityButton = event.target.closest("[data-delete-priority]");
+  if (priorityButton && confirm("Delete this priority level?")) {
+    await requestJson(`/api/setup/priorities/${priorityButton.dataset.deletePriority}`, "DELETE");
+    loadApp();
+    return;
+  }
+
+  const auditTypeButton = event.target.closest("[data-delete-audit-type]");
+  if (auditTypeButton && confirm("Delete this audit type?")) {
+    await requestJson(`/api/setup/audit-types/${auditTypeButton.dataset.deleteAuditType}`, "DELETE");
+    loadApp();
+    return;
+  }
+
+  const readNotificationButton = event.target.closest("[data-read-notification]");
+  if (readNotificationButton) {
+    await requestJson(`/api/notifications/${readNotificationButton.dataset.readNotification}`, "PATCH", {});
+    loadNotifications();
+    return;
+  }
+
+  const deleteNotificationButton = event.target.closest("[data-delete-notification]");
+  if (deleteNotificationButton && confirm("Delete this notification?")) {
+    await requestJson(`/api/notifications/${deleteNotificationButton.dataset.deleteNotification}`, "DELETE");
+    loadNotifications();
+    return;
+  }
+
   const locationButton = event.target.closest("[data-delete-location]");
   if (locationButton && confirm("Delete this location?")) {
     await requestJson(`/api/locations/${locationButton.dataset.deleteLocation}`, "DELETE");
@@ -204,6 +244,32 @@ document.getElementById("inspection-history-search")?.addEventListener("input", 
   inspectionHistorySearch = event.target.value;
   inspectionHistoryPage = 1;
   renderInspectionHistory();
+});
+
+[
+  ["history-filter-from", "dateFrom"],
+  ["history-filter-to", "dateTo"],
+  ["history-filter-outlet", "outlet"],
+  ["history-filter-location", "location"],
+  ["history-filter-auditor", "auditor"],
+  ["history-filter-department", "department"],
+  ["history-filter-category", "category"],
+  ["history-filter-priority", "priority"],
+  ["history-filter-status", "status"],
+  ["history-filter-pic", "pic"],
+].forEach(([id, key]) => {
+  document.getElementById(id)?.addEventListener("input", (event) => {
+    historyFilters[key] = event.target.value;
+    inspectionHistoryPage = 1;
+    if (key === "outlet") updateHistoryFilterSelects();
+    renderInspectionHistory();
+  });
+  document.getElementById(id)?.addEventListener("change", (event) => {
+    historyFilters[key] = event.target.value;
+    inspectionHistoryPage = 1;
+    if (key === "outlet") updateHistoryFilterSelects();
+    renderInspectionHistory();
+  });
 });
 
 document.querySelector("[data-history-prev]")?.addEventListener("click", () => {
@@ -317,10 +383,17 @@ document.querySelector(".mark-toolbar")?.addEventListener("click", (event) => {
     });
   }
   if (event.target.closest("[data-mark-undo]") && photoMarkState) {
-    photoMarkState.marks.pop();
+    const mark = photoMarkState.marks.pop();
+    if (mark) photoMarkState.redoMarks.push(mark);
+    renderPhotoMarker();
+  }
+  if (event.target.closest("[data-mark-redo]") && photoMarkState) {
+    const mark = photoMarkState.redoMarks.pop();
+    if (mark) photoMarkState.marks.push(mark);
     renderPhotoMarker();
   }
   if (event.target.closest("[data-mark-clear]") && photoMarkState) {
+    photoMarkState.redoMarks = [...photoMarkState.marks.reverse(), ...(photoMarkState.redoMarks || [])];
     photoMarkState.marks = [];
     renderPhotoMarker();
   }
@@ -367,6 +440,7 @@ document.querySelector("[data-photo-mark-canvas]")?.addEventListener("pointerup"
       text: document.querySelector('#photo-mark-form input[name="markText"]')?.value || "Issue",
     };
   photoMarkState.marks.push(mark);
+  photoMarkState.redoMarks = [];
   photoMarkState.drawing = false;
   renderPhotoMarker();
 });
@@ -417,6 +491,25 @@ document.querySelector("[data-signature-clear]")?.addEventListener("click", () =
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 });
 
+document.querySelector("[data-signature-upload]")?.addEventListener("change", async (event) => {
+  const [image] = await readFilesAsStoredImages(event.target.files);
+  if (!image?.dataUrl) return;
+  const canvas = document.querySelector("[data-signature-canvas]");
+  const ctx = canvas.getContext("2d");
+  const source = new Image();
+  source.addEventListener("load", () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const ratio = Math.min(canvas.width / source.width, canvas.height / source.height);
+    const width = source.width * ratio;
+    const height = source.height * ratio;
+    ctx.drawImage(source, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
+  });
+  source.src = image.dataUrl;
+  event.target.value = "";
+});
+
 document.getElementById("signature-form")?.addEventListener("submit", (event) => {
   event.preventDefault();
   if (!signatureState?.kind) return;
@@ -442,6 +535,20 @@ document.querySelector('#inspection-form select[name="outlet"]')?.addEventListen
 checklistContainer?.addEventListener("change", async (event) => {
   const input = event.target.closest("[data-inspection-check]");
   if (!input) {
+    const naInput = event.target.closest("[data-inspection-na]");
+    if (naInput) {
+      const row = naInput.closest(".criteria-row");
+      const pass = row.querySelector("[data-inspection-check]");
+      const notes = row.querySelector('input[name*="-notes-"]');
+      if (naInput.checked && pass) pass.checked = false;
+      row.classList.toggle("passed", naInput.checked || Boolean(pass?.checked));
+      if (notes) {
+        notes.disabled = naInput.checked || Boolean(pass?.checked);
+        if (notes.disabled) notes.value = "";
+      }
+      updateInspectionProgress();
+      return;
+    }
     if (event.target.matches("[data-equipment-images]")) {
       const itemRow = event.target.closest("[data-equipment-id]");
       const existingImages = storedImagesFromDataset(itemRow);
@@ -457,6 +564,8 @@ checklistContainer?.addEventListener("change", async (event) => {
   }
   const row = input.closest(".criteria-row");
   const notes = row.querySelector('input[name*="-notes-"]');
+  const naInput = row.querySelector("[data-inspection-na]");
+  if (input.checked && naInput) naInput.checked = false;
   row.classList.toggle("passed", input.checked);
   if (notes) {
     notes.disabled = input.checked;
@@ -648,4 +757,35 @@ document.getElementById("work-order-filter-priority")?.addEventListener("change"
 document.getElementById("work-order-filter-status")?.addEventListener("change", (event) => {
   workOrderFilters.status = event.target.value;
   renderWorkOrders();
+});
+
+["corrective-search", "corrective-filter-outlet", "corrective-filter-department", "corrective-filter-status"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("input", renderCorrectiveActions);
+  document.getElementById(id)?.addEventListener("change", renderCorrectiveActions);
+});
+
+document.getElementById("notification-search")?.addEventListener("input", (event) => {
+  notificationFilters.search = event.target.value;
+  renderNotifications();
+});
+
+document.getElementById("notification-filter-status")?.addEventListener("change", (event) => {
+  notificationFilters.status = event.target.value;
+  renderNotifications();
+});
+
+document.querySelector("[data-refresh-notifications]")?.addEventListener("click", loadNotifications);
+
+document.querySelector("[data-add-work-order-comment]")?.addEventListener("click", async () => {
+  const form = document.getElementById("work-order-form");
+  const id = formValue(form, "workOrderId", "");
+  const comment = formValue(form, "timelineComment", "");
+  if (!id || !comment.trim()) return;
+  await requestJson("/api/comments", "POST", {
+    recordType: "work_order",
+    recordId: Number(id),
+    comment,
+  });
+  form.elements.timelineComment.value = "";
+  loadWorkOrderComments(id);
 });

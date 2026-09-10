@@ -151,6 +151,7 @@ function inspectionItemCard(item) {
             location: item.location || item.zone || "",
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
+          <label class="checkbox-line"><input type="checkbox" name="equipment-${item.id}-na-${index}" value="na" data-inspection-na> N/A</label>
           <select name="equipment-${item.id}-category-${index}" aria-label="Category">${categoryOptions}</select>
           <input name="equipment-${item.id}-notes-${index}" placeholder="Required when unchecked">
         </div>
@@ -187,6 +188,7 @@ function openPhotoMarker(itemRow, imageIndex) {
       startY: 0,
       points: [],
       marks: [],
+      redoMarks: [],
     };
     renderPhotoMarker();
     dialog.showModal();
@@ -214,6 +216,17 @@ function drawPhotoMark(ctx, mark) {
   } else if (mark.tool === "circle") {
     ctx.beginPath();
     ctx.ellipse(mark.x + mark.w / 2, mark.y + mark.h / 2, Math.abs(mark.w / 2), Math.abs(mark.h / 2), 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (mark.tool === "arrow") {
+    const endX = mark.x + mark.w;
+    const endY = mark.y + mark.h;
+    const angle = Math.atan2(mark.h, mark.w);
+    ctx.beginPath();
+    ctx.moveTo(mark.x, mark.y);
+    ctx.lineTo(endX, endY);
+    ctx.lineTo(endX - 18 * Math.cos(angle - Math.PI / 6), endY - 18 * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - 18 * Math.cos(angle + Math.PI / 6), endY - 18 * Math.sin(angle + Math.PI / 6));
     ctx.stroke();
   } else if (mark.tool === "text") {
     ctx.fillText(mark.text || "Issue", mark.x, mark.y);
@@ -298,6 +311,7 @@ async function loadInspectionHistory() {
   const response = await fetch("/api/inspection-sessions");
   const data = await response.json();
   inspectionHistoryCache = data.items || [];
+  updateHistoryFilterSelects();
   renderInspectionHistory();
 }
 
@@ -305,8 +319,18 @@ function renderInspectionHistory() {
   const search = inspectionHistorySearch.toLowerCase();
   const rows = inspectionHistoryCache.filter((row) => {
     const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-    const haystack = [row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress].join(" ").toLowerCase();
-    return !search || haystack.includes(search);
+    const haystack = [row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
+    return (!search || haystack.includes(search))
+      && (!historyFilters.dateFrom || row.audit_date >= historyFilters.dateFrom)
+      && (!historyFilters.dateTo || row.audit_date <= historyFilters.dateTo)
+      && (!historyFilters.outlet || row.outlet === historyFilters.outlet)
+      && (!historyFilters.location || (row.locations || []).includes(historyFilters.location))
+      && (!historyFilters.auditor || String(row.auditor || "").toLowerCase().includes(historyFilters.auditor.toLowerCase()))
+      && (!historyFilters.department || (row.departments || []).includes(historyFilters.department))
+      && (!historyFilters.category || (row.categories || []).includes(historyFilters.category))
+      && (!historyFilters.priority || (row.priorities || []).includes(historyFilters.priority))
+      && (!historyFilters.status || row.status === historyFilters.status)
+      && (!historyFilters.pic || (row.pics || []).join(" ").toLowerCase().includes(historyFilters.pic.toLowerCase()));
   });
   const pages = Math.max(1, Math.ceil(rows.length / inspectionHistoryPageSize));
   inspectionHistoryPage = Math.min(Math.max(1, inspectionHistoryPage), pages);
@@ -331,7 +355,7 @@ function inspectionHistoryRow(row) {
       <div data-open-inspection-session="${row.id}">
         <b>${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
         <span>${escapeHtml(row.audit_date)} | ${escapeHtml(savedAt)}</span>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
@@ -361,6 +385,7 @@ function collectInspectionPayload(complete = false) {
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const criterion = criterionRow.dataset.criterion;
       const passed = formData.get(`equipment-${row.dataset.equipmentId}-criterion-${index}`) === "pass";
+      const notApplicable = formData.get(`equipment-${row.dataset.equipmentId}-na-${index}`) === "na";
       items.push({
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
@@ -368,11 +393,12 @@ function collectInspectionPayload(complete = false) {
         item: criterion,
         category: formData.get(`equipment-${row.dataset.equipmentId}-category-${index}`) || "",
         passed,
-        score: passed ? 100 : 0,
+        notApplicable,
+        score: passed || notApplicable ? 100 : 0,
         evidenceStatus: images.length ? images.map(imageLabel).join(", ") : "Missing image",
         notes: formData.get(`equipment-${row.dataset.equipmentId}-notes-${index}`) || "",
         images,
-        workOrderRequested: !passed,
+        workOrderRequested: !passed && !notApplicable,
       });
     });
   });
@@ -442,7 +468,7 @@ function inspectionProgress(payload = collectInspectionPayload(false)) {
 }
 
 function isInspectionItemComplete(item) {
-  return Boolean(item.passed || (item.notes || "").trim());
+  return Boolean(item.passed || item.notApplicable || (item.notes || "").trim());
 }
 
 function statusForProgress(done, total) {
@@ -510,7 +536,7 @@ function openFirstInspectionLocation() {
 }
 
 function isInspectionReadyToComplete(payload) {
-  return Boolean(payload.items.length && payload.items.every((item) => (item.images || []).length && isInspectionItemComplete(item)));
+  return Boolean(payload.items.length && payload.items.every((item) => (item.notApplicable || (item.images || []).length) && isInspectionItemComplete(item)));
 }
 
 function updateInspectionActions(progress, payload) {
@@ -531,9 +557,9 @@ function updateInspectionActions(progress, payload) {
 
 function validateInspectionComplete(payload) {
   if (!payload.items.length) return "No inspection items are loaded for this location.";
-  const missingImage = payload.items.find((item) => !item.images.length);
+  const missingImage = payload.items.find((item) => !item.notApplicable && !item.images.length);
   if (missingImage) return `Upload image(s) for ${missingImage.section}.`;
-  const missingRemark = payload.items.find((item) => !item.passed && !item.notes.trim());
+  const missingRemark = payload.items.find((item) => !item.passed && !item.notApplicable && !item.notes.trim());
   if (missingRemark) return `Enter a remark for unchecked criterion: ${missingRemark.section} - ${missingRemark.item}.`;
   return "";
 }
@@ -553,12 +579,14 @@ function applyInspectionSessionItems() {
       const item = saved.find((entry) => entry.item === criterionRow.dataset.criterion) || saved[index];
       if (!item) return;
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
+      const na = criterionRow.querySelector("[data-inspection-na]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
       checkbox.checked = Boolean(item.passed);
-      criterionRow.classList.toggle("passed", checkbox.checked);
+      if (na) na.checked = Boolean(item.notApplicable);
+      criterionRow.classList.toggle("passed", checkbox.checked || Boolean(item.notApplicable));
       if (notes) {
         notes.value = item.notes || "";
-        notes.disabled = checkbox.checked;
+        notes.disabled = checkbox.checked || Boolean(item.notApplicable);
       }
       const category = criterionRow.querySelector('select[name*="-category-"]');
       if (category && item.category) category.value = item.category;

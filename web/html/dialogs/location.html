@@ -3,6 +3,11 @@
       <header><h2>Location Setup</h2><button value="cancel">x</button></header>
       <input name="locationId" type="hidden">
       <label>Location Name<input name="name" placeholder="Location name"></label>
+      <div class="form-grid">
+        <label>Floor<input name="floor" placeholder="Ground, Level 1"></label>
+        <label>Area<input name="area" placeholder="Dining, counter, studio"></label>
+        <label>Display Order<input name="displayOrder" type="number" min="0" value="0"></label>
+      </div>
       <label>Size<input name="size" placeholder="Area, room size, or capacity"></label>
       <label>Equipment<select name="equipmentIds" multiple size="6"></select></label>
       <button class="primary" value="default">Save Location</button>

@@ -24,6 +24,7 @@ async function loadApp() {
   loadWorkOrders();
   loadEquipment();
   loadUsers();
+  loadNotifications();
 }
 
 wireAuth();

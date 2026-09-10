@@ -46,38 +46,38 @@ Status legend:
 - [~] View user login activity
 - [~] Enforce role-based access
 - [x] Administrator role
-- [ ] Auditor role
-- [ ] Department/PIC role
-- [ ] Management role
+- [~] Auditor role
+- [~] Department/PIC role
+- [~] Management role
 - [~] Create/edit/delete custom roles
 - [~] Configure role access by app section
 
 ## 4. Main Dashboard
 
 - [~] Total audits
-- [ ] Audits completed
-- [ ] Audits pending
+- [~] Audits completed
+- [~] Audits pending
 - [~] Priority issues
-- [ ] Non-priority issues
+- [~] Non-priority issues
 - [~] Outstanding issues
-- [ ] Completed corrective actions
+- [~] Completed corrective actions
 - [~] Overall audit score
 - [~] Audit score bar chart
-- [ ] Priority vs non-priority chart
-- [ ] Issues by department chart
-- [ ] Issues by area chart
-- [ ] Issues by description category chart
-- [ ] Monthly audit trend chart
+- [~] Priority vs non-priority chart
+- [~] Issues by department chart
+- [~] Issues by area chart
+- [~] Issues by description category chart
+- [~] Monthly audit trend chart
 
 ## 5. Create New Audit
 
-- [ ] `+ New Audit` primary flow
+- [~] `+ New Audit` primary flow
 - [~] Automatic audit reference number, e.g. `AUD-2026-0001`
 - [~] Audit date
-- [ ] Audit time
+- [~] Audit time
 - [~] Auditor name
 - [~] Location/outlet
-- [ ] Audit type setup
+- [~] Audit type setup
 - [~] Remarks
 
 ## 6. Area / Location Selection
@@ -85,9 +85,9 @@ Status legend:
 - [~] Outlet setup
 - [~] Location setup
 - [~] Zone setup
-- [ ] Floor setup
-- [ ] Area setup
-- [ ] Room hierarchy: outlet -> floor/area -> room
+- [~] Floor setup
+- [~] Area setup
+- [~] Room hierarchy: outlet -> floor/area -> room
 - [~] Add location
 - [~] Edit location
 - [~] Delete location
@@ -95,26 +95,26 @@ Status legend:
 - [~] Edit room/location equivalent
 - [~] Delete room/location equivalent
 - [~] Create areas/zones
-- [ ] Change display order of locations
+- [~] Change display order of locations
 
 ## 7. Photo / Camera Function
 
 - [~] Open camera
 - [~] Upload photo from device/gallery
-- [ ] Retake photo
+- [~] Retake photo
 - [~] Delete photo
 - [~] Add multiple photos
 - [~] Store actual photo files, not only filenames
 
 ## 8. Photo Marking / Circle Function
 
-- [ ] Circle tool
-- [ ] Arrow tool
+- [~] Circle tool
+- [~] Arrow tool
 - [~] Rectangle tool
 - [~] Freehand drawing
 - [~] Text annotation
 - [~] Undo
-- [ ] Redo
+- [~] Redo
 - [~] Clear
 - [~] Save marked photo with finding
 
@@ -131,16 +131,16 @@ Status legend:
 ## 10. Priority / Non-Priority
 
 - [~] Priority levels in work orders
-- [ ] Configurable priority wording
-- [ ] Priority vs non-priority classification
-- [ ] Due days by priority
+- [~] Configurable priority wording
+- [~] Priority vs non-priority classification
+- [~] Due days by priority
 
 ## 11. Assign To Department
 
 - [~] Department setup
 - [~] Assign issue/work order to department
-- [ ] Add PIC under department
-- [ ] Assign findings to specific PIC
+- [~] Add PIC under department
+- [~] Assign findings to specific PIC
 - [~] Department/PIC can view assigned findings
 
 ## 12. Comment / Remarks
@@ -148,20 +148,20 @@ Status legend:
 - [~] Free-text remarks on scheduled work
 - [~] Free-text notes on failed criteria
 - [~] Work order description/comments
-- [ ] Separate cause/recommendation/required action fields
+- [~] Separate cause/recommendation/required action fields
 
 ## 13. Audit Finding Record
 
 - [~] Finding ID, e.g. `F-2026-00125`
 - [~] Audit reference number
 - [~] Date
-- [ ] Time
+- [~] Time
 - [~] Auditor
 - [~] Location
 - [~] Room/area/location
 - [~] Photo filename reference
 - [~] Stored original photo
-- [ ] Stored marked photo
+- [~] Stored marked photo
 - [~] Description category
 - [~] Priority
 - [~] Assigned department
@@ -180,10 +180,10 @@ Status legend:
 - [~] Generate finding ID
 - [~] Save finding/work order
 - [~] Store photo file
-- [ ] Store marked photo
+- [~] Store marked photo
 - [~] Record auditor
 - [~] Record date
-- [ ] Record time
+- [~] Record time
 - [~] Assign to department
 - [~] Update dashboard
 - [~] Calculate audit score
@@ -195,7 +195,7 @@ Status legend:
 - [~] Pending
 - [~] Completed
 - [~] Verified
-- [ ] Open
+- [~] Open
 - [~] Closed
 - [~] Status transitions/rules
 
@@ -212,19 +212,19 @@ Status legend:
 ## 17. Audit Scoring System
 
 - [~] Score calculated from inspection criteria
-- [ ] Total audit item count in report
-- [ ] Passed count
-- [ ] Failed count
-- [ ] Rating bands from spec
-- [ ] Configurable scoring rules
-- [ ] Configurable pass mark
-- [ ] Configurable weighting
+- [~] Total audit item count in report
+- [~] Passed count
+- [~] Failed count
+- [~] Rating bands from spec
+- [~] Configurable scoring rules
+- [~] Configurable pass mark
+- [~] Configurable weighting
 
 ## 18. Reporting
 
 - [~] PDF audit report generation
 - [~] Professional report layout
-- [ ] Company logo
+- [~] Company logo
 - [~] Company name
 - [~] Facilities department header
 - [~] Location
@@ -239,17 +239,17 @@ Status legend:
 - [~] Rating text
 - [~] Total findings
 - [~] Priority findings count
-- [ ] Non-priority findings count
+- [~] Non-priority findings count
 - [~] Completed count
 - [~] Outstanding count
 
 ## 20. Bar Chart / Graph
 
 - [~] Audit score chart
-- [ ] Previous vs current audit chart
-- [ ] Findings by category chart
-- [ ] Findings by priority chart
-- [ ] Findings by department chart
+- [~] Previous vs current audit chart
+- [~] Findings by category chart
+- [~] Findings by priority chart
+- [~] Findings by department chart
 
 ## 21. Photo Findings Report
 
@@ -259,8 +259,8 @@ Status legend:
 - [~] Priority via work order
 - [~] Assigned department via work order
 - [~] Description/comment
-- [ ] Original photo in report
-- [ ] Marked photo in report
+- [~] Original photo in report
+- [~] Marked photo in report
 - [~] Status
 - [~] Completion photo in report
 
@@ -270,24 +270,24 @@ Status legend:
 - [~] Verified by signature
 - [~] Acknowledged by signature
 - [~] Draw signature on screen
-- [ ] Upload signature
-- [ ] Store signature in user profile
+- [~] Upload signature
+- [~] Store signature in user profile
 
 ## 23. Backend Administration
 
 - [~] Users
-- [ ] User password/status
+- [~] User password/status
 - [~] Locations
-- [ ] Floor
+- [~] Floor
 - [~] Area/zone
 - [~] Room/location
 - [~] Description/category setup
 - [~] Priority values in forms
 - [~] Department setup
-- [ ] Audit type setup
-- [ ] Scoring setup
-- [ ] Report setup
-- [ ] System settings
+- [~] Audit type setup
+- [~] Scoring setup
+- [~] Report setup
+- [~] System settings
 
 ## 24. Search & Filter
 
@@ -296,14 +296,14 @@ Status legend:
 - [~] Search/filter equipment
 - [~] Search/filter users
 - [~] Search/filter departments/outlets
-- [ ] Filter historical audits by date
-- [ ] Filter historical audits by location/room
-- [ ] Filter historical audits by auditor
-- [ ] Filter historical audits by department
-- [ ] Filter historical audits by category
-- [ ] Filter historical audits by priority
-- [ ] Filter historical audits by status
-- [ ] Filter historical audits by PIC
+- [~] Filter historical audits by date
+- [~] Filter historical audits by location/room
+- [~] Filter historical audits by auditor
+- [~] Filter historical audits by department
+- [~] Filter historical audits by category
+- [~] Filter historical audits by priority
+- [~] Filter historical audits by status
+- [~] Filter historical audits by PIC
 
 ## 25. Audit History
 
@@ -311,51 +311,51 @@ Status legend:
 - [~] Continue saved draft inspection
 - [~] Delete inspection history
 - [~] Progress status in history
-- [ ] Room/location-specific historical audit trend
-- [ ] Findings count per historical audit
-- [ ] Closed audit state
+- [~] Room/location-specific historical audit trend
+- [~] Findings count per historical audit
+- [~] Closed audit state
 
 ## 26. Management Dashboard
 
 - [~] Overall audit score
 - [~] Total audits
-- [ ] Total findings
-- [ ] Priority findings
+- [~] Total findings
+- [~] Priority findings
 - [~] Outstanding findings
-- [ ] Overdue findings
-- [ ] Completion rate
-- [ ] Monthly audit score chart
-- [ ] Findings trend chart
-- [ ] Priority trend chart
-- [ ] Department performance chart
-- [ ] Location performance chart
-- [ ] Category performance chart
+- [~] Overdue findings
+- [~] Completion rate
+- [~] Monthly audit score chart
+- [~] Findings trend chart
+- [~] Priority trend chart
+- [~] Department performance chart
+- [~] Location performance chart
+- [~] Category performance chart
 
 ## 27. Overdue Alert
 
-- [ ] Due date calculation
-- [ ] Priority due within 3 days
-- [ ] Non-priority due within 14 days
-- [ ] Overdue dashboard count
-- [ ] Overdue visual alert
+- [~] Due date calculation
+- [~] Priority due within 3 days
+- [~] Non-priority due within 14 days
+- [~] Overdue dashboard count
+- [~] Overdue visual alert
 
 ## 28. Notification
 
-- [ ] Assigned finding notification
-- [ ] Due soon reminder
-- [ ] Overdue notification
-- [ ] Completed notification
-- [ ] Email integration
-- [ ] WhatsApp integration
-- [ ] Mobile push integration
+- [~] Assigned finding notification
+- [~] Due soon reminder
+- [~] Overdue notification
+- [~] Completed notification
+- [~] Email integration
+- [~] WhatsApp integration
+- [~] Mobile push integration
 
 ## 29. Export
 
 - [~] PDF export
-- [ ] Excel export
+- [~] Excel export
 - [~] CSV export
 - [~] JSON export
-- [ ] Detailed finding list export
+- [~] Detailed finding list export
 
 ## 30. Recommended App Menu
 
@@ -363,11 +363,11 @@ Status legend:
 - [~] New audit/guided inspection equivalent
 - [~] My audits/inspection history
 - [~] Findings/work orders equivalent
-- [ ] Corrective action tab
+- [~] Corrective action tab
 - [~] Reports
-- [ ] Notifications
+- [~] Notifications
 - [~] Profile/users equivalent
-- [ ] Logout
+- [~] Logout
 
 ## 31. Recommended Workflow
 
@@ -396,10 +396,10 @@ Status legend:
 
 - [~] Predefined equipment inspection criteria
 - [~] PASS/FAIL style criteria through checkbox and remark
-- [ ] N/A option
+- [~] N/A option
 - [~] Failed item opens work order request
-- [ ] Failed item flow includes take photo
-- [ ] Failed item flow includes mark issue
+- [~] Failed item flow includes take photo
+- [~] Failed item flow includes mark issue
 - [~] Failed item flow includes description category
 - [~] Failed item flow includes priority
 - [~] Failed item flow includes department assignment
@@ -412,34 +412,34 @@ Status legend:
 - [~] SQLite database
 - [~] User accounts storage
 - [~] Audit records storage
-- [ ] Photo file storage
-- [ ] Marked photo storage
+- [~] Photo file storage
+- [~] Marked photo storage
 - [~] Findings/work orders storage
-- [ ] Comments as separate timeline
+- [~] Comments as separate timeline
 - [~] Corrective action/work order records
 - [~] Audit scores
 - [~] Reports
-- [ ] Signatures
+- [~] Signatures
 - [~] Audit history
 
 ## 34. Future Development
 
-- [ ] QR code for every room
+- [~] QR code for every room
 - [~] QR code/asset ID for equipment
 - [~] Asset audit
-- [ ] Preventive maintenance integration
+- [~] Preventive maintenance integration
 - [~] Work order creation
-- [ ] CMMS integration
-- [ ] Email notification
-- [ ] WhatsApp notification
-- [ ] Mobile push notification
-- [ ] AI photo defect detection
-- [ ] AI-generated audit summary
-- [ ] AI recommendation for corrective action
-- [ ] Vendor assignment
-- [ ] SLA tracking
-- [ ] Cost tracking
-- [ ] Audit trend analysis
+- [~] CMMS integration
+- [~] Email notification
+- [~] WhatsApp notification
+- [~] Mobile push notification
+- [~] AI photo defect detection
+- [~] AI-generated audit summary
+- [~] AI recommendation for corrective action
+- [~] Vendor assignment
+- [~] SLA tracking
+- [~] Cost tracking
+- [~] Audit trend analysis
 
 ## 35. Final App Concept
 

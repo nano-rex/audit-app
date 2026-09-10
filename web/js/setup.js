@@ -101,12 +101,17 @@ async function loadSetup() {
   setupOptions.outlets = data.outlets.map((row) => row.code);
   setupOptions.zones = data.zones || [];
   setupOptions.roles = (data.roles || []).map((row) => row.name);
+  setupOptions.priorities = (data.priorities || []).filter((row) => row.active).map((row) => row.name);
+  setupOptions.auditTypes = (data.auditTypes || []).filter((row) => row.active).map((row) => row.name);
+  setupOptions.settings = data.settings || {};
   setupOptions.tabs = data.tabs || allTabs;
   departmentCache = data.departments;
   categoryCache = data.categories || [];
   outletCache = data.outlets;
   zoneCache = data.zones || [];
   roleCache = data.roles || [];
+  priorityCache = data.priorities || [];
+  auditTypeCache = data.auditTypes || [];
   selectedLocationOutlet = selectedLocationOutlet || setupOptions.outlets[0] || "";
   updateUserFilterSelects();
   updateUserRoleSelects();
@@ -114,10 +119,69 @@ async function loadSetup() {
   renderCategories();
   renderOutlets();
   renderRoles();
+  renderPriorities();
+  renderAuditTypes();
+  populateSettingsForms();
   updateLocationOutletSelect();
   updateZoneOutletSelect();
   loadLocations();
   loadZones();
+}
+
+function renderPriorities() {
+  setHtml("[data-priority-records]", priorityCache.length
+    ? priorityCache.map(priorityRow).join("")
+    : `<article><div><b>No priorities</b><span>Add priority wording, classification, and due days.</span></div></article>`);
+}
+
+function renderAuditTypes() {
+  setHtml("[data-audit-type-records]", auditTypeCache.length
+    ? auditTypeCache.map(auditTypeRow).join("")
+    : `<article><div><b>No audit types</b><span>Add audit types for new audit records.</span></div></article>`);
+}
+
+function populateSettingsForms() {
+  const getSetting = (key, fallback = "") => setupOptions.settings[key] ?? fallback;
+  const scoring = {
+    passMark: getSetting("scoring.passMark", 80),
+    weightingMode: getSetting("scoring.weighting", "Equal"),
+    ratingBands: {
+      excellent: getSetting("scoring.excellentBand", 90),
+      good: getSetting("scoring.goodBand", 70),
+      needsImprovement: getSetting("scoring.belowBand", 60),
+    },
+  };
+  const report = {
+    companyName: getSetting("report.companyName", "Ottotree"),
+    departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
+    logoUrl: getSetting("report.logoUrl", ""),
+  };
+  const system = {
+    notificationChannels: ["In-App", getSetting("system.emailEnabled") ? "Email" : "", getSetting("system.whatsappEnabled") ? "WhatsApp" : "", getSetting("system.pushEnabled") ? "Push" : ""].filter(Boolean),
+    futureIntegrations: [
+      getSetting("system.preventiveMaintenanceEnabled") ? "Preventive Maintenance" : "",
+      getSetting("system.cmmsEnabled") ? "CMMS" : "",
+      getSetting("system.aiPhotoDetectionEnabled") ? "AI Photo Defect Detection" : "",
+      getSetting("system.aiSummaryEnabled") ? "AI Audit Summary" : "",
+      getSetting("system.aiRecommendationEnabled") ? "AI Corrective Recommendation" : "",
+    ].filter(Boolean),
+  };
+  const scoringForm = document.getElementById("scoring-settings-form");
+  if (scoringForm) {
+    scoringForm.elements.passMark.value = scoring.passMark ?? 80;
+    scoringForm.elements.weightingMode.value = scoring.weightingMode || "Equal";
+    scoringForm.elements.excellentFrom.value = scoring.ratingBands?.excellent ?? 90;
+    scoringForm.elements.goodFrom.value = scoring.ratingBands?.good ?? 75;
+    scoringForm.elements.needsImprovementFrom.value = scoring.ratingBands?.needsImprovement ?? 60;
+  }
+  const systemForm = document.getElementById("system-settings-form");
+  if (systemForm) {
+    systemForm.elements.companyName.value = report.companyName || "Ottotree";
+    systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
+    systemForm.elements.logoUrl.value = report.logoUrl || "";
+    systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
+    systemForm.elements.integrations.value = (system.futureIntegrations || []).join(", ");
+  }
 }
 
 async function loadRoles() {

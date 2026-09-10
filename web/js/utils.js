@@ -108,6 +108,12 @@ function updateSetupSelects() {
   document.querySelectorAll('select[name="category"]').forEach((select) => {
     updateSelectOptions(select, setupOptions.categories, false, "Select category");
   });
+  document.querySelectorAll('select[name="priority"]').forEach((select) => {
+    updateSelectOptions(select, setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], false, "Select priority");
+  });
+  document.querySelectorAll('select[name="auditType"]').forEach((select) => {
+    updateSelectOptions(select, setupOptions.auditTypes.length ? setupOptions.auditTypes : ["Routine Audit"], false, "Select audit type");
+  });
 }
 
 function updateLocationOutletSelect() {
@@ -150,9 +156,11 @@ function updateWorkOrderFilterSelects() {
   updateSelectOptions(document.getElementById("work-order-filter-outlet"), setupOptions.outlets, true, "All outlets");
   updateSelectOptions(document.getElementById("work-order-filter-department"), setupOptions.departments, true, "All departments");
   updateSelectOptions(document.getElementById("work-order-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("work-order-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
   if (workOrderFilters.outlet) document.getElementById("work-order-filter-outlet").value = workOrderFilters.outlet;
   if (workOrderFilters.department) document.getElementById("work-order-filter-department").value = workOrderFilters.department;
   if (workOrderFilters.category) document.getElementById("work-order-filter-category").value = workOrderFilters.category;
+  if (workOrderFilters.priority) document.getElementById("work-order-filter-priority").value = workOrderFilters.priority;
   const locations = [...new Set(workOrderCache
     .filter((row) => !workOrderFilters.outlet || row.outlet === workOrderFilters.outlet)
     .map((row) => row.zone || "")
@@ -165,15 +173,40 @@ function updateFindingFilterSelects() {
   updateSelectOptions(document.getElementById("finding-filter-outlet"), setupOptions.outlets, true, "All outlets");
   updateSelectOptions(document.getElementById("finding-filter-department"), setupOptions.departments, true, "All departments");
   updateSelectOptions(document.getElementById("finding-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("finding-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
   if (findingFilters.outlet) document.getElementById("finding-filter-outlet").value = findingFilters.outlet;
   if (findingFilters.department) document.getElementById("finding-filter-department").value = findingFilters.department;
   if (findingFilters.category) document.getElementById("finding-filter-category").value = findingFilters.category;
+  if (findingFilters.priority) document.getElementById("finding-filter-priority").value = findingFilters.priority;
   const locations = [...new Set(findingCache
     .filter((row) => !findingFilters.outlet || row.outlet === findingFilters.outlet)
     .map((row) => row.location || "")
     .filter(Boolean))].sort();
   updateSelectOptions(document.getElementById("finding-filter-location"), locations, true, "All locations");
   document.getElementById("finding-filter-location").value = findingFilters.location;
+}
+
+function updateHistoryFilterSelects() {
+  updateSelectOptions(document.getElementById("history-filter-outlet"), setupOptions.outlets, true, "All outlets");
+  updateSelectOptions(document.getElementById("history-filter-department"), setupOptions.departments, true, "All departments");
+  updateSelectOptions(document.getElementById("history-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("history-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
+  const locations = [...new Set(inspectionHistoryCache.flatMap((session) =>
+    (session.locations || []).filter(Boolean)
+  ))].sort();
+  updateSelectOptions(document.getElementById("history-filter-location"), locations, true, "All locations");
+  const fields = {
+    "history-filter-outlet": historyFilters.outlet,
+    "history-filter-department": historyFilters.department,
+    "history-filter-category": historyFilters.category,
+    "history-filter-priority": historyFilters.priority,
+    "history-filter-location": historyFilters.location,
+    "history-filter-status": historyFilters.status,
+  };
+  Object.entries(fields).forEach(([id, value]) => {
+    const node = document.getElementById(id);
+    if (node) node.value = value || "";
+  });
 }
 
 async function updateEquipmentLocationSelect(selected = "") {

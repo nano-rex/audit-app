@@ -1,0 +1,14 @@
+    <section id="notifications" class="tab-panel">
+      <section class="panel filter">
+        <h2>Notifications</h2>
+        <label>Search<input id="notification-search" placeholder="Search notifications"></label>
+        <label>Status<select id="notification-filter-status"><option value="">All statuses</option><option>Unread</option><option>Read</option></select></label>
+        <button class="outline" type="button" data-refresh-notifications>Refresh</button>
+      </section>
+      <section class="work-grid">
+        <article class="panel">
+          <h2>Notification Center</h2>
+          <div class="list compact-list" data-notifications></div>
+        </article>
+      </section>
+    </section>

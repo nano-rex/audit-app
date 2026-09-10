@@ -7,9 +7,13 @@
         <label>Location<select name="zone"></select></label>
         <label>Department<select name="requestType"></select></label>
         <label>Category<select name="category"></select></label>
-        <label>Priority<select name="priority"><option>High</option><option>Medium</option><option>Low</option></select></label>
-        <label>Status<select name="status"><option>Assigned</option><option>In Progress</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
+        <label>Priority<select name="priority"></select></label>
+        <label>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
         <label>Assignee<input name="assignee" placeholder="Technical Support"></label>
+        <label>Due Date<input name="dueDate" type="date"></label>
+        <label>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
+        <label>SLA Status<select name="slaStatus"><option value="">Auto</option><option>On Track</option><option>Due Soon</option><option>Overdue</option><option>Completed</option></select></label>
+        <label>Cost<input name="cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
       </div>
       <label>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
       <label>Description<textarea name="description" placeholder="Troubleshooting detail, photo note, or outlet confirmation needed"></textarea></label>
@@ -32,6 +36,12 @@
           <label>Closed Date<input name="closedAt" type="date"></label>
         </div>
         <label>Verification Remark<textarea name="verificationRemark" placeholder="Acceptance note, rejection reason, or close-out comment"></textarea></label>
+      </section>
+      <section class="form-section" data-work-order-comments-section hidden>
+        <h3>Comments Timeline</h3>
+        <div class="list compact-list" data-work-order-comments></div>
+        <label>Add Comment<textarea name="timelineComment" placeholder="Add a follow-up note"></textarea></label>
+        <button class="outline" type="button" data-add-work-order-comment>Add Comment</button>
       </section>
       <button class="primary" value="default">Save Work Order</button>
     </form>

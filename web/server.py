@@ -42,6 +42,39 @@ DEFAULT_INSPECTION_CRITERIA = [
     "Operational during inspection",
     "Label, cable, or accessory is complete",
 ]
+DEFAULT_PRIORITY_LEVELS = [
+    {"name": "Priority", "classification": "Priority", "dueDays": 3},
+    {"name": "Non-Priority", "classification": "Non-Priority", "dueDays": 14},
+    {"name": "High", "classification": "Priority", "dueDays": 3},
+    {"name": "Medium", "classification": "Non-Priority", "dueDays": 14},
+    {"name": "Low", "classification": "Non-Priority", "dueDays": 14},
+]
+DEFAULT_AUDIT_TYPES = [
+    {"name": "Standard", "description": "Full outlet inspection", "active": True},
+    {"name": "Quick", "description": "Short follow-up inspection", "active": True},
+]
+DEFAULT_SCORING_SETTINGS = {
+    "passMark": 70,
+    "weighting": "Equal",
+    "excellentBand": 90,
+    "goodBand": 70,
+    "belowBand": 60,
+}
+DEFAULT_REPORT_SETTINGS = {
+    "companyName": "Ottotree",
+    "departmentHeader": "Facilities Department",
+    "logoText": "OTTOTREE",
+}
+DEFAULT_SYSTEM_SETTINGS = {
+    "emailEnabled": False,
+    "whatsappEnabled": False,
+    "pushEnabled": False,
+    "cmmsEnabled": False,
+    "preventiveMaintenanceEnabled": False,
+    "aiPhotoDetectionEnabled": False,
+    "aiSummaryEnabled": False,
+    "aiRecommendationEnabled": False,
+}
 APP_TABS = (
     ("today", "To-do"),
     ("inspections", "Inspections"),
@@ -54,6 +87,9 @@ APP_TABS = (
     ("outlets", "Outlets"),
     ("users", "Users"),
     ("roles", "Roles"),
+    ("corrective-actions", "Corrective Actions"),
+    ("notifications", "Notifications"),
+    ("settings", "Settings"),
 )
 INCLUDE_PATTERN = re.compile(r"<!--\s*include:\s*([a-zA-Z0-9_./-]+)\s*-->")
 SESSION_TOKENS = {}
@@ -66,6 +102,13 @@ def today_date():
 
 def normalize_audit_date(value):
     return today_date() if not value or value == "Today" else value
+
+
+def parse_date(value):
+    try:
+        return datetime.strptime(normalize_audit_date(value), "%Y-%m-%d")
+    except (TypeError, ValueError):
+        return datetime.now()
 
 
 def record_year(value=None):
@@ -138,6 +181,50 @@ def workflow_dates(payload):
     if status not in ("Verified", "Closed"):
         closed_at = ""
     return status, verified_at, closed_at
+
+
+def read_setting(db, key, fallback=None):
+    row = db.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    if not row:
+        return fallback
+    try:
+        return json.loads(row["value"])
+    except json.JSONDecodeError:
+        return row["value"]
+
+
+def calculate_due_date(created_at, due_days):
+    base = datetime.fromtimestamp((created_at or int(time.time() * 1000)) / 1000)
+    return datetime.fromtimestamp(base.timestamp() + int(due_days) * 86400).strftime("%Y-%m-%d")
+
+
+def priority_due_date(db, priority, created_at):
+    row = db.execute("SELECT due_days FROM priority_levels WHERE name = ? AND active = 1", (priority,)).fetchone()
+    days = int(row["due_days"]) if row else (3 if priority in ("High", "Priority") else 14)
+    return calculate_due_date(created_at, days)
+
+
+def sla_status(status, due_date):
+    if status in ("Completed", "Verified", "Closed"):
+        return "Completed"
+    if not due_date:
+        return "No due date"
+    days = (parse_date(due_date) - parse_date(today_date())).days
+    if days < 0:
+        return "Overdue"
+    if days <= 3:
+        return "Due Soon"
+    return "On Track"
+
+
+def create_notification(db, title, message, channel="In-App", related_type=None, related_id=None):
+    db.execute(
+        """
+        INSERT INTO notifications (title, message, channel, status, related_type, related_id, created_at)
+        VALUES (?, ?, ?, 'Unread', ?, ?, ?)
+        """,
+        (title, message, channel, related_type, related_id, int(time.time() * 1000)),
+    )
 
 
 def image_label(image):
@@ -370,6 +457,9 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 outlet_code TEXT NOT NULL,
                 name TEXT NOT NULL,
+                floor TEXT,
+                area TEXT,
+                display_order INTEGER NOT NULL DEFAULT 0,
                 size TEXT,
                 created_at INTEGER NOT NULL,
                 UNIQUE(outlet_code, name)
@@ -408,6 +498,49 @@ def init_db():
                 permissions_json TEXT NOT NULL,
                 protected INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS priority_levels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                classification TEXT NOT NULL,
+                due_days INTEGER NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_types (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_type TEXT NOT NULL,
+                record_id INTEGER NOT NULL,
+                comment TEXT NOT NULL,
+                author TEXT,
+                created_at INTEGER NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                channel TEXT NOT NULL,
+                status TEXT NOT NULL,
+                related_type TEXT,
+                related_id INTEGER,
+                created_at INTEGER NOT NULL,
+                read_at INTEGER
             );
 
             CREATE TABLE IF NOT EXISTS user_login_activity (
@@ -451,6 +584,16 @@ def init_db():
         ensure_column(db, "roles", "description", "TEXT")
         ensure_column(db, "roles", "permissions_json", "TEXT")
         ensure_column(db, "roles", "protected", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "locations", "floor", "TEXT")
+        ensure_column(db, "locations", "area", "TEXT")
+        ensure_column(db, "locations", "display_order", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "work_orders", "due_date", "TEXT")
+        ensure_column(db, "work_orders", "vendor", "TEXT")
+        ensure_column(db, "work_orders", "sla_status", "TEXT")
+        ensure_column(db, "work_orders", "cost", "REAL NOT NULL DEFAULT 0")
+        ensure_column(db, "findings", "cause", "TEXT")
+        ensure_column(db, "findings", "recommendation", "TEXT")
+        ensure_column(db, "findings", "required_action", "TEXT")
         ensure_column(db, "schedules", "zone", "TEXT")
         ensure_column(db, "equipment", "name", "TEXT")
         ensure_column(db, "equipment", "description", "TEXT")
@@ -521,6 +664,9 @@ def init_db():
         seed_locations(db)
         seed_zones(db)
         seed_roles(db)
+        seed_priority_levels(db)
+        seed_audit_types(db)
+        seed_settings(db)
         seed_users(db)
         default_department = first_department(db)
         if default_department:
@@ -718,6 +864,11 @@ def seed_users(db):
 
 def seed_roles(db):
     now = int(time.time() * 1000)
+    role_rows = [
+        ("Auditor", "Field inspection access", ["today", "inspections", "equipment", "reports"]),
+        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
+        ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
+    ]
     db.execute(
         """
         INSERT OR IGNORE INTO roles (name, description, permissions_json, protected, created_at)
@@ -729,6 +880,51 @@ def seed_roles(db):
         "UPDATE roles SET permissions_json = ?, protected = 1 WHERE name = 'Admin'",
         (json.dumps([tab[0] for tab in APP_TABS]),),
     )
+    for name, description, permissions in role_rows:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO roles (name, description, permissions_json, protected, created_at)
+            VALUES (?, ?, ?, 0, ?)
+            """,
+            (name, description, json.dumps(permissions), now),
+        )
+
+
+def seed_priority_levels(db):
+    now = int(time.time() * 1000)
+    for row in DEFAULT_PRIORITY_LEVELS:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO priority_levels (name, classification, due_days, active, created_at)
+            VALUES (?, ?, ?, 1, ?)
+            """,
+            (row["name"], row["classification"], row["dueDays"], now),
+        )
+
+
+def seed_audit_types(db):
+    now = int(time.time() * 1000)
+    for row in DEFAULT_AUDIT_TYPES:
+        db.execute(
+            """
+            INSERT OR IGNORE INTO audit_types (name, description, active, created_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (row["name"], row["description"], 1 if row["active"] else 0, now),
+        )
+
+
+def seed_settings(db):
+    settings = {
+        **{f"scoring.{key}": value for key, value in DEFAULT_SCORING_SETTINGS.items()},
+        **{f"report.{key}": value for key, value in DEFAULT_REPORT_SETTINGS.items()},
+        **{f"system.{key}": value for key, value in DEFAULT_SYSTEM_SETTINGS.items()},
+    }
+    for key, value in settings.items():
+        db.execute(
+            "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
+            (key, json.dumps(value)),
+        )
 
 
 def rating(score):
@@ -839,7 +1035,8 @@ def dashboard(unit):
             SELECT id, work_order_ref, outlet, zone, request_type, category, priority, title,
                    description, assignee, pic, status, action_taken, completion_date,
                    completion_remark, completion_photo, verified_by, verified_at,
-                   verification_remark, closed_at, outlet_confirmed
+                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
+                   outlet_confirmed, created_at
             FROM work_orders
             WHERE {work_order_where}
             ORDER BY
@@ -864,18 +1061,66 @@ def dashboard(unit):
             """,
             equipment_params,
         ).fetchall()
+        all_work_orders = [dict(row) for row in db.execute(
+            f"""
+            SELECT id, outlet, zone, request_type, category, priority, status, due_date, created_at
+            FROM work_orders
+            WHERE {work_order_where}
+            """,
+            work_order_params,
+        ).fetchall()]
+        findings = [dict(row) for row in db.execute(
+            """
+            SELECT outlet, location, category, priority, assigned_department, pic, status, created_at
+            FROM findings
+            ORDER BY created_at DESC
+            """
+        ).fetchall()]
+        monthly_trend = [dict(row) for row in db.execute(
+            f"""
+            SELECT substr(audit_date, 1, 7) month, COUNT(*) audits, COALESCE(ROUND(AVG(score)), 0) average_score
+            FROM audits
+            WHERE {audit_where}
+            GROUP BY substr(audit_date, 1, 7)
+            ORDER BY month
+            """,
+            audit_params,
+        ).fetchall()]
 
     outlet_rows = [dict(row) for row in outlets]
     recent_rows = [dict(row) | {"rating": rating(row["score"])} for row in recent]
     assigned = kpi["assigned"] or 0
     completed = kpi["completed"] or 0
     response_rate = round((completed * 100 / assigned) if assigned else 0)
+    completed_audits = int(stats["total"] or 0)
+    pending_audits = sum(1 for row in inspection_sessions()["items"] if row["status"] != "Completed")
+    closed_statuses = {"Completed", "Verified", "Closed"}
+    open_work_orders = [row for row in all_work_orders if row["status"] not in closed_statuses]
+    completed_work_orders = [row for row in all_work_orders if row["status"] in closed_statuses]
+    priority_findings = [row for row in findings if row["priority"] in ("High", "Priority")]
+    non_priority_findings = [row for row in findings if row["priority"] not in ("High", "Priority")]
+    overdue_orders = [row for row in all_work_orders if sla_status(row["status"], row.get("due_date")) == "Overdue"]
+    due_soon_orders = [row for row in all_work_orders if sla_status(row["status"], row.get("due_date")) == "Due Soon"]
+    def grouped(rows, key):
+        counts = {}
+        for row in rows:
+            label = row.get(key) or "Unassigned"
+            counts[label] = counts.get(label, 0) + 1
+        return [{"label": label, "count": count} for label, count in sorted(counts.items())]
     return {
         "stats": {
             "total": stats["total"] or 0,
             "average": stats["average"] or 0,
             "excellent": stats["excellent"] or 0,
             "below60": stats["below60"] or 0,
+            "auditsCompleted": completed_audits,
+            "auditsPending": pending_audits,
+            "priorityIssues": len(priority_findings),
+            "nonPriorityIssues": len(non_priority_findings),
+            "outstandingIssues": len(open_work_orders),
+            "completedCorrectiveActions": len(completed_work_orders),
+            "overdueFindings": len(overdue_orders),
+            "completionRate": round((len(completed_work_orders) * 100 / len(all_work_orders)) if all_work_orders else 0),
         },
         "outlets": outlet_rows,
         "recent": recent_rows,
@@ -890,9 +1135,29 @@ def dashboard(unit):
             "scheduled": [dict(row) for row in schedules],
             "pendingUploads": 0,
             "followUps": len(work_orders),
+            "dueSoon": len(due_soon_orders),
+            "overdue": len(overdue_orders),
         },
         "workOrders": [dict(row) for row in work_orders],
         "equipment": [dict(row) for row in equipment_rows],
+        "charts": {
+            "priorityVsNonPriority": [
+                {"label": "Priority", "count": len(priority_findings)},
+                {"label": "Non-Priority", "count": len(non_priority_findings)},
+            ],
+            "findingsByDepartment": grouped(findings, "assigned_department"),
+            "findingsByArea": grouped(findings, "location"),
+            "findingsByCategory": grouped(findings, "category"),
+            "findingsByPriority": grouped(findings, "priority"),
+            "monthlyAuditTrend": monthly_trend,
+            "findingsTrend": grouped(
+                [{"month": datetime.fromtimestamp((row.get("created_at") or 0) / 1000).strftime("%Y-%m")} for row in findings],
+                "month",
+            ),
+            "departmentPerformance": grouped(all_work_orders, "request_type"),
+            "locationPerformance": grouped(all_work_orders, "zone"),
+            "categoryPerformance": grouped(all_work_orders, "category"),
+        },
     }
 
 
@@ -906,13 +1171,23 @@ def report(unit):
         "unit": unit,
         "monthlySummary": {
             "audits": data["stats"]["total"],
+            "auditsCompleted": data["stats"]["auditsCompleted"],
+            "auditsPending": data["stats"]["auditsPending"],
             "averageScore": data["stats"]["average"],
             "openWorkOrders": len(data["workOrders"]),
+            "totalFindings": data["stats"]["priorityIssues"] + data["stats"]["nonPriorityIssues"],
+            "priorityFindings": data["stats"]["priorityIssues"],
+            "nonPriorityFindings": data["stats"]["nonPriorityIssues"],
+            "completedCorrectiveActions": data["stats"]["completedCorrectiveActions"],
+            "outstandingFindings": data["stats"]["outstandingIssues"],
+            "overdueFindings": data["stats"]["overdueFindings"],
+            "completionRate": data["stats"]["completionRate"],
         },
         "rankings": data["rankings"],
         "criticalIssues": critical_orders,
         "kpi": data["kpi"],
         "recent": data["recent"],
+        "charts": data["charts"],
     }
 
 
@@ -922,9 +1197,9 @@ def report_csv(unit):
     writer = csv.writer(out)
     writer.writerow(["Ottotree Audit Report", unit])
     writer.writerow([])
-    writer.writerow(["Audits", "Average Score", "Open Work Orders"])
+    writer.writerow(["Audits", "Completed", "Pending", "Average Score", "Open Work Orders", "Total Findings", "Priority", "Non-Priority", "Completion Rate"])
     summary = data["monthlySummary"]
-    writer.writerow([summary["audits"], summary["averageScore"], summary["openWorkOrders"]])
+    writer.writerow([summary["audits"], summary["auditsCompleted"], summary["auditsPending"], summary["averageScore"], summary["openWorkOrders"], summary["totalFindings"], summary["priorityFindings"], summary["nonPriorityFindings"], str(summary["completionRate"]) + "%"])
     writer.writerow([])
     writer.writerow(["KPI"])
     writer.writerow(["Assigned Tasks", "Completed", "Pending", "Response Rate"])
@@ -940,6 +1215,11 @@ def report_csv(unit):
     writer.writerow(["ID", "Reference", "Outlet", "Zone", "Category", "Priority", "Title", "Assignee", "Status"])
     for row in data["criticalIssues"]:
         writer.writerow([row["id"], row.get("work_order_ref", ""), row["outlet"], row["zone"], row.get("category", ""), row["priority"], row["title"], row["assignee"], row["status"]])
+    writer.writerow([])
+    writer.writerow(["Detailed Findings"])
+    writer.writerow(["Reference", "Audit", "Outlet", "Location", "Category", "Priority", "Department", "PIC", "Status", "Comment"])
+    for row in finding_items()["items"]:
+        writer.writerow([row.get("finding_ref", ""), row.get("audit_ref", ""), row.get("outlet", ""), row.get("location", ""), row.get("category", ""), row.get("priority", ""), row.get("assigned_department", ""), row.get("pic", ""), row.get("status", ""), row.get("comment", "")])
     return out.getvalue().encode("utf-8")
 
 
@@ -975,11 +1255,28 @@ def setup_records():
         roles = [dict(row) for row in db.execute(
             "SELECT id, name, description, permissions_json, protected FROM roles ORDER BY protected DESC, name"
         ).fetchall()]
+        priorities = [dict(row) for row in db.execute(
+            "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
+        ).fetchall()]
+        audit_types = [dict(row) for row in db.execute(
+            "SELECT id, name, description, active FROM audit_types ORDER BY name"
+        ).fetchall()]
+        settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings ORDER BY key").fetchall()}
     for zone in zones:
         zone["locations"] = json.loads(zone.pop("locations_json") or "[]")
     for role in roles:
         role["permissions"] = json.loads(role.pop("permissions_json") or "[]")
-    return {"departments": departments, "outlets": outlets, "zones": zones, "categories": categories, "roles": roles, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
+    return {
+        "departments": departments,
+        "outlets": outlets,
+        "zones": zones,
+        "categories": categories,
+        "roles": roles,
+        "priorities": priorities,
+        "auditTypes": audit_types,
+        "settings": settings,
+        "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS],
+    }
 
 
 def role_items():
@@ -993,6 +1290,50 @@ def role_items():
         item["permissions"] = json.loads(item.pop("permissions_json") or "[]")
         items.append(item)
     return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
+
+
+def notifications():
+    with connect() as db:
+        rows = db.execute(
+            """
+            SELECT id, title, message, channel, status, related_type, related_id, created_at, read_at
+            FROM notifications
+            ORDER BY created_at DESC, id DESC
+            LIMIT 100
+            """
+        ).fetchall()
+    return {"items": [dict(row) for row in rows]}
+
+
+def comments(record_type="", record_id=0):
+    where = ""
+    params = ()
+    if record_type and record_id:
+        where = "WHERE record_type = ? AND record_id = ?"
+        params = (record_type, int(record_id))
+    with connect() as db:
+        rows = db.execute(
+            f"""
+            SELECT id, record_type, record_id, comment, author, created_at
+            FROM comments
+            {where}
+            ORDER BY created_at DESC, id DESC
+            """,
+            params,
+        ).fetchall()
+    return {"items": [dict(row) for row in rows]}
+
+
+def report_xls(unit):
+    data = report(unit)
+    rows = [
+        "<table>",
+        "<tr><th colspan='2'>Ottotree Audit Report</th></tr>",
+    ]
+    for key, value in data["monthlySummary"].items():
+        rows.append(f"<tr><td>{key}</td><td>{value}</td></tr>")
+    rows.append("</table>")
+    return "\n".join(rows).encode("utf-8")
 
 
 def users():
@@ -1012,7 +1353,8 @@ def locations(outlet):
     with connect() as db:
         rows = db.execute(
             """
-            SELECT locations.id, locations.outlet_code, locations.name, locations.size,
+            SELECT locations.id, locations.outlet_code, locations.name, locations.floor,
+                   locations.area, locations.display_order, locations.size,
                    GROUP_CONCAT(COALESCE(equipment.name, equipment.asset_id), ', ') equipment
             FROM locations
             LEFT JOIN equipment
@@ -1020,7 +1362,7 @@ def locations(outlet):
              AND equipment.location = locations.name
             WHERE locations.outlet_code = ?
             GROUP BY locations.id
-            ORDER BY locations.name
+            ORDER BY locations.display_order, locations.floor, locations.area, locations.name
             """,
             (outlet,),
         ).fetchall()
@@ -1084,7 +1426,8 @@ def work_order_items():
             SELECT id, work_order_ref, business_unit, outlet, zone, request_type, category, priority, title,
                    description, assignee, pic, status, action_taken, completion_date,
                    completion_remark, completion_photo, verified_by, verified_at,
-                   verification_remark, closed_at, outlet_confirmed, source_finding_id
+                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
+                   outlet_confirmed, source_finding_id
             FROM work_orders
             ORDER BY
                 CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
@@ -1169,15 +1512,16 @@ def inspection_progress(items):
     complete = 0
     for item in items:
         passed = bool(item.get("passed"))
+        not_applicable = bool(item.get("notApplicable"))
         notes = (item.get("notes") or "").strip()
-        if passed or notes:
+        if passed or not_applicable or notes:
             complete += 1
     return round(complete * 100 / len(items))
 
 
 def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
-    score_values = [100 if item.get("passed") else 0 for item in items]
+    score_values = [100 if item.get("passed") else 0 for item in items if not item.get("notApplicable")]
     total_score = round(sum(score_values) / len(score_values)) if score_values else 0
     cursor = db.execute(
         """
@@ -1211,13 +1555,13 @@ def finalize_inspection(db, session_id, payload, now):
                 audit_id,
                 item.get("section", "Equipment"),
                 item.get("item", "Checklist item"),
-                100 if item.get("passed") else 0,
+                100 if item.get("passed") or item.get("notApplicable") else 0,
                 item.get("notes", ""),
                 ", ".join(image_labels(item.get("images"))),
             ),
         )
         inspection_item_id = cursor.lastrowid
-        if not item.get("passed"):
+        if not item.get("passed") and not item.get("notApplicable"):
             finding_cursor = db.execute(
                 """
                 INSERT INTO findings
@@ -1278,7 +1622,7 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, created_at, updated_at
+            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_json, created_at, updated_at
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
@@ -1286,7 +1630,14 @@ def inspection_sessions():
     items = []
     for row in rows:
         item = dict(row)
-        item["inspection_name"] = item.get("inspection_name") or inspection_name(item)
+        session_items = json.loads(item.pop("items_json") or "[]")
+        item["inspection_name"] = normalized_inspection_name(item)
+        item["locations"] = sorted({entry.get("location", "") for entry in session_items if entry.get("location")})
+        item["categories"] = sorted({entry.get("category", "") for entry in session_items if entry.get("category")})
+        item["priorities"] = sorted({entry.get("priority", "") for entry in session_items if entry.get("priority")})
+        item["departments"] = sorted({entry.get("assignedDepartment", "") or entry.get("department", "") for entry in session_items if entry.get("assignedDepartment") or entry.get("department")})
+        item["pics"] = sorted({entry.get("pic", "") for entry in session_items if entry.get("pic")})
+        item["findings_count"] = sum(1 for entry in session_items if not entry.get("passed") and not entry.get("notApplicable"))
         items.append(item)
     return {"items": items}
 
@@ -1314,7 +1665,7 @@ def inspection_session(session_id):
     data = dict(row)
     data["items"] = json.loads(data.pop("items_json") or "[]")
     data["signatures"] = json.loads(data.pop("signatures_json") or "{}")
-    data["inspection_name"] = data.get("inspection_name") or inspection_name(data)
+    data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else ""
     data["findings"] = [dict(item) for item in findings]
     return data
@@ -1326,11 +1677,19 @@ def inspection_name(session):
     return f"{outlet}_{date}_{session.get('id')}"
 
 
+def normalized_inspection_name(session):
+    name = session.get("inspection_name") or inspection_name(session)
+    if "_Today_" in name:
+        return inspection_name(session)
+    return name
+
+
 def inspection_pdf(session):
     items = session["items"]
     total_items = len(items)
     passed_items = sum(1 for item in items if item.get("passed"))
-    failed_items = total_items - passed_items
+    na_items = sum(1 for item in items if item.get("notApplicable"))
+    failed_items = total_items - passed_items - na_items
     score = round((passed_items * 100 / total_items) if total_items else 0)
     findings = session.get("findings") or []
     priority_findings = sum(1 for item in findings if item.get("priority") == "High")
@@ -1351,6 +1710,7 @@ def inspection_pdf(session):
         "SUMMARY",
         f"Total checklist items: {total_items}",
         f"Passed: {passed_items}",
+        f"N/A: {na_items}",
         f"Failed: {failed_items}",
         f"Total findings: {len(findings)}",
         f"Priority findings: {priority_findings}",
@@ -1360,7 +1720,7 @@ def inspection_pdf(session):
         "CHECKLIST",
     ]
     for item in items:
-        status = "PASS" if item.get("passed") else "FAIL"
+        status = "N/A" if item.get("notApplicable") else ("PASS" if item.get("passed") else "FAIL")
         location = item.get("location") or session["zone"]
         category = item.get("category") or "No category"
         lines.append(f"{status} - {location} - {category} - {item.get('section', 'Equipment')} - {item.get('item', '')}")
@@ -1368,6 +1728,9 @@ def inspection_pdf(session):
             lines.append(f"Remark: {item['notes']}")
         if item.get("images"):
             lines.append("Original photos: " + ", ".join(image_labels(item["images"])))
+            marked = [image.get("markedName") or image.get("markedDataUrl") for image in item["images"] if isinstance(image, dict) and image.get("markedDataUrl")]
+            if marked:
+                lines.append("Marked photos: " + ", ".join(marked))
     if findings:
         lines.extend(["", "FINDINGS AND CORRECTIVE ACTIONS"])
     for item in findings:
@@ -1537,6 +1900,10 @@ class Handler(BaseHTTPRequestHandler):
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.download(report_csv(unit), "text/csv", "ottotree-report.csv")
             return
+        if parsed.path == "/api/reports/export.xls":
+            unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
+            self.download(report_xls(unit), "application/vnd.ms-excel", "ottotree-report.xls")
+            return
         if parsed.path == "/api/admin":
             self.json(admin_records())
             return
@@ -1549,12 +1916,23 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/users":
             self.json(users())
             return
+        if parsed.path == "/api/notifications":
+            self.json(notifications())
+            return
+        if parsed.path == "/api/comments":
+            params = parse_qs(parsed.query)
+            self.json(comments(params.get("type", [""])[0], params.get("id", ["0"])[0]))
+            return
         self.static_file(parsed.path)
 
     def do_POST(self):
         parsed = urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0"))
-        payload = json.loads(self.rfile.read(length) or b"{}")
+        try:
+            payload = json.loads(self.rfile.read(length) or b"{}")
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON body")
+            return
         now = int(time.time() * 1000)
         if parsed.path == "/api/auth/login":
             email = (payload.get("email") or "").strip().lower()
@@ -1851,13 +2229,17 @@ class Handler(BaseHTTPRequestHandler):
                 )
             elif parsed.path == "/api/work-orders":
                 status, verified_at, closed_at = workflow_dates(payload)
+                priority = payload.get("priority", "Medium")
+                due_date = payload.get("dueDate") or priority_due_date(db, priority, now)
+                current_sla_status = payload.get("slaStatus") or sla_status(status, due_date)
                 cursor = db.execute(
                     """
                     INSERT INTO work_orders
                     (business_unit, outlet, zone, request_type, category, priority, title, description,
                      assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo,
-                     verified_by, verified_at, verification_remark, closed_at, outlet_confirmed, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+                     verified_by, verified_at, verification_remark, closed_at, due_date, vendor, sla_status,
+                     cost, outlet_confirmed, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
                         payload.get("businessUnit", "Ottotree"),
@@ -1865,7 +2247,7 @@ class Handler(BaseHTTPRequestHandler):
                         payload.get("zone", "Unassigned"),
                         payload.get("requestType") or default_department,
                         payload.get("category") or default_category,
-                        payload.get("priority", "Medium"),
+                        priority,
                         payload.get("title", "Work order"),
                         payload.get("description", ""),
                         payload.get("assignee", "Technical Support"),
@@ -1879,6 +2261,10 @@ class Handler(BaseHTTPRequestHandler):
                         verified_at,
                         payload.get("verificationRemark", ""),
                         closed_at,
+                        due_date,
+                        payload.get("vendor", ""),
+                        current_sla_status,
+                        float(payload.get("cost") or 0),
                         now,
                     ),
                 )
@@ -1886,6 +2272,11 @@ class Handler(BaseHTTPRequestHandler):
                     "UPDATE work_orders SET work_order_ref = ? WHERE id = ?",
                     (work_order_ref(cursor.lastrowid), cursor.lastrowid),
                 )
+                create_notification(db, "Work order assigned", payload.get("title", "Work order"), "In-App", "work_order", cursor.lastrowid)
+                if current_sla_status == "Due Soon":
+                    create_notification(db, "Work order due soon", f"{payload.get('title', 'Work order')} is due on {due_date}", "In-App", "work_order", cursor.lastrowid)
+                if current_sla_status == "Overdue":
+                    create_notification(db, "Work order overdue", f"{payload.get('title', 'Work order')} passed its due date {due_date}", "In-App", "work_order", cursor.lastrowid)
             elif parsed.path == "/api/equipment":
                 db.execute(
                     """
@@ -1925,12 +2316,15 @@ class Handler(BaseHTTPRequestHandler):
                 outlet = payload.get("outlet") or default_outlet
                 db.execute(
                     """
-                    INSERT OR REPLACE INTO locations (outlet_code, name, size, created_at)
-                    VALUES (?, ?, ?, ?)
+                    INSERT OR REPLACE INTO locations (outlet_code, name, floor, area, display_order, size, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         outlet,
                         payload.get("name", "New Location"),
+                        payload.get("floor", ""),
+                        payload.get("area", ""),
+                        int(payload.get("displayOrder") or 0),
                         payload.get("size", ""),
                         now,
                     ),
@@ -2053,6 +2447,59 @@ class Handler(BaseHTTPRequestHandler):
                         now,
                     ),
                 )
+            elif parsed.path == "/api/setup/priorities":
+                db.execute(
+                    """
+                    INSERT OR REPLACE INTO priority_levels (name, classification, due_days, active, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        payload.get("name", "Priority"),
+                        payload.get("classification", "Priority"),
+                        int(payload.get("dueDays") or 0),
+                        1 if payload.get("active", True) else 0,
+                        now,
+                    ),
+                )
+            elif parsed.path == "/api/setup/audit-types":
+                db.execute(
+                    """
+                    INSERT OR REPLACE INTO audit_types (name, description, active, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        payload.get("name", "Standard"),
+                        payload.get("description", ""),
+                        1 if payload.get("active", True) else 0,
+                        now,
+                    ),
+                )
+            elif parsed.path == "/api/settings":
+                for key, value in (payload.get("settings") or {}).items():
+                    db.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+            elif parsed.path == "/api/comments":
+                db.execute(
+                    """
+                    INSERT INTO comments (record_type, record_id, comment, author, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        payload.get("recordType", "general"),
+                        int(payload.get("recordId") or 0),
+                        payload.get("comment", ""),
+                        payload.get("author", self.current_user().get("name", "")),
+                        now,
+                    ),
+                )
+            elif parsed.path == "/api/notifications":
+                create_notification(
+                    db,
+                    payload.get("title", "Notification"),
+                    payload.get("message", ""),
+                    payload.get("channel", "In-App"),
+                    payload.get("relatedType", ""),
+                    int(payload.get("relatedId") or 0),
+                )
             else:
                 self.send_error(404)
                 return
@@ -2061,7 +2508,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_PATCH(self):
         parsed = urlparse(self.path)
         length = int(self.headers.get("Content-Length", "0"))
-        payload = json.loads(self.rfile.read(length) or b"{}")
+        try:
+            payload = json.loads(self.rfile.read(length) or b"{}")
+        except json.JSONDecodeError:
+            self.send_error(400, "Invalid JSON body")
+            return
         if not self.require_auth(parsed):
             return
 
@@ -2189,6 +2640,73 @@ class Handler(BaseHTTPRequestHandler):
                         json.dumps(payload.get("permissions") or []),
                         int(role_id),
                     ),
+                )
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+
+        if parsed.path.startswith("/api/setup/priorities/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute(
+                    """
+                    UPDATE priority_levels
+                    SET name = ?, classification = ?, due_days = ?, active = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        payload.get("name", "Priority"),
+                        payload.get("classification", "Priority"),
+                        int(payload.get("dueDays") or 0),
+                        1 if payload.get("active", True) else 0,
+                        int(record_id),
+                    ),
+                )
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+
+        if parsed.path.startswith("/api/setup/audit-types/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute(
+                    """
+                    UPDATE audit_types
+                    SET name = ?, description = ?, active = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        payload.get("name", "Standard"),
+                        payload.get("description", ""),
+                        1 if payload.get("active", True) else 0,
+                        int(record_id),
+                    ),
+                )
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+
+        if parsed.path.startswith("/api/notifications/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute(
+                    "UPDATE notifications SET status = 'Read', read_at = ? WHERE id = ?",
+                    (int(time.time() * 1000), int(record_id)),
                 )
                 if cursor.rowcount == 0:
                     self.send_error(404)
@@ -2326,13 +2844,17 @@ class Handler(BaseHTTPRequestHandler):
                 return
             with connect() as db:
                 status, verified_at, closed_at = workflow_dates(payload)
+                priority = payload.get("priority", "Medium")
+                due_date = payload.get("dueDate") or priority_due_date(db, priority, int(time.time() * 1000))
+                current_sla_status = payload.get("slaStatus") or sla_status(status, due_date)
                 cursor = db.execute(
                     """
                     UPDATE work_orders
                     SET business_unit = ?, outlet = ?, zone = ?, request_type = ?, category = ?,
                         priority = ?, title = ?, description = ?, assignee = ?, pic = ?, status = ?,
                         action_taken = ?, completion_date = ?, completion_remark = ?, completion_photo = ?,
-                        verified_by = ?, verified_at = ?, verification_remark = ?, closed_at = ?
+                        verified_by = ?, verified_at = ?, verification_remark = ?, closed_at = ?,
+                        due_date = ?, vendor = ?, sla_status = ?, cost = ?
                     WHERE id = ?
                     """,
                     (
@@ -2341,7 +2863,7 @@ class Handler(BaseHTTPRequestHandler):
                         payload.get("zone", "Unassigned"),
                         payload.get("requestType") or first_department(db),
                         payload.get("category") or first_category(db),
-                        payload.get("priority", "Medium"),
+                        priority,
                         payload.get("title", "Work order"),
                         payload.get("description", ""),
                         payload.get("assignee", "Technical Support"),
@@ -2355,6 +2877,10 @@ class Handler(BaseHTTPRequestHandler):
                         verified_at,
                         payload.get("verificationRemark", ""),
                         closed_at,
+                        due_date,
+                        payload.get("vendor", ""),
+                        current_sla_status,
+                        float(payload.get("cost") or 0),
                         int(item_id),
                     ),
                 )
@@ -2362,6 +2888,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_error(404)
                     return
                 sync_finding_from_work_order(db, int(item_id))
+                if status in ("Completed", "Verified", "Closed"):
+                    create_notification(db, "Corrective action completed", payload.get("title", "Work order"), "In-App", "work_order", int(item_id))
             self.json({"ok": True})
             return
 
@@ -2375,12 +2903,15 @@ class Handler(BaseHTTPRequestHandler):
                 cursor = db.execute(
                     """
                     UPDATE locations
-                    SET outlet_code = ?, name = ?, size = ?
+                    SET outlet_code = ?, name = ?, floor = ?, area = ?, display_order = ?, size = ?
                     WHERE id = ?
                     """,
                     (
                         outlet,
                         payload.get("name", "New Location"),
+                        payload.get("floor", ""),
+                        payload.get("area", ""),
+                        int(payload.get("displayOrder") or 0),
                         payload.get("size", ""),
                         int(location_id),
                     ),
@@ -2487,6 +3018,54 @@ class Handler(BaseHTTPRequestHandler):
                 return
             with connect() as db:
                 cursor = db.execute("DELETE FROM categories WHERE id = ?", (int(record_id),))
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+        if parsed.path.startswith("/api/setup/priorities/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute("DELETE FROM priority_levels WHERE id = ?", (int(record_id),))
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+        if parsed.path.startswith("/api/setup/audit-types/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute("DELETE FROM audit_types WHERE id = ?", (int(record_id),))
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+        if parsed.path.startswith("/api/notifications/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute("DELETE FROM notifications WHERE id = ?", (int(record_id),))
+                if cursor.rowcount == 0:
+                    self.send_error(404)
+                    return
+            self.json({"ok": True})
+            return
+        if parsed.path.startswith("/api/comments/"):
+            record_id = parsed.path.rsplit("/", 1)[-1]
+            if not record_id.isdigit():
+                self.send_error(400)
+                return
+            with connect() as db:
+                cursor = db.execute("DELETE FROM comments WHERE id = ?", (int(record_id),))
                 if cursor.rowcount == 0:
                     self.send_error(404)
                     return
