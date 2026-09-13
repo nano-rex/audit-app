@@ -874,15 +874,24 @@ def seed_users(db):
     now = int(time.time() * 1000)
     default_hash = hash_password(DEFAULT_PASSWORD)
     db.execute("UPDATE users SET role = ? WHERE role = 'Admin'", (SUPER_ROLE,))
-    db.execute("UPDATE OR IGNORE users SET email = 'super@audit-app.local', name = 'Super User', title = 'Super' WHERE lower(email) = 'admin@ottotree.local'")
     rows = [
         ("Super User", SUPER_ROLE, "super@audit-app.local", "SSD", "Super", "Full system administration"),
+        ("Ottotree System Administrator", SUPER_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff"),
     ]
     for row in rows:
         db.execute(
             """
-            INSERT OR IGNORE INTO users (name, role, email, department, password_hash, active, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+            INSERT INTO users (name, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
+            VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+            ON CONFLICT(email) DO UPDATE SET
+                name = excluded.name,
+                role = excluded.role,
+                department = excluded.department,
+                password_hash = excluded.password_hash,
+                active = 1,
+                reset_required = 0,
+                title = excluded.title,
+                responsibilities = excluded.responsibilities
             """,
             (row[0], row[1], row[2], row[3], default_hash, row[4], row[5], now),
         )
