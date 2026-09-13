@@ -62,15 +62,15 @@ DEFAULT_SCORING_SETTINGS = {
     "belowBand": 60,
 }
 DEFAULT_REPORT_SETTINGS = {
-    "companyName": "Audit App",
+    "companyName": "Ottotree",
     "departmentHeader": "Facilities Department",
-    "logoText": "AUDIT",
-    "appTitle": "Audit App",
-    "appSubtitle": "Facilities audit workspace",
-    "businessUnitLabel": "Facilities",
+    "logoText": "OTTOTREE",
+    "appTitle": "Ottotree Audit",
+    "appSubtitle": "Loudspeaker & Mini Studio operations",
+    "businessUnitLabel": "Ottotree",
     "todayHeading": "inspections for today",
     "reportHeading": "monthly audit report",
-    "loginTitle": "Audit App",
+    "loginTitle": "Ottotree Audit",
 }
 DEFAULT_SYSTEM_SETTINGS = {
     "emailEnabled": False,
@@ -972,12 +972,22 @@ def seed_settings(db):
         )
     db.execute(
         "UPDATE app_settings SET value = ? WHERE key = 'report.companyName' AND value = ?",
-        (json.dumps(DEFAULT_REPORT_SETTINGS["companyName"]), json.dumps("Ottotree")),
+        (json.dumps(DEFAULT_REPORT_SETTINGS["companyName"]), json.dumps("Audit App")),
     )
     db.execute(
         "UPDATE app_settings SET value = ? WHERE key = 'report.logoText' AND value = ?",
-        (json.dumps(DEFAULT_REPORT_SETTINGS["logoText"]), json.dumps("OTTOTREE")),
+        (json.dumps(DEFAULT_REPORT_SETTINGS["logoText"]), json.dumps("AUDIT")),
     )
+    for key, previous in {
+        "appTitle": "Audit App",
+        "appSubtitle": "Facilities audit workspace",
+        "businessUnitLabel": "Facilities",
+        "loginTitle": "Audit App",
+    }.items():
+        db.execute(
+            "UPDATE app_settings SET value = ? WHERE key = ? AND value = ?",
+            (json.dumps(DEFAULT_REPORT_SETTINGS[key]), f"report.{key}", json.dumps(previous)),
+        )
 
 
 def rating(score):
@@ -3309,6 +3319,6 @@ if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", "41883"))
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
-    print(f"Serving Audit App at http://127.0.0.1:{port}")
+    print(f"Serving Ottotree Audit at http://127.0.0.1:{port}")
     print(f"SQLite database: {DB_PATH}")
     server.serve_forever()

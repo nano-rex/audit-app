@@ -152,13 +152,13 @@ function populateSettingsForms() {
     },
   };
   const report = {
-    appTitle: getSetting("report.appTitle", "Audit App"),
-    appSubtitle: getSetting("report.appSubtitle", "Facilities audit workspace"),
-    businessUnitLabel: getSetting("report.businessUnitLabel", "Facilities"),
+    appTitle: getSetting("report.appTitle", "Ottotree Audit"),
+    appSubtitle: getSetting("report.appSubtitle", "Loudspeaker & Mini Studio operations"),
+    businessUnitLabel: getSetting("report.businessUnitLabel", "Ottotree"),
     todayHeading: getSetting("report.todayHeading", "inspections for today"),
     reportHeading: getSetting("report.reportHeading", "monthly audit report"),
-    loginTitle: getSetting("report.loginTitle", "Audit App"),
-    companyName: getSetting("report.companyName", "Audit App"),
+    loginTitle: getSetting("report.loginTitle", "Ottotree Audit"),
+    companyName: getSetting("report.companyName", "Ottotree"),
     departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
     logoUrl: getSetting("report.logoUrl", ""),
   };
@@ -188,7 +188,7 @@ function populateSettingsForms() {
     systemForm.elements.todayHeading.value = report.todayHeading;
     systemForm.elements.reportHeading.value = report.reportHeading;
     systemForm.elements.loginTitle.value = report.loginTitle;
-    systemForm.elements.companyName.value = report.companyName || "Audit App";
+    systemForm.elements.companyName.value = report.companyName || "Ottotree";
     systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
     systemForm.elements.logoUrl.value = report.logoUrl || "";
     systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
