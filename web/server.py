@@ -87,7 +87,7 @@ APP_TABS = (
     ("inspections", "Inspections"),
     ("findings", "Findings"),
     ("work-orders", "Work Orders"),
-    ("equipment", "Equipment"),
+    ("equipment", "Fixed Assets"),
     ("reports", "Reports"),
     ("categories", "Categories"),
     ("departments", "Departments"),
@@ -429,7 +429,7 @@ def init_db():
 
             CREATE TABLE IF NOT EXISTS equipment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                asset_id TEXT NOT NULL UNIQUE,
+                asset_id TEXT NOT NULL,
                 qr_code TEXT NOT NULL,
                 business_unit TEXT NOT NULL,
                 outlet TEXT NOT NULL,
@@ -443,12 +443,21 @@ def init_db():
                 description TEXT,
                 type TEXT,
                 operational_status TEXT,
-                code TEXT,
+                code TEXT NOT NULL UNIQUE,
                 model TEXT,
                 serial_number TEXT,
                 brand TEXT,
                 location TEXT,
                 installation_date TEXT,
+                temporary_relocation TEXT,
+                warranty_date TEXT,
+                calibration_date TEXT,
+                expiry_date TEXT,
+                photos TEXT,
+                inverter_model TEXT,
+                motor_capacity TEXT,
+                source_file TEXT,
+                source_sheet TEXT,
                 inspection_criteria TEXT,
                 created_at INTEGER NOT NULL
             );
@@ -632,6 +641,15 @@ def init_db():
         ensure_column(db, "equipment", "brand", "TEXT")
         ensure_column(db, "equipment", "location", "TEXT")
         ensure_column(db, "equipment", "installation_date", "TEXT")
+        ensure_column(db, "equipment", "temporary_relocation", "TEXT")
+        ensure_column(db, "equipment", "warranty_date", "TEXT")
+        ensure_column(db, "equipment", "calibration_date", "TEXT")
+        ensure_column(db, "equipment", "expiry_date", "TEXT")
+        ensure_column(db, "equipment", "photos", "TEXT")
+        ensure_column(db, "equipment", "inverter_model", "TEXT")
+        ensure_column(db, "equipment", "motor_capacity", "TEXT")
+        ensure_column(db, "equipment", "source_file", "TEXT")
+        ensure_column(db, "equipment", "source_sheet", "TEXT")
         ensure_column(db, "equipment", "inspection_criteria", "TEXT")
         db.execute(
             "UPDATE inspection_sessions SET audit_date = ? WHERE audit_date IS NULL OR audit_date = '' OR audit_date = 'Today'",
@@ -673,6 +691,9 @@ def init_db():
         db.execute("UPDATE equipment SET type = equipment_type WHERE type IS NULL OR type = ''")
         db.execute("UPDATE equipment SET operational_status = health_status WHERE operational_status IS NULL OR operational_status = ''")
         db.execute("UPDATE equipment SET code = asset_id WHERE code IS NULL OR code = ''")
+        db.execute("UPDATE equipment SET asset_id = code WHERE code IS NOT NULL AND code != ''")
+        db.execute("UPDATE equipment SET qr_code = code WHERE code IS NOT NULL AND code != ''")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_equipment_code ON equipment(code)")
         db.execute("UPDATE equipment SET location = zone WHERE location IS NULL OR location = ''")
         db.execute("UPDATE equipment SET installation_date = last_checked WHERE installation_date IS NULL OR installation_date = ''")
         db.execute("DELETE FROM audits WHERE auditor = 'Sample Auditor'")
@@ -1079,7 +1100,9 @@ def dashboard(unit):
             SELECT id, asset_id, qr_code, outlet, zone, equipment_type, health_status,
                    last_checked, replacement_flag, notes, name, description, type,
                    operational_status, code, model, serial_number, brand, location,
-                   installation_date, inspection_criteria
+                   installation_date, temporary_relocation, warranty_date, calibration_date,
+                   expiry_date, photos, inverter_model, motor_capacity, source_file,
+                   source_sheet, inspection_criteria
             FROM equipment
             WHERE {equipment_where}
             ORDER BY
@@ -1424,7 +1447,9 @@ def equipment_items(outlet=None):
             SELECT id, asset_id, qr_code, outlet, zone, equipment_type, health_status,
                    last_checked, replacement_flag, notes, name, description, type,
                    operational_status, code, model, serial_number, brand, location,
-                   installation_date, inspection_criteria
+                   installation_date, temporary_relocation, warranty_date, calibration_date,
+                   expiry_date, photos, inverter_model, motor_capacity, source_file,
+                   source_sheet, inspection_criteria
             FROM equipment
             {where}
             ORDER BY COALESCE(name, asset_id), id
@@ -1568,7 +1593,7 @@ def finalize_inspection(db, session_id, payload, now):
             """,
             (
                 audit_id,
-                item.get("section", "Equipment"),
+                item.get("section", "Fixed Asset"),
                 item.get("item", "Checklist item"),
                 100 if item.get("passed") or item.get("notApplicable") else 0,
                 item.get("notes", ""),
@@ -1619,7 +1644,7 @@ def finalize_inspection(db, session_id, payload, now):
                     item.get("location") or payload.get("zone", "Unassigned"),
                     default_department,
                     item.get("category") or default_category,
-                    f"{finding_reference} - {item.get('section', 'Equipment')} - {item.get('item', 'Checklist item')}",
+                    f"{finding_reference} - {item.get('section', 'Fixed Asset')} - {item.get('item', 'Checklist item')}",
                     item.get("notes", "") or "Created from incomplete inspection criterion",
                     json.dumps([]),
                     audit_id,
@@ -1739,7 +1764,7 @@ def inspection_pdf(session):
         status = "N/A" if item.get("notApplicable") else ("PASS" if item.get("passed") else "FAIL")
         location = item.get("location") or session["zone"]
         category = item.get("category") or "No category"
-        lines.append(f"{status} - {location} - {category} - {item.get('section', 'Equipment')} - {item.get('item', '')}")
+        lines.append(f"{status} - {location} - {category} - {item.get('section', 'Fixed Asset')} - {item.get('item', '')}")
         if item.get("notes"):
             lines.append(f"Remark: {item['notes']}")
         if item.get("images"):
@@ -2302,23 +2327,25 @@ class Handler(BaseHTTPRequestHandler):
                     (asset_id, qr_code, business_unit, outlet, zone, equipment_type,
                      health_status, last_checked, replacement_flag, notes, name, description,
                      type, operational_status, code, model, serial_number, brand, location,
-                     installation_date, inspection_criteria, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     installation_date, temporary_relocation, warranty_date, calibration_date,
+                     expiry_date, photos, inverter_model, motor_capacity, source_file, source_sheet,
+                     inspection_criteria, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        payload.get("assetId") or payload.get("code") or "EQ-NEW",
-                        payload.get("qrCode") or payload.get("code") or payload.get("assetId") or "EQ-NEW",
+                        payload.get("code") or payload.get("assetId") or "EQ-NEW",
+                        payload.get("code") or payload.get("assetId") or "EQ-NEW",
                         payload.get("businessUnit", "Ottotree"),
                         payload.get("outlet") or default_outlet,
                         payload.get("location") or payload.get("zone") or "Unassigned",
-                        payload.get("type") or payload.get("equipmentType", "Equipment"),
+                        payload.get("type") or payload.get("equipmentType", "Fixed Asset"),
                         payload.get("operationalStatus") or payload.get("healthStatus", "Operational"),
                         payload.get("installationDate") or payload.get("lastChecked", "Today"),
                         1 if payload.get("replacementFlag") else 0,
                         payload.get("description") or payload.get("notes", ""),
-                        payload.get("name") or payload.get("assetId") or payload.get("code") or "Equipment",
+                        payload.get("name") or payload.get("assetId") or payload.get("code") or "Fixed Asset",
                         payload.get("description", ""),
-                        payload.get("type") or payload.get("equipmentType", "Equipment"),
+                        payload.get("type") or payload.get("equipmentType", "Fixed Asset"),
                         payload.get("operationalStatus") or payload.get("healthStatus", "Operational"),
                         payload.get("code") or payload.get("assetId") or "EQ-NEW",
                         payload.get("model", ""),
@@ -2326,6 +2353,15 @@ class Handler(BaseHTTPRequestHandler):
                         payload.get("brand", ""),
                         payload.get("location") or payload.get("zone") or "",
                         payload.get("installationDate") or payload.get("lastChecked", ""),
+                        payload.get("temporaryRelocation", ""),
+                        payload.get("warrantyDate", ""),
+                        payload.get("calibrationDate", ""),
+                        payload.get("expiryDate", ""),
+                        json_text(payload.get("photos"), []),
+                        payload.get("inverterModel", ""),
+                        payload.get("motorCapacity", ""),
+                        payload.get("sourceFile", ""),
+                        payload.get("sourceSheet", ""),
                         json.dumps(payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
                         now,
                     ),
@@ -2819,23 +2855,25 @@ class Handler(BaseHTTPRequestHandler):
                         equipment_type = ?, health_status = ?, last_checked = ?, replacement_flag = ?,
                         notes = ?, name = ?, description = ?, type = ?, operational_status = ?,
                         code = ?, model = ?, serial_number = ?, brand = ?, location = ?,
-                        installation_date = ?, inspection_criteria = ?
+                        installation_date = ?, temporary_relocation = ?, warranty_date = ?,
+                        calibration_date = ?, expiry_date = ?, photos = ?, inverter_model = ?,
+                        motor_capacity = ?, source_file = ?, source_sheet = ?, inspection_criteria = ?
                     WHERE id = ?
                     """,
                     (
-                        payload.get("assetId") or payload.get("code") or "EQ-NEW",
-                        payload.get("qrCode") or payload.get("code") or payload.get("assetId") or "EQ-NEW",
+                        payload.get("code") or payload.get("assetId") or "EQ-NEW",
+                        payload.get("code") or payload.get("assetId") or "EQ-NEW",
                         payload.get("businessUnit", "Ottotree"),
                         payload.get("outlet") or first_outlet(db),
                         payload.get("location") or payload.get("zone") or "Unassigned",
-                        payload.get("type") or payload.get("equipmentType", "Equipment"),
+                        payload.get("type") or payload.get("equipmentType", "Fixed Asset"),
                         payload.get("operationalStatus") or payload.get("healthStatus", "Operational"),
                         payload.get("installationDate") or payload.get("lastChecked", "Today"),
                         1 if payload.get("replacementFlag") else 0,
                         payload.get("description") or payload.get("notes", ""),
-                        payload.get("name") or payload.get("assetId") or payload.get("code") or "Equipment",
+                        payload.get("name") or payload.get("assetId") or payload.get("code") or "Fixed Asset",
                         payload.get("description", ""),
-                        payload.get("type") or payload.get("equipmentType", "Equipment"),
+                        payload.get("type") or payload.get("equipmentType", "Fixed Asset"),
                         payload.get("operationalStatus") or payload.get("healthStatus", "Operational"),
                         payload.get("code") or payload.get("assetId") or "EQ-NEW",
                         payload.get("model", ""),
@@ -2843,6 +2881,15 @@ class Handler(BaseHTTPRequestHandler):
                         payload.get("brand", ""),
                         payload.get("location") or payload.get("zone") or "",
                         payload.get("installationDate") or payload.get("lastChecked", ""),
+                        payload.get("temporaryRelocation", ""),
+                        payload.get("warrantyDate", ""),
+                        payload.get("calibrationDate", ""),
+                        payload.get("expiryDate", ""),
+                        json_text(payload.get("photos"), []),
+                        payload.get("inverterModel", ""),
+                        payload.get("motorCapacity", ""),
+                        payload.get("sourceFile", ""),
+                        payload.get("sourceSheet", ""),
                         json.dumps(payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
                         int(item_id),
                     ),

@@ -185,7 +185,7 @@ function renderEquipment() {
   });
   setHtml("[data-equipment]", rows.length
     ? rows.map(equipmentRow).join("")
-    : `<article><div><b>No equipment found</b><span>Adjust search or filters, or add a new equipment item.</span></div></article>`);
+    : `<article><div><b>No fixed assets found</b><span>Adjust search or filters, or add a new fixed asset.</span></div></article>`);
   updateEquipmentNameOptions();
 }
 

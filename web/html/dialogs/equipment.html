@@ -1,21 +1,28 @@
   <dialog id="equipment-dialog">
       <form method="dialog" id="equipment-form">
-        <header><h2>Register Equipment</h2><button value="cancel">x</button></header>
+        <header><h2>Register Fixed Asset</h2><button value="cancel">x</button></header>
         <input name="equipmentId" type="hidden">
           <div class="form-grid">
-            <label>Name<input name="name" list="equipment-name-options" placeholder="Table, chair, light, TV"></label>
-            <label>Code<input name="code" placeholder="Equipment code"></label>
-            <label>QR Code<input name="qrCode" placeholder="Uses code when blank"></label>
+            <label>Name<input name="name" list="equipment-name-options" placeholder="Speaker, TV, amplifier, furniture"></label>
+            <label>Code<input name="code" placeholder="Fixed asset code"></label>
+            <label>QR Code<input name="qrCode" placeholder="Auto-filled from Code" readonly></label>
             <label>Outlet<select name="outlet"></select></label>
             <label>Location<select name="location"></select></label>
-            <label>Type<input name="type" placeholder="Furniture, lighting, display, AV"></label>
+            <label>Asset Type<input name="type" placeholder="Part of Musical, Part of Computer"></label>
             <label>Operational Status<select name="operationalStatus"><option>Operational</option><option>Needs Attention</option><option>Out of Service</option><option>Replace</option></select></label>
             <label>Brand<input name="brand" placeholder="Brand"></label>
             <label>Model<input name="model" placeholder="Model"></label>
             <label>Serial Number<input name="serialNumber" placeholder="Serial number"></label>
-            <label>Installation Date<input name="installationDate" type="date"></label>
+            <label>Installation Date<input name="installationDate" placeholder="DD.MM.YYYY or YYYY-MM-DD"></label>
+            <label>Warranty Date<input name="warrantyDate" placeholder="Warranty date"></label>
+            <label>Calibration Date<input name="calibrationDate" placeholder="Calibration date"></label>
+            <label>Expiry Date<input name="expiryDate" placeholder="Expiry date"></label>
+            <label>Temporary Relocation<input name="temporaryRelocation" placeholder="Temporary location"></label>
+            <label>Inverter Model<input name="inverterModel" placeholder="If applicable"></label>
+            <label>Motor Capacity<input name="motorCapacity" placeholder="If applicable"></label>
           </div>
-          <label>Description<textarea name="description" placeholder="Condition, usage, compatibility concern, or replacement note"></textarea></label>
+          <label>Description<textarea name="description" placeholder="Fixed asset description, condition, usage, or replacement note"></textarea></label>
+          <label>Photos / References<textarea name="photos" placeholder="Photo links, filenames, or notes from fixed asset listing"></textarea></label>
           <datalist id="equipment-name-options"></datalist>
           <section class="criteria-editor">
             <h3>Inspection Criteria</h3>
@@ -23,7 +30,7 @@
             <button class="outline" type="button" data-add-equipment-criterion>Add Criterion</button>
           </section>
           <footer class="form-actions">
-            <button class="primary" type="submit">Save Equipment</button>
+            <button class="primary" type="submit">Save Fixed Asset</button>
           </footer>
       </form>
     </dialog>

@@ -42,7 +42,7 @@ async function populateLocationEquipmentSelect(locationName = "") {
   const data = await response.json();
   form.elements.equipmentIds.innerHTML = data.items.map((item) => {
     const selected = (item.location || item.zone || "") === locationName ? " selected" : "";
-    const label = item.name || item.asset_id || item.code || `Equipment ${item.id}`;
+    const label = item.name || item.asset_id || item.code || `Fixed Asset ${item.id}`;
     return `<option value="${item.id}"${selected}>${escapeHtml(label)}</option>`;
   }).join("");
 }

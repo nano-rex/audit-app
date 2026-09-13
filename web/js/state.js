@@ -15,7 +15,7 @@ const allTabs = [
   { id: "inspections", label: "Inspections" },
   { id: "findings", label: "Findings" },
   { id: "work-orders", label: "Work Orders" },
-  { id: "equipment", label: "Equipment" },
+  { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
   { id: "corrective-actions", label: "Corrective Actions" },
   { id: "notifications", label: "Notifications" },

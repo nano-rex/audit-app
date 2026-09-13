@@ -125,7 +125,7 @@ function locationRow(row) {
       <b>${escapeHtml(row.name)}</b>
       <span>${escapeHtml(row.floor || "No floor")} | ${escapeHtml(row.area || "No area")} | Order ${escapeHtml(row.display_order || 0)}</span>
       <span>QR: ${escapeHtml(row.qr_code || "Not assigned")} | ${escapeHtml(row.size || "No size")}</span>
-      <span>${escapeHtml(row.equipment || "No equipment assigned")}</span>
+      <span>${escapeHtml(row.equipment || "No fixed assets assigned")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-location='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-location="${row.id}">Delete</button>
@@ -152,8 +152,8 @@ function zoneRow(row) {
 function equipmentRow(row) {
   const status = row.operational_status || row.health_status || "Operational";
   const statusClass = status === "Replace" || status === "Out of Service" ? "warn" : status === "Needs Attention" || status === "Monitor" ? "monitor" : "";
-  const name = row.name || row.asset_id || row.code || "Equipment";
-  const type = row.type || row.equipment_type || "Equipment";
+  const name = row.name || row.asset_id || row.code || "Fixed Asset";
+  const type = row.type || row.equipment_type || "Fixed Asset";
   const code = row.code || row.asset_id || "";
   const location = row.location || row.zone || "No location";
   return `

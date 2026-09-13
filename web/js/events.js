@@ -211,7 +211,7 @@ document.addEventListener("click", async (event) => {
   }
 
   const equipmentButton = event.target.closest("[data-delete-equipment]");
-  if (equipmentButton && confirm("Delete this equipment item?")) {
+  if (equipmentButton && confirm("Delete this fixed asset?")) {
     await requestJson(`/api/equipment/${equipmentButton.dataset.deleteEquipment}`, "DELETE");
     loadApp();
     return;
@@ -349,6 +349,11 @@ document.querySelector("[data-equipment-criteria]")?.addEventListener("click", (
 
 document.querySelector('#equipment-form input[name="name"]')?.addEventListener("change", (event) => {
   applyEquipmentTemplate(event.target.value.trim());
+});
+
+document.querySelector('#equipment-form input[name="code"]')?.addEventListener("input", (event) => {
+  const form = event.target.form;
+  if (form?.elements.qrCode) form.elements.qrCode.value = event.target.value.trim();
 });
 
 document.querySelector('#equipment-form select[name="outlet"]')?.addEventListener("change", () => {
@@ -586,7 +591,7 @@ checklistContainer?.addEventListener("change", async (event) => {
     assignee: "Technical Support",
     title: `${detail.name} - ${detail.criterion}`,
     description: [
-      `Equipment: ${detail.name}`,
+      `Fixed asset: ${detail.name}`,
       detail.code ? `Code: ${detail.code}` : "",
       `Type: ${detail.type}`,
       `Failed check: ${detail.criterion}`,

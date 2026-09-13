@@ -277,8 +277,8 @@ function resetEquipmentForm() {
   const form = document.getElementById("equipment-form");
   form.reset();
   form.elements.equipmentId.value = "";
-  form.querySelector("h2").textContent = "Register Equipment";
-  form.querySelector('button[type="submit"]').textContent = "Save Equipment";
+  form.querySelector("h2").textContent = "Register Fixed Asset";
+  form.querySelector('button[type="submit"]').textContent = "Save Fixed Asset";
   updateSetupSelects();
   renderEquipmentCriteria();
   updateEquipmentNameOptions();
@@ -291,7 +291,7 @@ async function openEquipmentEditor(row) {
   form.elements.equipmentId.value = row.id;
   form.elements.name.value = row.name || row.asset_id || "";
   form.elements.code.value = row.code || row.asset_id || "";
-  form.elements.qrCode.value = row.qr_code || row.qrCode || row.code || row.asset_id || "";
+  form.elements.qrCode.value = row.code || row.asset_id || row.qr_code || row.qrCode || "";
   form.elements.outlet.value = row.outlet || "";
   await updateEquipmentLocationSelect(row.location || row.zone || "");
   form.elements.type.value = row.type || row.equipment_type || "";
@@ -300,9 +300,16 @@ async function openEquipmentEditor(row) {
   form.elements.model.value = row.model || "";
   form.elements.serialNumber.value = row.serial_number || "";
   form.elements.installationDate.value = row.installation_date || "";
+  form.elements.warrantyDate.value = row.warranty_date || "";
+  form.elements.calibrationDate.value = row.calibration_date || "";
+  form.elements.expiryDate.value = row.expiry_date || "";
+  form.elements.temporaryRelocation.value = row.temporary_relocation || "";
+  form.elements.inverterModel.value = row.inverter_model || "";
+  form.elements.motorCapacity.value = row.motor_capacity || "";
+  form.elements.photos.value = parseStoredImages(row.photos || "[]").map(imageLabel).join(", ") || row.photos || "";
   form.elements.description.value = row.description || row.notes || "";
   renderEquipmentCriteria(parseInspectionCriteria(row.inspection_criteria));
-  form.querySelector("h2").textContent = "Edit Equipment";
+  form.querySelector("h2").textContent = "Edit Fixed Asset";
   form.querySelector('button[type="submit"]').textContent = "Save Changes";
   dialog.showModal();
 }
@@ -429,15 +436,22 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
     name: formValue(form, "name", code),
     code,
     assetId: code,
-    qrCode: formValue(form, "qrCode", code),
+    qrCode: code,
     outlet: formValue(form, "outlet", ""),
     location: formValue(form, "location", ""),
-    type: formValue(form, "type", "Equipment"),
+    type: formValue(form, "type", "Fixed Asset"),
     operationalStatus: formValue(form, "operationalStatus", "Operational"),
     brand: formValue(form, "brand", ""),
     model: formValue(form, "model", ""),
     serialNumber: formValue(form, "serialNumber", ""),
     installationDate: formValue(form, "installationDate", ""),
+    warrantyDate: formValue(form, "warrantyDate", ""),
+    calibrationDate: formValue(form, "calibrationDate", ""),
+    expiryDate: formValue(form, "expiryDate", ""),
+    temporaryRelocation: formValue(form, "temporaryRelocation", ""),
+    inverterModel: formValue(form, "inverterModel", ""),
+    motorCapacity: formValue(form, "motorCapacity", ""),
+    photos: formValue(form, "photos", ""),
     description: formValue(form, "description", ""),
     replacementFlag: formValue(form, "operationalStatus", "Operational") === "Replace",
     inspectionCriteria: collectEquipmentCriteria(form),

@@ -66,7 +66,7 @@ async function loadInspectionItems() {
   const mergedLocations = [...locationNames].sort().map((name) => ({ name }));
   checklistContainer.innerHTML = mergedLocations.length
     ? renderInspectionZones(mergedLocations, zoneData.items, inspectionItems)
-    : `<article class="check-item"><div><span>No Items</span><strong>No locations or equipment are set up for this outlet yet.</strong></div></article>`;
+    : `<article class="check-item"><div><span>No Items</span><strong>No locations or fixed assets are set up for this outlet yet.</strong></div></article>`;
   applyInspectionSessionItems();
   openFirstInspectionLocation();
   updateInspectionProgress();
@@ -123,7 +123,7 @@ function inspectionLocationCard(location, items) {
       </header>
       ${items.length
         ? items.map(inspectionItemCard).join("")
-        : `<article class="check-item"><div><span>No Equipment</span><strong>No equipment is assigned to this location.</strong></div></article>`}
+        : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`}
     </section>
   `;
 }
@@ -136,17 +136,17 @@ function inspectionItemCard(item) {
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
-        <span>${escapeHtml(item.type || item.equipment_type || "Equipment")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
-        <strong>${escapeHtml(item.name || item.asset_id || "Equipment item")}</strong>
+        <span>${escapeHtml(item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
+        <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
       </div>
       <label>Images<input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images><small data-saved-images></small></label>
       ${criteria.map((criterion, index) => `
         <div class="criteria-row" data-criterion="${escapeAttr(criterion)}">
           <label><input type="checkbox" name="equipment-${item.id}-criterion-${index}" value="pass" data-inspection-check='${escapeAttr(JSON.stringify({
             equipmentId: item.id,
-            name: item.name || item.asset_id || "Equipment item",
+            name: item.name || item.asset_id || "Fixed asset",
             code: item.code || item.asset_id || "",
-            type: item.type || item.equipment_type || "Equipment",
+            type: item.type || item.equipment_type || "Fixed Asset",
             outlet: item.outlet,
             location: item.location || item.zone || "",
             criterion,
@@ -389,7 +389,7 @@ function collectInspectionPayload(complete = false) {
       items.push({
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
-        section: equipment?.name || equipment?.asset_id || "Equipment",
+        section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
         category: formData.get(`equipment-${row.dataset.equipmentId}-category-${index}`) || "",
         passed,

@@ -36,7 +36,13 @@ Use `Inspections` for the guided checklist workflow. Submissions write one audit
 
 Use `Work Orders` for follow-up issues. Low-scoring inspection items create work orders automatically, and users can also create them manually.
 
-Use `Equipment` for the QR/asset registry and equipment condition records.
+Use `Fixed Assets` for the QR/asset registry and fixed asset condition records. Fixed asset `Code` is the canonical unique key, and QR codes are generated from the same `Code`.
+
+Import XLSX fixed asset listings with:
+
+```sh
+python3 tools/import_fixed_assets.py /home/user/codex/Fixed_Assets
+```
 
 Use `Reports` for the monthly summary, KPI metrics, outlet rankings, critical issues, and CSV/JSON exports.
 
