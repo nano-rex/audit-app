@@ -448,13 +448,6 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
   loadApp();
 });
 
-wireForm("admin-form", "/api/admin", (form) => ({
-  recordType: formValue(form, "recordType", "Outlet"),
-  name: formValue(form, "name", "New record"),
-  parent: formValue(form, "parent", ""),
-  detail: formValue(form, "detail", ""),
-}));
-
 document.getElementById("department-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;

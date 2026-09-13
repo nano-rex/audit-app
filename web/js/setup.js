@@ -75,24 +75,6 @@ async function populateZoneLocationSelect(selectedLocations = []) {
     }).join("")
     : `<p class="muted">No locations are set up for this outlet.</p>`;
 }
-async function loadAdmin() {
-  const response = await fetch("/api/admin");
-  const data = await response.json();
-  setHtml("[data-admin-records]", Object.entries(data).map(([type, records]) => `
-    <section class="admin-group">
-      <h3>${escapeHtml(type)}</h3>
-      <ul>
-        ${records.map((record) => `
-          <li>
-            <b>${escapeHtml(record.name)}</b>
-            <span>${escapeHtml(record.parent || "No parent")} | ${escapeHtml(record.detail || "No detail")}</span>
-          </li>
-        `).join("")}
-      </ul>
-    </section>
-  `).join(""));
-}
-
 async function loadSetup() {
   const response = await fetch("/api/setup");
   const data = await response.json();
@@ -194,16 +176,6 @@ function populateSettingsForms() {
     systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
     systemForm.elements.integrations.value = (system.futureIntegrations || []).join(", ");
   }
-}
-
-async function loadRoles() {
-  const response = await fetch("/api/roles");
-  const data = await response.json();
-  roleCache = data.items || [];
-  setupOptions.roles = roleCache.map((row) => row.name);
-  setupOptions.tabs = data.tabs || allTabs;
-  updateUserRoleSelects();
-  renderRoles();
 }
 
 async function loadUsers() {

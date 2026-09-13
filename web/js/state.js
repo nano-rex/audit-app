@@ -1,7 +1,4 @@
 const unitTexts = document.querySelectorAll("[data-unit-text]");
-const questionSection = document.querySelector("[data-question-section]");
-const questionTitle = document.querySelector("[data-question-title]");
-const questionCopy = document.querySelector("[data-question-copy]");
 const checklistContainer = document.querySelector("[data-checklist]");
 const brandingDefaults = {
   appTitle: "Audit App",

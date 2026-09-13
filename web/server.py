@@ -453,16 +453,6 @@ def init_db():
                 created_at INTEGER NOT NULL
             );
 
-            CREATE TABLE IF NOT EXISTS admin_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                record_type TEXT NOT NULL,
-                name TEXT NOT NULL,
-                parent TEXT,
-                detail TEXT,
-                active INTEGER NOT NULL DEFAULT 1,
-                created_at INTEGER NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS departments (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 code TEXT NOT NULL UNIQUE,
@@ -692,12 +682,7 @@ def init_db():
         equipment = db.execute("SELECT COUNT(*) FROM equipment").fetchone()[0]
         if equipment == 0:
             seed_equipment(db)
-        admin = db.execute("SELECT COUNT(*) FROM admin_records").fetchone()[0]
-        if admin == 0:
-            seed_admin(db)
         normalize_loudspeaker_outlets(db)
-        db.execute("UPDATE admin_records SET record_type = 'Audit Area' WHERE record_type = 'Business Unit'")
-        db.execute("DELETE FROM admin_records WHERE record_type = 'Audit Area'")
         seed_setup_records(db)
         seed_categories(db)
         seed_locations(db)
@@ -749,36 +734,6 @@ def seed_equipment(db):
             (asset_id, qr_code, business_unit, outlet, zone, equipment_type,
              health_status, last_checked, replacement_flag, notes, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (*row, now),
-        )
-
-
-def seed_admin(db):
-    now = int(time.time() * 1000)
-    rows = [
-        ("Outlet", "MAM", "LONG", "Active outlet"),
-        ("Outlet", "MQS", "LONG", "Active outlet"),
-        ("Outlet", "MDP", "LONG", "Active outlet"),
-        ("Outlet", "MST", "LONG", "Active outlet"),
-        ("Zone", "Server Room", "All outlets", "Servers, UPS, network hardware"),
-        ("Zone", "Entrance", "All outlets", "Front entrance and display area"),
-        ("Zone", "Display Zone", "All outlets", "Speaker/headphone display fixtures"),
-        ("Department", "SSD", "Work Orders", "SSD department"),
-        ("Department", "FMS", "Work Orders", "FMS department"),
-        ("Department", "AVC", "Work Orders", "AVC department"),
-        ("Department", "CLD", "Work Orders", "CLD department"),
-        ("Department", "MD", "Work Orders", "MD department"),
-        ("Captain PIN", "MST -> 1113", "Captain Login", "Outlet captain access"),
-        ("Captain PIN", "MAM -> 1213", "Captain Login", "Outlet captain access"),
-        ("Captain PIN", "MQS -> 1220", "Captain Login", "Outlet captain access"),
-        ("Captain PIN", "MDP -> 0201", "Captain Login", "Outlet captain access"),
-    ]
-    for row in rows:
-        db.execute(
-            """
-            INSERT INTO admin_records (record_type, name, parent, detail, active, created_at)
-            VALUES (?, ?, ?, ?, 1, ?)
             """,
             (*row, now),
         )
@@ -1295,21 +1250,6 @@ def report_csv(unit):
     for row in finding_items()["items"]:
         writer.writerow([row.get("finding_ref", ""), row.get("audit_ref", ""), row.get("outlet", ""), row.get("location", ""), row.get("category", ""), row.get("priority", ""), row.get("assigned_department", ""), row.get("pic", ""), row.get("status", ""), row.get("comment", "")])
     return out.getvalue().encode("utf-8")
-
-
-def admin_records():
-    with connect() as db:
-        rows = db.execute(
-            """
-            SELECT id, record_type, name, parent, detail, active
-            FROM admin_records
-            ORDER BY record_type, name
-            """
-        ).fetchall()
-    grouped = {}
-    for row in rows:
-        grouped.setdefault(row["record_type"], []).append(dict(row))
-    return grouped
 
 
 def setup_records():
@@ -1985,9 +1925,6 @@ class Handler(BaseHTTPRequestHandler):
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.download(report_xls(unit), "application/vnd.ms-excel", "audit-report.xls")
             return
-        if parsed.path == "/api/admin":
-            self.json(admin_records())
-            return
         if parsed.path == "/api/setup":
             self.json(setup_records())
             return
@@ -2429,20 +2366,6 @@ class Handler(BaseHTTPRequestHandler):
                         payload.get("name", "Zone-1"),
                         json.dumps(payload.get("locations") or []),
                         payload.get("description", ""),
-                        now,
-                    ),
-                )
-            elif parsed.path == "/api/admin":
-                db.execute(
-                    """
-                    INSERT INTO admin_records (record_type, name, parent, detail, active, created_at)
-                    VALUES (?, ?, ?, ?, 1, ?)
-                    """,
-                    (
-                        payload.get("recordType", "Outlet"),
-                        payload.get("name", "New record"),
-                        payload.get("parent", ""),
-                        payload.get("detail", ""),
                         now,
                     ),
                 )
