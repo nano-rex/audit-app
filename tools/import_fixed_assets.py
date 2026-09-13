@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import importlib.util
 import json
 import re
 import sqlite3
@@ -102,6 +103,16 @@ def iter_assets(path):
             yield item
 
 
+def ensure_schema(db_path):
+    server_path = ROOT / "web" / "server.py"
+    spec = importlib.util.spec_from_file_location("audit_server", server_path)
+    server = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(server)
+    server.DB_PATH = Path(db_path)
+    server.DATA_DIR = Path(db_path).parent
+    server.init_db()
+
+
 def connect(db_path):
     db_path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(db_path)
@@ -113,11 +124,15 @@ def import_assets(folder, db_path, limit=0):
     files = sorted(Path(folder).glob("*.xlsx"))
     if not files:
         raise SystemExit(f"No .xlsx files found in {folder}")
+    ensure_schema(db_path)
     count = 0
+    created = 0
+    updated = 0
     with connect(db_path) as db:
         for path in files:
             for item in iter_assets(path):
                 code = item["code"]
+                exists = db.execute("SELECT 1 FROM equipment WHERE code = ?", (code,)).fetchone() is not None
                 asset_type = item.get("type") or "Fixed Asset"
                 status = item.get("operational_status") or "Active"
                 location = item.get("location") or "Unassigned"
@@ -195,9 +210,13 @@ def import_assets(folder, db_path, limit=0):
                     ),
                 )
                 count += 1
+                if exists:
+                    updated += 1
+                else:
+                    created += 1
                 if limit and count >= limit:
-                    return count
-    return count
+                    return {"total": count, "created": created, "updated": updated}
+    return {"total": count, "created": created, "updated": updated}
 
 
 def main():
@@ -206,8 +225,8 @@ def main():
     parser.add_argument("--db", default=str(DB_PATH), help="SQLite database path")
     parser.add_argument("--limit", type=int, default=0, help="Maximum rows to import; 0 imports all rows")
     args = parser.parse_args()
-    count = import_assets(args.folder, Path(args.db), args.limit)
-    print(f"Imported {count} fixed asset rows")
+    result = import_assets(args.folder, Path(args.db), args.limit)
+    print(f"Synced {result['total']} fixed asset rows: {result['created']} created, {result['updated']} updated")
 
 
 if __name__ == "__main__":
