@@ -124,7 +124,8 @@ function locationRow(row) {
     <li>
       <b>${escapeHtml(row.name)}</b>
       <span>${escapeHtml(row.floor || "No floor")} | ${escapeHtml(row.area || "No area")} | Order ${escapeHtml(row.display_order || 0)}</span>
-      <span>${escapeHtml(row.size || "No size")} | ${escapeHtml(row.equipment || "No equipment assigned")}</span>
+      <span>QR: ${escapeHtml(row.qr_code || "Not assigned")} | ${escapeHtml(row.size || "No size")}</span>
+      <span>${escapeHtml(row.equipment || "No equipment assigned")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-location='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-location="${row.id}">Delete</button>
@@ -159,7 +160,8 @@ function equipmentRow(row) {
     <article>
       <div>
         <b>${escapeHtml(name)} - ${escapeHtml(type)}</b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(code)} | ${escapeHtml(row.brand || "No brand")} ${escapeHtml(row.model || "")}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | Code: ${escapeHtml(code)} | QR: ${escapeHtml(row.qr_code || code || "Not assigned")}</span>
+        <span>${escapeHtml(row.brand || "No brand")} ${escapeHtml(row.model || "")}</span>
       </div>
       <span class="row-actions">
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>

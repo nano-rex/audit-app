@@ -395,15 +395,15 @@ Status legend:
 ## 32. Audit Checklist
 
 - [~] Predefined equipment inspection criteria
-- [~] PASS/FAIL style criteria through checkbox and remark
-- [~] N/A option
-- [~] Failed item opens work order request
+- [x] PASS/FAIL style criteria through checkbox and remark
+- [x] N/A option
+- [x] Failed item opens work order request
 - [~] Failed item flow includes take photo
 - [~] Failed item flow includes mark issue
-- [~] Failed item flow includes description category
-- [~] Failed item flow includes priority
-- [~] Failed item flow includes department assignment
-- [~] Failed item flow includes comment
+- [x] Failed item flow includes description category
+- [x] Failed item flow includes priority
+- [x] Failed item flow includes department assignment
+- [x] Failed item flow includes comment
 
 ## 33. Recommended System Structure
 
@@ -424,8 +424,8 @@ Status legend:
 
 ## 34. Future Development
 
-- [~] QR code for every room
-- [~] QR code/asset ID for equipment
+- [x] QR code for every room
+- [x] QR code/asset ID for equipment
 - [~] Asset audit
 - [~] Preventive maintenance integration
 - [~] Work order creation

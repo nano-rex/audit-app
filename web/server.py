@@ -136,6 +136,12 @@ def work_order_ref(record_id, audit_date=None):
     return f"WO-{record_year(audit_date)}-{int(record_id):05d}"
 
 
+def location_qr_code(outlet, name):
+    outlet_code = re.sub(r"[^A-Z0-9]+", "-", (outlet or "OUTLET").upper()).strip("-") or "OUTLET"
+    location_code = re.sub(r"[^A-Z0-9]+", "-", (name or "LOCATION").upper()).strip("-") or "LOCATION"
+    return f"LOC-{outlet_code}-{location_code}"
+
+
 def hash_password(password, salt=None):
     salt = salt or secrets.token_hex(16)
     digest = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
@@ -490,6 +496,7 @@ def init_db():
                 area TEXT,
                 display_order INTEGER NOT NULL DEFAULT 0,
                 size TEXT,
+                qr_code TEXT,
                 created_at INTEGER NOT NULL,
                 UNIQUE(outlet_code, name)
             );
@@ -616,6 +623,7 @@ def init_db():
         ensure_column(db, "locations", "floor", "TEXT")
         ensure_column(db, "locations", "area", "TEXT")
         ensure_column(db, "locations", "display_order", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "locations", "qr_code", "TEXT")
         ensure_column(db, "work_orders", "due_date", "TEXT")
         ensure_column(db, "work_orders", "vendor", "TEXT")
         ensure_column(db, "work_orders", "sla_status", "TEXT")
@@ -658,6 +666,8 @@ def init_db():
             "UPDATE equipment SET inspection_criteria = ? WHERE inspection_criteria IS NULL OR inspection_criteria = ''",
             (json.dumps(DEFAULT_INSPECTION_CRITERIA),),
         )
+        for row in db.execute("SELECT id, outlet_code, name FROM locations WHERE qr_code IS NULL OR qr_code = ''").fetchall():
+            db.execute("UPDATE locations SET qr_code = ? WHERE id = ?", (location_qr_code(row["outlet_code"], row["name"]), row["id"]))
         db.execute(
             """
             UPDATE schedules
@@ -1419,7 +1429,7 @@ def locations(outlet):
         rows = db.execute(
             """
             SELECT locations.id, locations.outlet_code, locations.name, locations.floor,
-                   locations.area, locations.display_order, locations.size,
+                   locations.area, locations.display_order, locations.size, locations.qr_code,
                    GROUP_CONCAT(COALESCE(equipment.name, equipment.asset_id), ', ') equipment
             FROM locations
             LEFT JOIN equipment
@@ -2385,18 +2395,20 @@ class Handler(BaseHTTPRequestHandler):
                 )
             elif parsed.path == "/api/locations":
                 outlet = payload.get("outlet") or default_outlet
+                location_name = payload.get("name", "New Location")
                 db.execute(
                     """
-                    INSERT OR REPLACE INTO locations (outlet_code, name, floor, area, display_order, size, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT OR REPLACE INTO locations (outlet_code, name, floor, area, display_order, size, qr_code, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         outlet,
-                        payload.get("name", "New Location"),
+                        location_name,
                         payload.get("floor", ""),
                         payload.get("area", ""),
                         int(payload.get("displayOrder") or 0),
                         payload.get("size", ""),
+                        payload.get("qrCode") or location_qr_code(outlet, location_name),
                         now,
                     ),
                 )
@@ -2404,7 +2416,7 @@ class Handler(BaseHTTPRequestHandler):
                 for item_id in payload.get("equipmentIds") or []:
                     db.execute(
                         "UPDATE equipment SET outlet = ?, location = ?, zone = ? WHERE id = ?",
-                        (outlet, payload.get("name", "New Location"), payload.get("name", "New Location"), int(item_id)),
+                        (outlet, location_name, location_name, int(item_id)),
                     )
             elif parsed.path == "/api/zones":
                 db.execute(
@@ -2981,19 +2993,21 @@ class Handler(BaseHTTPRequestHandler):
                 return
             with connect() as db:
                 outlet = payload.get("outlet") or first_outlet(db)
+                location_name = payload.get("name", "New Location")
                 cursor = db.execute(
                     """
                     UPDATE locations
-                    SET outlet_code = ?, name = ?, floor = ?, area = ?, display_order = ?, size = ?
+                    SET outlet_code = ?, name = ?, floor = ?, area = ?, display_order = ?, size = ?, qr_code = ?
                     WHERE id = ?
                     """,
                     (
                         outlet,
-                        payload.get("name", "New Location"),
+                        location_name,
                         payload.get("floor", ""),
                         payload.get("area", ""),
                         int(payload.get("displayOrder") or 0),
                         payload.get("size", ""),
+                        payload.get("qrCode") or location_qr_code(outlet, location_name),
                         int(location_id),
                     ),
                 )
@@ -3004,7 +3018,7 @@ class Handler(BaseHTTPRequestHandler):
                 for item_id in payload.get("equipmentIds") or []:
                     db.execute(
                         "UPDATE equipment SET outlet = ?, location = ?, zone = ? WHERE id = ?",
-                        (outlet, payload.get("name", "New Location"), payload.get("name", "New Location"), int(item_id)),
+                        (outlet, location_name, location_name, int(item_id)),
                     )
             self.json({"ok": True})
             return

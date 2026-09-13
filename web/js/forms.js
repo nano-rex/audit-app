@@ -246,6 +246,7 @@ async function openLocationEditor(row = null) {
   form.reset();
   form.elements.locationId.value = row?.id || "";
   form.elements.name.value = row?.name || "";
+  form.elements.qrCode.value = row?.qr_code || row?.qrCode || "";
   form.elements.floor.value = row?.floor || "";
   form.elements.area.value = row?.area || "";
   form.elements.displayOrder.value = row?.display_order || row?.displayOrder || 0;
@@ -290,6 +291,7 @@ async function openEquipmentEditor(row) {
   form.elements.equipmentId.value = row.id;
   form.elements.name.value = row.name || row.asset_id || "";
   form.elements.code.value = row.code || row.asset_id || "";
+  form.elements.qrCode.value = row.qr_code || row.qrCode || row.code || row.asset_id || "";
   form.elements.outlet.value = row.outlet || "";
   await updateEquipmentLocationSelect(row.location || row.zone || "");
   form.elements.type.value = row.type || row.equipment_type || "";
@@ -427,7 +429,7 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
     name: formValue(form, "name", code),
     code,
     assetId: code,
-    qrCode: code,
+    qrCode: formValue(form, "qrCode", code),
     outlet: formValue(form, "outlet", ""),
     location: formValue(form, "location", ""),
     type: formValue(form, "type", "Equipment"),
@@ -614,6 +616,7 @@ document.getElementById("location-form").addEventListener("submit", async (event
   const payload = {
     outlet: selectedLocationOutlet,
     name: formValue(form, "name", "New Location"),
+    qrCode: formValue(form, "qrCode", ""),
     floor: formValue(form, "floor", ""),
     area: formValue(form, "area", ""),
     displayOrder: Number(formValue(form, "displayOrder", "0")) || 0,
