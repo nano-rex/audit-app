@@ -102,6 +102,7 @@ INCLUDE_PATTERN = re.compile(r"<!--\s*include:\s*([a-zA-Z0-9_./-]+)\s*-->")
 SESSION_TOKENS = {}
 DEFAULT_PASSWORD = "password123"
 SUPER_ROLE = "Super"
+ADMIN_ROLE = "Admin"
 
 
 def today_date():
@@ -176,6 +177,10 @@ def public_user(row):
 
 def is_super_user(user):
     return bool(user and user.get("role") == SUPER_ROLE)
+
+
+def is_company_admin_user(user):
+    return bool(user and user.get("role") in (SUPER_ROLE, ADMIN_ROLE))
 
 
 def workflow_dates(payload):
@@ -872,11 +877,11 @@ def add_locations_to_default_zone(db, outlet, now=None):
 
 def seed_users(db):
     now = int(time.time() * 1000)
-    default_hash = hash_password(DEFAULT_PASSWORD)
-    db.execute("UPDATE users SET role = ? WHERE role = 'Admin'", (SUPER_ROLE,))
+    db.execute("UPDATE OR IGNORE users SET email = 'super@sudo' WHERE lower(email) = 'super@audit-app.local'")
+    db.execute("DELETE FROM users WHERE lower(email) = 'super@audit-app.local'")
     rows = [
-        ("Super User", SUPER_ROLE, "super@audit-app.local", "SSD", "Super", "Full system administration"),
-        ("Ottotree System Administrator", SUPER_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff"),
+        ("Super User", SUPER_ROLE, "super@sudo", "SSD", "Super", "Full app control", "doas"),
+        ("Ottotree System Administrator", ADMIN_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff", DEFAULT_PASSWORD),
     ]
     for row in rows:
         db.execute(
@@ -893,21 +898,21 @@ def seed_users(db):
                 title = excluded.title,
                 responsibilities = excluded.responsibilities
             """,
-            (row[0], row[1], row[2], row[3], default_hash, row[4], row[5], now),
+            (row[0], row[1], row[2], row[3], hash_password(row[6]), row[4], row[5], now),
         )
 
 
 def seed_roles(db):
     now = int(time.time() * 1000)
     full_permissions = json.dumps([tab[0] for tab in APP_TABS])
+    admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("roles", "settings")]
     role_rows = [
+        (ADMIN_ROLE, "Company administrator access", admin_permissions),
         ("Auditor", "Field inspection access", ["today", "inspections", "equipment", "reports"]),
         ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
     ]
-    if db.execute("SELECT id FROM roles WHERE name = ?", (SUPER_ROLE,)).fetchone():
-        db.execute("DELETE FROM roles WHERE name = 'Admin'")
-    else:
+    if not db.execute("SELECT id FROM roles WHERE name = ?", (SUPER_ROLE,)).fetchone():
         db.execute("UPDATE roles SET name = ?, description = 'Built-in full access role' WHERE name = 'Admin'", (SUPER_ROLE,))
     db.execute(
         """
@@ -2460,8 +2465,11 @@ class Handler(BaseHTTPRequestHandler):
                     ),
                 )
             elif parsed.path == "/api/users":
-                if not is_super_user(self.current_user()):
-                    self.json({"ok": False, "error": "Super access required"}, status=403)
+                if not is_company_admin_user(self.current_user()):
+                    self.json({"ok": False, "error": "Admin access required"}, status=403)
+                    return
+                if not is_super_user(self.current_user()) and payload.get("role") == SUPER_ROLE:
+                    self.json({"ok": False, "error": "Super role assignment requires Super access"}, status=403)
                     return
                 password = payload.get("password") or DEFAULT_PASSWORD
                 db.execute(
@@ -2629,10 +2637,14 @@ class Handler(BaseHTTPRequestHandler):
             if not user_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_super_user(self.current_user()):
-                self.json({"ok": False, "error": "Super access required"}, status=403)
+            if not is_company_admin_user(self.current_user()):
+                self.json({"ok": False, "error": "Admin access required"}, status=403)
                 return
             with connect() as db:
+                existing_user = db.execute("SELECT role FROM users WHERE id = ?", (int(user_id),)).fetchone()
+                if not is_super_user(self.current_user()) and (payload.get("role") == SUPER_ROLE or (existing_user and existing_user["role"] == SUPER_ROLE)):
+                    self.json({"ok": False, "error": "Super users require Super access"}, status=403)
+                    return
                 password = payload.get("password") or ""
                 reset_password = bool(payload.get("resetPassword"))
                 updates = [
@@ -3147,10 +3159,14 @@ class Handler(BaseHTTPRequestHandler):
             if not record_id.isdigit():
                 self.send_error(400)
                 return
-            if not is_super_user(self.current_user()):
-                self.json({"ok": False, "error": "Super access required"}, status=403)
+            if not is_company_admin_user(self.current_user()):
+                self.json({"ok": False, "error": "Admin access required"}, status=403)
                 return
             with connect() as db:
+                existing_user = db.execute("SELECT role FROM users WHERE id = ?", (int(record_id),)).fetchone()
+                if not is_super_user(self.current_user()) and existing_user and existing_user["role"] == SUPER_ROLE:
+                    self.json({"ok": False, "error": "Super users require Super access"}, status=403)
+                    return
                 cursor = db.execute("DELETE FROM users WHERE id = ?", (int(record_id),))
                 if cursor.rowcount == 0:
                     self.send_error(404)
