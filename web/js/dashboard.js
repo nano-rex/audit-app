@@ -1,5 +1,5 @@
 async function loadDashboard() {
-  const response = await fetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`);
+  const response = await authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`);
   const data = await response.json();
   setText('[data-today="scheduled"]', data.today.scheduled.length);
   setText('[data-today="uploads"]', data.today.pendingUploads);
@@ -28,11 +28,10 @@ async function loadDashboard() {
   setText('[data-kpi="completed"]', data.kpi.completed);
   setText('[data-kpi="pending"]', data.kpi.pending);
   setText('[data-kpi="responseRate"]', `${data.kpi.responseRate}%`);
-  loadReport();
 }
 
 async function loadWorkOrders() {
-  const response = await fetch("/api/work-orders");
+  const response = await authFetch("/api/work-orders");
   const data = await response.json();
   workOrderCache = data.items;
   updateWorkOrderFilterSelects();
@@ -41,7 +40,7 @@ async function loadWorkOrders() {
 }
 
 async function loadFindings() {
-  const response = await fetch("/api/findings");
+  const response = await authFetch("/api/findings");
   const data = await response.json();
   findingCache = data.items || [];
   updateFindingFilterSelects();
@@ -133,7 +132,7 @@ function renderCorrectiveActions() {
 }
 
 async function loadNotifications() {
-  const response = await fetch("/api/notifications");
+  const response = await authFetch("/api/notifications");
   const data = await response.json();
   notificationCache = data.items || [];
   renderNotifications();
@@ -152,14 +151,20 @@ function renderNotifications() {
 }
 
 async function loadEquipment() {
-  const response = await fetch("/api/equipment");
+  const response = await authFetch("/api/equipment");
   const data = await response.json();
   equipmentCache = data.items;
   updateEquipmentFilterSelects();
+  updateEquipmentNameOptions();
   renderEquipment();
 }
 
 function renderEquipment() {
+  const filterKey = JSON.stringify(equipmentFilters);
+  if (filterKey !== equipmentFilterKey) {
+    equipmentPage = 1;
+    equipmentFilterKey = filterKey;
+  }
   const search = equipmentFilters.search.toLowerCase();
   const rows = equipmentCache.filter((row) => {
     const location = row.location || row.zone || "";
@@ -183,10 +188,16 @@ function renderEquipment() {
       && (!equipmentFilters.type || type === equipmentFilters.type)
       && (!equipmentFilters.brand || brand === equipmentFilters.brand);
   });
+  const pages = Math.max(1, Math.ceil(rows.length / equipmentPageSize));
+  equipmentPage = Math.max(1, Math.min(equipmentPage, pages));
+  const visible = rows.slice((equipmentPage - 1) * equipmentPageSize, equipmentPage * equipmentPageSize);
   setHtml("[data-equipment]", rows.length
-    ? rows.map(equipmentRow).join("")
+    ? visible.map(equipmentRow).join("") + `<nav aria-label="Fixed asset pages">
+        <button type="button" data-equipment-page="${equipmentPage - 1}" ${equipmentPage === 1 ? "disabled" : ""}>Previous</button>
+        <span>Page ${equipmentPage} of ${pages} · ${rows.length} assets</span>
+        <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === pages ? "disabled" : ""}>Next</button>
+      </nav>`
     : `<article><div><b>No fixed assets found</b><span>Adjust search or filters, or add a new fixed asset.</span></div></article>`);
-  updateEquipmentNameOptions();
 }
 
 function updateEquipmentNameOptions() {
@@ -207,7 +218,7 @@ function applyEquipmentTemplate(name) {
 }
 
 async function loadReport() {
-  const response = await fetch(`/api/reports?unit=${encodeURIComponent(currentUnit)}`);
+  const response = await authFetch(`/api/reports?unit=${encodeURIComponent(currentUnit)}`);
   const data = await response.json();
   document.querySelector('[data-report="audits"]').textContent = data.monthlySummary.audits;
   document.querySelector('[data-report="averageScore"]').textContent = `${data.monthlySummary.averageScore}/100`;

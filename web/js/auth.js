@@ -6,6 +6,10 @@ async function authFetch(url, options = {}) {
     currentUser = null;
     showLogin();
   }
+  if (!response.ok && (!options.method || options.method === "GET")) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed: ${response.status}`);
+  }
   return response;
 }
 

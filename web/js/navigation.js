@@ -30,8 +30,9 @@ function showTab(tabId) {
   if (tabId === "inspections" && pendingInspectionSchedule) {
     const row = pendingInspectionSchedule;
     pendingInspectionSchedule = null;
-    applyInspectionSchedule(row);
+    applyInspectionSchedule(row).catch(showLoadError);
   }
+  loadTabData(tabId);
 }
 
 function showOutletSubtab(tabId) {

@@ -1,4 +1,5 @@
 async function applyInspectionSchedule(row) {
+  inspectionsInitialized = true;
   const form = document.getElementById("inspection-form");
   if (!form || !row) return;
   await loadInspectionHistory();
@@ -13,6 +14,7 @@ async function applyInspectionSchedule(row) {
     return;
   }
   form.elements.inspectionSessionId.value = "";
+  document.querySelector("[data-save-inspection-progress]").disabled = false;
   setCurrentInspectionName();
   inspectionSessionItems = [];
   updateSetupSelects();
@@ -50,9 +52,9 @@ async function loadInspectionItems() {
     return;
   }
   const [equipmentResponse, locationResponse, zoneResponse] = await Promise.all([
-    fetch(`/api/equipment?outlet=${encodeURIComponent(outlet)}`),
-    fetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`),
-    fetch(`/api/zones?outlet=${encodeURIComponent(outlet)}`),
+    authFetch(`/api/equipment?outlet=${encodeURIComponent(outlet)}`),
+    authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`),
+    authFetch(`/api/zones?outlet=${encodeURIComponent(outlet)}`),
   ]);
   const equipmentData = await equipmentResponse.json();
   const locationData = await locationResponse.json();
@@ -308,7 +310,7 @@ function collectEquipmentCriteria(form) {
 }
 
 async function loadInspectionHistory() {
-  const response = await fetch("/api/inspection-sessions");
+  const response = await authFetch("/api/inspection-sessions");
   const data = await response.json();
   inspectionHistoryCache = data.items || [];
   updateHistoryFilterSelects();
@@ -464,7 +466,7 @@ function openSignatureDialog(kind) {
 function inspectionProgress(payload = collectInspectionPayload(false)) {
   if (!payload.items.length) return 0;
   const complete = payload.items.filter(isInspectionItemComplete).length;
-  return Math.round(complete * 100 / payload.items.length);
+  return Math.floor(complete * 100 / payload.items.length);
 }
 
 function isInspectionItemComplete(item) {
@@ -595,11 +597,14 @@ function applyInspectionSessionItems() {
 }
 
 async function openInspectionSession(id) {
-  const response = await fetch(`/api/inspection-sessions/${id}`);
+  inspectionsInitialized = true;
+  const response = await authFetch(`/api/inspection-sessions/${id}`);
+  if (!response.ok) throw new Error(`Inspection could not be loaded (${response.status})`);
   const session = await response.json();
   const form = document.getElementById("inspection-form");
   form.elements.inspectionSessionId.value = session.id;
-  setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, "Editing");
+  setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.status === "Completed" ? "Completed" : "Editing");
+  document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";

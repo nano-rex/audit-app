@@ -10,14 +10,18 @@ import html
 import hashlib
 import os
 import secrets
+import gzip
+import threading
+from collections import OrderedDict
+from functools import lru_cache
 from datetime import datetime
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, unquote
 
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.environ.get("AUDIT_DATA_DIR", str(ROOT / "data"))).resolve()
 DB_PATH = DATA_DIR / "ottotree_audit_web.db"
 LOUDSPEAKER_OUTLETS = ("STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS")
 DEFAULT_CATEGORIES = (
@@ -103,6 +107,18 @@ SESSION_TOKENS = {}
 DEFAULT_PASSWORD = "password123"
 SUPER_ROLE = "Super"
 ADMIN_ROLE = "Admin"
+EQUIPMENT_CACHE = OrderedDict()
+EQUIPMENT_CACHE_LOCK = threading.RLock()
+STATIC_LOCK = threading.Lock()
+
+
+class PreparedJson(dict):
+    """Immutable-by-convention shared response, encoded once for a burst of readers."""
+
+    def __init__(self, data):
+        super().__init__(data)
+        self.body = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        self.compressed = gzip.compress(self.body, compresslevel=3, mtime=0)
 
 
 def today_date():
@@ -144,15 +160,23 @@ def location_qr_code(outlet, name):
 
 def hash_password(password, salt=None):
     salt = salt or secrets.token_hex(16)
-    digest = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
-    return f"{salt}${digest}"
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("ascii"), 600000).hex()
+    return f"pbkdf2_sha256$600000${salt}${digest}"
 
 
 def verify_password(password, stored_hash):
     if not stored_hash or "$" not in stored_hash:
         return False
+    if stored_hash.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt, digest = stored_hash.split("$")
+            actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("ascii"), int(iterations)).hex()
+            return secrets.compare_digest(actual, digest)
+        except (ValueError, UnicodeError):
+            return False
     salt, digest = stored_hash.split("$", 1)
-    return secrets.compare_digest(hash_password(password, salt).split("$", 1)[1], digest)
+    actual = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+    return secrets.compare_digest(actual, digest)
 
 
 def public_user(row):
@@ -292,9 +316,24 @@ def json_text(value, fallback=None):
     return json.dumps(value)
 
 
+class DatabaseConnection(sqlite3.Connection):
+    """Commit/rollback and release the connection at the end of each operation."""
+
+    def __exit__(self, *args):
+        try:
+            changed = self.total_changes > 0
+            result = super().__exit__(*args)
+            if changed:
+                with EQUIPMENT_CACHE_LOCK:
+                    EQUIPMENT_CACHE.clear()
+            return result
+        finally:
+            self.close()
+
+
 def connect():
-    DATA_DIR.mkdir(exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH, timeout=15, factory=DatabaseConnection)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -307,6 +346,7 @@ def ensure_column(db, table, column, definition):
 
 def init_db():
     with connect() as db:
+        db.execute("PRAGMA journal_mode=WAL")
         db.executescript(
             """
             CREATE TABLE IF NOT EXISTS audits (
@@ -694,6 +734,18 @@ def init_db():
         db.execute("UPDATE equipment SET asset_id = code WHERE code IS NOT NULL AND code != ''")
         db.execute("UPDATE equipment SET qr_code = code WHERE code IS NOT NULL AND code != ''")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_equipment_code ON equipment(code)")
+        for statement in (
+            "CREATE INDEX IF NOT EXISTS idx_equipment_outlet_name ON equipment(outlet, COALESCE(name, asset_id), id)",
+            "CREATE INDEX IF NOT EXISTS idx_equipment_name ON equipment(COALESCE(name, asset_id), id)",
+            "CREATE INDEX IF NOT EXISTS idx_audits_outlet_recent ON audits(business_unit, outlet, created_at DESC, id DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_completed ON inspection_sessions(status, audit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_sessions_updated ON inspection_sessions(updated_at DESC, id DESC)",
+            "CREATE INDEX IF NOT EXISTS idx_findings_audit ON findings(audit_id)",
+            "CREATE INDEX IF NOT EXISTS idx_locations_outlet ON locations(outlet_code, name)",
+            "CREATE INDEX IF NOT EXISTS idx_zones_outlet ON zones(outlet_code, name)",
+            "CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email))",
+        ):
+            db.execute(statement)
         db.execute("UPDATE equipment SET location = zone WHERE location IS NULL OR location = ''")
         db.execute("UPDATE equipment SET installation_date = last_checked WHERE installation_date IS NULL OR installation_date = ''")
         db.execute("DELETE FROM audits WHERE auditor = 'Sample Auditor'")
@@ -870,19 +922,13 @@ def seed_users(db):
         ("Ottotree System Administrator", ADMIN_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff", DEFAULT_PASSWORD),
     ]
     for row in rows:
+        if db.execute("SELECT 1 FROM users WHERE email = ?", (row[2],)).fetchone():
+            continue
         db.execute(
             """
             INSERT INTO users (name, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
             VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
-            ON CONFLICT(email) DO UPDATE SET
-                name = excluded.name,
-                role = excluded.role,
-                department = excluded.department,
-                password_hash = excluded.password_hash,
-                active = 1,
-                reset_required = 0,
-                title = excluded.title,
-                responsibilities = excluded.responsibilities
+            ON CONFLICT(email) DO NOTHING
             """,
             (row[0], row[1], row[2], row[3], hash_password(row[6]), row[4], row[5], now),
         )
@@ -1144,7 +1190,8 @@ def dashboard(unit):
     completed = kpi["completed"] or 0
     response_rate = round((completed * 100 / assigned) if assigned else 0)
     completed_audits = int(stats["total"] or 0)
-    pending_audits = sum(1 for row in inspection_sessions()["items"] if row["status"] != "Completed")
+    with connect() as db:
+        pending_audits = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE status != 'Completed'").fetchone()[0]
     closed_statuses = {"Completed", "Verified", "Closed"}
     open_work_orders = [row for row in all_work_orders if row["status"] not in closed_statuses]
     completed_work_orders = [row for row in all_work_orders if row["status"] in closed_statuses]
@@ -1185,7 +1232,7 @@ def dashboard(unit):
         "today": {
             "scheduled": [dict(row) for row in schedules],
             "pendingUploads": 0,
-            "followUps": len(work_orders),
+            "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
         },
@@ -1214,10 +1261,12 @@ def dashboard(unit):
 
 def report(unit):
     data = dashboard(unit)
-    critical_orders = [
-        item for item in data["workOrders"]
-        if item["priority"] == "High"
-    ]
+    where, params = scope(unit, "work_orders")
+    with connect() as db:
+        critical_orders = [dict(row) for row in db.execute(
+            f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
+            "AND status NOT IN ('Completed', 'Verified', 'Closed') ORDER BY created_at DESC, id DESC", params
+        ).fetchall()]
     return {
         "unit": unit,
         "monthlySummary": {
@@ -1225,7 +1274,7 @@ def report(unit):
             "auditsCompleted": data["stats"]["auditsCompleted"],
             "auditsPending": data["stats"]["auditsPending"],
             "averageScore": data["stats"]["average"],
-            "openWorkOrders": len(data["workOrders"]),
+            "openWorkOrders": data["stats"]["outstandingIssues"],
             "totalFindings": data["stats"]["priorityIssues"] + data["stats"]["nonPriorityIssues"],
             "priorityFindings": data["stats"]["priorityIssues"],
             "nonPriorityFindings": data["stats"]["nonPriorityIssues"],
@@ -1435,7 +1484,25 @@ def zones(outlet=""):
     return {"items": items}
 
 
+def cached_response(key, loader):
+    key = (str(DB_PATH), *key)
+    with EQUIPMENT_CACHE_LOCK:
+        cached = EQUIPMENT_CACHE.get(key)
+        if cached and time.monotonic() - cached[0] < 5:
+            return cached[1]
+        data = PreparedJson(loader())
+        EQUIPMENT_CACHE[key] = (time.monotonic(), data)
+        EQUIPMENT_CACHE.move_to_end(key)
+        while len(EQUIPMENT_CACHE) > 32:
+            EQUIPMENT_CACHE.popitem(last=False)
+        return data
+
+
 def equipment_items(outlet=None):
+    return cached_response(("equipment", outlet), lambda: query_equipment_items(outlet))
+
+
+def query_equipment_items(outlet=None):
     where = ""
     params = ()
     if outlet:
@@ -1556,7 +1623,7 @@ def inspection_progress(items):
         notes = (item.get("notes") or "").strip()
         if passed or not_applicable or notes:
             complete += 1
-    return round(complete * 100 / len(items))
+    return complete * 100 // len(items)
 
 
 def finalize_inspection(db, session_id, payload, now):
@@ -1827,7 +1894,85 @@ def inspection_pdf(session):
     return bytes(pdf)
 
 
+@lru_cache(maxsize=128)
+def static_fingerprint(target, second):
+    dependencies = [target]
+    if target.name == "index.html":
+        dependencies.extend(sorted((ROOT / "html").rglob("*.html")))
+    return tuple((str(file), file.stat().st_mtime_ns, file.stat().st_size) for file in dependencies)
+
+
+@lru_cache(maxsize=128)
+def static_content(target, fingerprint):
+    # The fingerprint includes partial mtimes, so edits invalidate the rendered shell.
+    if target.name == "index.html":
+        def include(match):
+            partial = (ROOT / match.group(1)).resolve()
+            if not partial.is_relative_to(ROOT / "html") or not partial.is_file():
+                return ""
+            return partial.read_text(encoding="utf-8")
+        body = INCLUDE_PATTERN.sub(include, target.read_text(encoding="utf-8")).encode("utf-8")
+    else:
+        body = target.read_bytes()
+    return body, gzip.compress(body, compresslevel=5, mtime=0), '"' + hashlib.sha256(body).hexdigest() + '"'
+
+
+class AuditHTTPServer(ThreadingHTTPServer):
+    request_queue_size = 256
+    daemon_threads = True
+
+    def __init__(self, *args, **kwargs):
+        self.slots = threading.BoundedSemaphore(max(1, int(os.environ.get("AUDIT_WORKERS", "8"))))
+        super().__init__(*args, **kwargs)
+
+    def process_request(self, request, client_address):
+        self.slots.acquire()
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
+
+
 class Handler(BaseHTTPRequestHandler):
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(30)
+
+    def read_payload(self):
+        try:
+            if self.headers.get("Transfer-Encoding"):
+                raise ValueError("Transfer-Encoding is not supported")
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 0:
+                raise ValueError("Invalid Content-Length")
+            if length > 20 * 1024 * 1024:
+                self.json({"error": "Request body exceeds 20 MiB"}, 413)
+                return None
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            if not isinstance(payload, dict):
+                raise ValueError("JSON body must be an object")
+            if "items" in payload and (not isinstance(payload["items"], list) or
+                    any(not isinstance(item, dict) for item in payload["items"])):
+                raise ValueError("items must be an array of objects")
+            return payload
+        except (ValueError, UnicodeError) as error:
+            self.json({"error": str(error)}, 400)
+            return None
+
+    def accepts_gzip(self):
+        for entry in self.headers.get("Accept-Encoding", "").split(","):
+            parts = entry.strip().split(";")
+            if parts[0].strip() == "gzip":
+                return not any(re.fullmatch(r"q\s*=\s*0(?:\.0*)?", part.strip()) for part in parts[1:])
+        return False
+
     def session_token(self):
         header = self.headers.get("Cookie", "")
         jar = cookies.SimpleCookie()
@@ -1863,10 +2008,50 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if parsed.path.startswith("/api/auth/"):
             return True
-        if self.current_user():
+        user = self.current_user()
+        if not user:
+            self.json({"ok": False, "error": "Login required"}, status=401)
+            return False
+        if is_super_user(user):
             return True
-        self.json({"ok": False, "error": "Login required"}, status=401)
-        return False
+        route = parsed.path.removeprefix("/api/").split("/", 1)[0]
+        permissions = {
+            "dashboard": {"today", "reports"},
+            "reports": {"reports"},
+            "inspection-sessions": {"inspections"},
+            "inspections": {"inspections"},
+            "audits": {"inspections"},
+            "checklist": {"inspections"},
+            "equipment": {"equipment"},
+            "users": {"users"},
+            "roles": {"roles"},
+            "settings": {"settings"},
+            "schedules": {"today"},
+            "captain-logins": {"today"},
+            "findings": {"findings"},
+            "work-orders": {"work-orders", "corrective-actions"},
+            "notifications": {"notifications"},
+            "locations": {"outlets"},
+            "zones": {"outlets"},
+            "comments": {"findings", "work-orders", "corrective-actions", "inspections"},
+        }
+        if route == "setup":
+            section = parsed.path.split("/")[3:4]
+            required = {"priorities": "settings", "audit-types": "settings"}.get(section[0], section[0]) if section else None
+            allowed = {required} if required else set()
+        else:
+            allowed = permissions.get(route, set())
+        if self.command == "POST" and route == "work-orders":
+            allowed |= {"inspections"}  # Inspectors can raise issues from failed criteria.
+        if self.command == "GET":
+            if route in {"setup", "locations", "zones"}:
+                return True  # Shared selection lists used by the permitted workflows.
+            if route == "equipment":
+                allowed |= {"inspections", "outlets"}
+        if allowed and not allowed.intersection(user.get("permissions", [])):
+            self.json({"ok": False, "error": "You do not have access to this section"}, 403)
+            return False
+        return True
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -1884,7 +2069,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/dashboard":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json(dashboard(unit))
+            self.json(cached_response(("dashboard", unit), lambda: dashboard(unit)))
             return
         if parsed.path == "/api/checklist":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
@@ -1951,7 +2136,7 @@ class Handler(BaseHTTPRequestHandler):
             self.download(report_xls(unit), "application/vnd.ms-excel", "audit-report.xls")
             return
         if parsed.path == "/api/setup":
-            self.json(setup_records())
+            self.json(cached_response(("setup",), setup_records))
             return
         if parsed.path == "/api/roles":
             self.json(role_items())
@@ -1970,11 +2155,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        length = int(self.headers.get("Content-Length", "0"))
-        try:
-            payload = json.loads(self.rfile.read(length) or b"{}")
-        except json.JSONDecodeError:
-            self.send_error(400, "Invalid JSON body")
+        payload = self.read_payload()
+        if payload is None:
             return
         now = int(time.time() * 1000)
         if parsed.path == "/api/auth/login":
@@ -1994,6 +2176,8 @@ class Handler(BaseHTTPRequestHandler):
                 if not row or not row["active"] or not verify_password(password, row["password_hash"]):
                     self.json({"ok": False, "error": "Invalid email or password"}, status=401)
                     return
+                if not row["password_hash"].startswith("pbkdf2_sha256$"):
+                    db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), row["id"]))
                 token = secrets.token_urlsafe(32)
                 max_age = 60 * 60 * 24 * 30 if remember else 60 * 60 * 8
                 SESSION_TOKENS[token] = {"user_id": row["id"], "expires_at": time.time() + max_age}
@@ -2020,7 +2204,9 @@ class Handler(BaseHTTPRequestHandler):
                 ).fetchone()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
-            self.send_header("Set-Cookie", f"ottotree_session={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax")
+            self.send_header("Cache-Control", "no-store")
+            secure = "; Secure" if os.environ.get("AUDIT_SECURE_COOKIES") == "1" else ""
+            self.send_header("Set-Cookie", f"ottotree_session={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
             self.end_headers()
             self.wfile.write(json.dumps({"ok": True, "user": public_user(refreshed)}).encode("utf-8"))
             return
@@ -2028,6 +2214,7 @@ class Handler(BaseHTTPRequestHandler):
             SESSION_TOKENS.pop(self.session_token(), None)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Cache-Control", "no-store")
             self.send_header("Set-Cookie", "ottotree_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
             self.end_headers()
             self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
@@ -2206,6 +2393,9 @@ class Handler(BaseHTTPRequestHandler):
             elif parsed.path == "/api/inspection-sessions":
                 items = payload.get("items") or []
                 progress = inspection_progress(items)
+                if payload.get("complete") and progress < 100:
+                    self.json({"error": "Inspection is incomplete"}, 409)
+                    return
                 status = "Completed" if payload.get("complete") and progress == 100 else "Draft"
                 cursor = db.execute(
                     """
@@ -2238,6 +2428,7 @@ class Handler(BaseHTTPRequestHandler):
                 audit_id = None
                 if status == "Completed":
                     audit_id = finalize_inspection(db, session_id, payload, now)
+                db.commit()
                 self.json({"ok": True, "id": session_id, "inspectionName": session_name, "progress": progress, "status": status, "auditId": audit_id})
                 return
             elif parsed.path == "/api/schedules":
@@ -2555,11 +2746,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_PATCH(self):
         parsed = urlparse(self.path)
-        length = int(self.headers.get("Content-Length", "0"))
-        try:
-            payload = json.loads(self.rfile.read(length) or b"{}")
-        except json.JSONDecodeError:
-            self.send_error(400, "Invalid JSON body")
+        payload = self.read_payload()
+        if payload is None:
             return
         if not self.require_auth(parsed):
             return
@@ -2577,6 +2765,15 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_error(409, "Inspection is incomplete")
                 return
             with connect() as db:
+                # Serialize the status check and update to prevent duplicate finalization.
+                db.execute("BEGIN IMMEDIATE")
+                existing = db.execute("SELECT status FROM inspection_sessions WHERE id = ?", (int(session_id),)).fetchone()
+                if not existing:
+                    self.json({"error": "Inspection not found"}, 404)
+                    return
+                if existing["status"] == "Completed":
+                    self.json({"error": "Completed inspections cannot be changed"}, 409)
+                    return
                 session_name = inspection_name({
                     "id": int(session_id),
                     "outlet": payload.get("outlet") or first_outlet(db),
@@ -3259,41 +3456,62 @@ class Handler(BaseHTTPRequestHandler):
         self.json({"ok": True})
 
     def static_file(self, request_path):
-        path = "index.html" if request_path in ("", "/") else request_path.lstrip("/")
+        path = "index.html" if request_path in ("", "/") else unquote(request_path).lstrip("/")
         target = (ROOT / path).resolve()
-        if not str(target).startswith(str(ROOT)) or not target.exists() or target.is_dir():
+        allowed = (path in {"index.html", "login.html", "register.html", "styles.css"}
+                   or (path.startswith("js/") and target.is_relative_to(ROOT / "js") and target.suffix == ".js")
+                   or (path.startswith("css/") and target.is_relative_to(ROOT / "css") and target.suffix == ".css"))
+        if not allowed or not target.is_relative_to(ROOT) or not target.is_file():
             self.send_error(404)
             return
-        if target.name == "index.html":
-            text = target.read_text(encoding="utf-8")
-            def include(match):
-                partial = (ROOT / match.group(1)).resolve()
-                if not str(partial).startswith(str(ROOT)) or not partial.exists() or partial.is_dir():
-                    return ""
-                return partial.read_text(encoding="utf-8")
-            body = INCLUDE_PATTERN.sub(include, text).encode("utf-8")
-        else:
-            body = target.read_bytes()
+        with STATIC_LOCK:
+            fingerprint = static_fingerprint(target, int(time.monotonic()))
+            body, compressed, etag = static_content(target, fingerprint)
+        use_gzip = self.accepts_gzip()
+        if use_gzip:
+            body = compressed
+            etag = etag[:-1] + '-gzip"'
         mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        if etag in [tag.strip() for tag in self.headers.get("If-None-Match", "").split(",")]:
+            self.send_response(304)
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
+            self.send_header("Vary", "Accept-Encoding")
+            self.end_headers()
+            return
         self.send_response(200)
-        self.send_header("Content-Type", mime)
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Type", mime + "; charset=utf-8")
+        self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
+        self.send_header("ETag", etag)
+        self.send_header("Vary", "Accept-Encoding")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def json(self, payload, status=200):
-        body = json.dumps(payload).encode("utf-8")
+        body = payload.body if isinstance(payload, PreparedJson) else json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        use_gzip = len(body) >= 1024 and self.accepts_gzip()
+        if use_gzip:
+            body = payload.compressed if isinstance(payload, PreparedJson) else gzip.compress(body, compresslevel=3, mtime=0)
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Vary", "Accept-Encoding")
+        if use_gzip:
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def download(self, body, mime, filename):
+        filename = re.sub(r"[^A-Za-z0-9._ -]", "_", filename)
         self.send_response(200)
         self.send_header("Content-Type", mime)
-        self.send_header("Content-Disposition", f"attachment; filename={filename}")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -3302,7 +3520,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT", "41883"))
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = AuditHTTPServer(("127.0.0.1", port), Handler)
     print(f"Serving Ottotree Audit at http://127.0.0.1:{port}")
     print(f"SQLite database: {DB_PATH}")
     server.serve_forever()

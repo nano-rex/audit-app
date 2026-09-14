@@ -325,6 +325,7 @@ wireForm("new-audit-form", "/api/audits", (form) => ({
 
 async function saveInspectionSession(complete = false) {
   const form = document.getElementById("inspection-form");
+  if (form.dataset.saving === "true") return;
   const payload = collectInspectionPayload(complete);
   if (complete) {
     const error = validateInspectionComplete(payload);
@@ -335,6 +336,7 @@ async function saveInspectionSession(complete = false) {
     }
   }
   const id = formValue(form, "inspectionSessionId", "");
+  form.dataset.saving = "true";
   try {
     const result = await requestJson(id ? `/api/inspection-sessions/${id}` : "/api/inspection-sessions", id ? "PATCH" : "POST", payload);
     form.elements.inspectionSessionId.value = result.id;
@@ -343,11 +345,15 @@ async function saveInspectionSession(complete = false) {
     updateInspectionProgress();
     loadInspectionHistory();
     if (complete) {
+      setCurrentInspectionName(result.inspectionName, "Completed");
+      document.querySelector("[data-save-inspection-progress]").disabled = true;
       loadDashboard();
     }
   } catch (error) {
-    alert("Unable to save inspection progress. Please try again.");
+    alert(`Unable to save inspection: ${error.message}`);
     console.error(error);
+  } finally {
+    form.dataset.saving = "false";
   }
 }
 

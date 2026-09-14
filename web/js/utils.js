@@ -1,5 +1,6 @@
 function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function setText(selector, value) {
@@ -22,7 +23,7 @@ function setCurrentInspectionName(value = "", mode = "New") {
 
 async function loadBranding() {
   try {
-    const response = await fetch("/api/branding");
+    const response = await authFetch("/api/branding");
     if (response.ok) {
       branding = { ...brandingDefaults, ...await response.json() };
       currentUnit = branding.businessUnitLabel || branding.companyName || brandingDefaults.businessUnitLabel;
@@ -238,7 +239,7 @@ async function updateEquipmentLocationSelect(selected = "") {
   const form = document.getElementById("equipment-form");
   if (!form) return;
   const outlet = formValue(form, "outlet", selectedLocationOutlet || setupOptions.outlets[0] || "");
-  const response = await fetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
   const data = await response.json();
   const values = data.items.map((row) => row.name);
   updateSelectOptions(form.elements.location, values, false, "Select location");
@@ -258,7 +259,7 @@ async function updateScheduleLocationSelect(selected = "") {
   const form = document.getElementById("schedule-form");
   if (!form) return;
   const outlet = formValue(form, "outlet", setupOptions.outlets[0] || "");
-  const response = await fetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
   const data = await response.json();
   const values = data.items.map((row) => row.name);
   updateSelectOptions(form.elements.zone, values, false, "Select location");
@@ -273,7 +274,8 @@ async function requestJson(url, method, payload) {
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.error || `Request failed: ${response.status}`);
   }
   return response.json();
 }

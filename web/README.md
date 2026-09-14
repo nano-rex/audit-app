@@ -2,6 +2,8 @@
 
 SQLite-backed web version of the audit application.
 
+See [production readiness and measured performance](../production-readiness.md) for the audit findings, 100-user benchmark, configuration, and remaining release work.
+
 ## Structure
 
 - `server.py` serves the SQLite API and static web app.
@@ -9,7 +11,7 @@ SQLite-backed web version of the audit application.
 - `html/tabs/` contains each main tab panel.
 - `html/dialogs/` contains modal form markup.
 - `js/` contains browser scripts split by responsibility.
-- `css/` contains the stylesheet sections imported by `styles.css`.
+- `css/` contains stylesheets loaded directly by the HTML entry points; `styles.css` remains a compatibility entry point.
 - `data/ottotree_audit_web.db` is the local SQLite database. Prototype data can be recreated from setup screens.
 
 Run:
@@ -17,6 +19,8 @@ Run:
 ```sh
 python3 server.py
 ```
+
+Python 3.10 or later is required. Optional settings: `AUDIT_DATA_DIR` overrides the database directory, `AUDIT_WORKERS` sets the active request limit (default 8), and `AUDIT_SECURE_COOKIES=1` marks login cookies for HTTPS-only use. The app stays bound to `127.0.0.1`.
 
 Then open:
 

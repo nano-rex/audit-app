@@ -9,6 +9,27 @@ document.querySelectorAll("[data-open]").forEach((button) => {
 });
 
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-new-inspection]")) {
+    if (!confirm("Start a new inspection? Unsaved changes will be discarded.")) return;
+    const form = document.getElementById("inspection-form");
+    form.reset();
+    form.elements.inspectionSessionId.value = "";
+    form.elements.auditDate.value = todayIsoDate();
+    form.elements.auditor.value = currentUser?.name || "";
+    inspectionSessionItems = [];
+    localStorage.removeItem(lastInspectionSessionKey);
+    setInspectionSignatures({});
+    setCurrentInspectionName();
+    document.querySelector("[data-save-inspection-progress]").disabled = false;
+    await loadChecklist();
+    return;
+  }
+  const equipmentPageButton = event.target.closest("[data-equipment-page]");
+  if (equipmentPageButton) {
+    equipmentPage = Number(equipmentPageButton.dataset.equipmentPage);
+    renderEquipment();
+    return;
+  }
   const menuButton = event.target.closest("[data-menu-toggle]");
   if (menuButton) {
     const menu = document.getElementById("tab-menu");

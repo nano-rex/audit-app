@@ -3,7 +3,7 @@ async function loadLocations() {
     setHtml("[data-location-records]", `<section class="admin-group"><ul><li><b>No outlet selected</b><span>Create an outlet first.</span></li></ul></section>`);
     return;
   }
-  const response = await fetch(`/api/locations?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
   setHtml("[data-location-records]", data.items.length
     ? `<section class="admin-group"><ul>${data.items.map(locationRow).join("")}</ul></section>`
@@ -12,7 +12,7 @@ async function loadLocations() {
 
 async function loadZones() {
   if (!selectedZoneOutlet) {
-    const response = await fetch("/api/zones");
+    const response = await authFetch("/api/zones");
     const data = await response.json();
     zoneCache = data.items || [];
     setHtml("[data-zone-records]", setupOptions.outlets.length
@@ -25,7 +25,7 @@ async function loadZones() {
       : `<section class="admin-group"><ul><li><b>No outlets</b><span>Create an outlet first.</span></li></ul></section>`);
     return;
   }
-  const response = await fetch(`/api/zones?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
+  const response = await authFetch(`/api/zones?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
   const data = await response.json();
   zoneCache = [
     ...zoneCache.filter((zone) => zone.outlet_code !== selectedZoneOutlet),
@@ -38,7 +38,7 @@ async function loadZones() {
 
 async function populateLocationEquipmentSelect(locationName = "") {
   const form = document.getElementById("location-form");
-  const response = await fetch(`/api/equipment?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
+  const response = await authFetch(`/api/equipment?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
   form.elements.equipmentIds.innerHTML = data.items.map((item) => {
     const selected = (item.location || item.zone || "") === locationName ? " selected" : "";
@@ -49,7 +49,7 @@ async function populateLocationEquipmentSelect(locationName = "") {
 
 async function populateZoneLocationSelect(selectedLocations = []) {
   const form = document.getElementById("zone-form");
-  const response = await fetch(`/api/locations?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
   const data = await response.json();
   const selected = new Set(selectedLocations);
   const currentZoneId = formValue(form, "zoneId", "");
@@ -76,7 +76,7 @@ async function populateZoneLocationSelect(selectedLocations = []) {
     : `<p class="muted">No locations are set up for this outlet.</p>`;
 }
 async function loadSetup() {
-  const response = await fetch("/api/setup");
+  const response = await authFetch("/api/setup");
   const data = await response.json();
   setupOptions.departments = data.departments.map((row) => row.code);
   setupOptions.categories = (data.categories || []).filter((row) => row.active).map((row) => row.name);
@@ -106,8 +106,6 @@ async function loadSetup() {
   populateSettingsForms();
   updateLocationOutletSelect();
   updateZoneOutletSelect();
-  loadLocations();
-  loadZones();
 }
 
 function renderPriorities() {
@@ -179,7 +177,7 @@ function populateSettingsForms() {
 }
 
 async function loadUsers() {
-  const response = await fetch("/api/users");
+  const response = await authFetch("/api/users");
   const data = await response.json();
   userCache = data.items;
   renderUsers();
