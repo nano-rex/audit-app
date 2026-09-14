@@ -5,6 +5,7 @@ import json
 import re
 import sqlite3
 import sys
+import time
 from pathlib import Path
 
 try:
@@ -121,6 +122,62 @@ def connect(db_path):
     return conn
 
 
+def location_qr_code(outlet, name):
+    outlet_code = re.sub(r"[^A-Z0-9]+", "-", (outlet or "OUTLET").upper()).strip("-") or "OUTLET"
+    location_code = re.sub(r"[^A-Z0-9]+", "-", (name or "LOCATION").upper()).strip("-") or "LOCATION"
+    return f"LOC-{outlet_code}-{location_code}"
+
+
+def sync_default_zone(db, outlet, now):
+    locations = [row["name"] for row in db.execute(
+        "SELECT name FROM locations WHERE outlet_code = ? ORDER BY name",
+        (outlet,),
+    ).fetchall()]
+    if not locations:
+        return
+    existing = db.execute(
+        "SELECT id FROM zones WHERE outlet_code = ? AND lower(name) = 'zone-1'",
+        (outlet,),
+    ).fetchone()
+    locations_json = json.dumps(locations)
+    if existing:
+        db.execute("UPDATE zones SET locations_json = ? WHERE id = ?", (locations_json, existing["id"]))
+    else:
+        db.execute(
+            """
+            INSERT INTO zones (outlet_code, name, locations_json, description, created_at)
+            VALUES (?, 'Zone-1', ?, 'Default zone containing all locations', ?)
+            """,
+            (outlet, locations_json, now),
+        )
+
+
+def ensure_location(db, outlet, location, now):
+    outlet = clean(outlet)
+    location = clean(location) or "Unassigned"
+    if not outlet:
+        return False
+    existing = db.execute(
+        "SELECT id FROM locations WHERE outlet_code = ? AND name = ?",
+        (outlet, location),
+    ).fetchone()
+    if existing:
+        return False
+    next_order = db.execute(
+        "SELECT COALESCE(MAX(display_order), 0) + 1 FROM locations WHERE outlet_code = ?",
+        (outlet,),
+    ).fetchone()[0]
+    db.execute(
+        """
+        INSERT INTO locations (outlet_code, name, floor, area, display_order, size, qr_code, created_at)
+        VALUES (?, ?, '', '', ?, '', ?, ?)
+        """,
+        (outlet, location, next_order, location_qr_code(outlet, location), now),
+    )
+    sync_default_zone(db, outlet, now)
+    return True
+
+
 def import_assets(folder, db_path, limit=0):
     files = sorted(Path(folder).glob("*.xlsx"))
     if not files:
@@ -129,6 +186,7 @@ def import_assets(folder, db_path, limit=0):
     count = 0
     created = 0
     updated = 0
+    locations_created = 0
     with connect(db_path) as db:
         for path in files:
             for item in iter_assets(path):
@@ -138,6 +196,9 @@ def import_assets(folder, db_path, limit=0):
                 status = item.get("operational_status") or "Active"
                 location = item.get("location") or "Unassigned"
                 description = item.get("description") or ""
+                now_ms = int(time.time() * 1000)
+                if ensure_location(db, item.get("outlet") or "", location, now_ms):
+                    locations_created += 1
                 db.execute(
                     """
                     INSERT INTO equipment
@@ -216,8 +277,8 @@ def import_assets(folder, db_path, limit=0):
                 else:
                     created += 1
                 if limit and count >= limit:
-                    return {"total": count, "created": created, "updated": updated}
-    return {"total": count, "created": created, "updated": updated}
+                    return {"total": count, "created": created, "updated": updated, "locations_created": locations_created}
+    return {"total": count, "created": created, "updated": updated, "locations_created": locations_created}
 
 
 def main():
@@ -227,7 +288,11 @@ def main():
     parser.add_argument("--limit", type=int, default=0, help="Maximum rows to import; 0 imports all rows")
     args = parser.parse_args()
     result = import_assets(args.folder, Path(args.db), args.limit)
-    print(f"Synced {result['total']} fixed asset rows: {result['created']} created, {result['updated']} updated")
+    print(
+        f"Synced {result['total']} fixed asset rows: "
+        f"{result['created']} created, {result['updated']} updated, "
+        f"{result['locations_created']} locations created"
+    )
 
 
 if __name__ == "__main__":
