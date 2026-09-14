@@ -38,10 +38,16 @@ Use `Work Orders` for follow-up issues. Low-scoring inspection items create work
 
 Use `Fixed Assets` for the QR/asset registry and fixed asset condition records. Fixed asset `Code` is the canonical unique key, and QR codes are generated from the same `Code`.
 
-Import XLSX fixed asset listings with:
+Import XLSX fixed asset listings from the repo-local `Fixed_Assets/` folder with:
 
 ```sh
-python3 tools/import_fixed_assets.py /home/user/codex/Fixed_Assets
+python3 tools/import_fixed_assets.py
+```
+
+Or pass a device-specific folder explicitly:
+
+```sh
+python3 tools/import_fixed_assets.py /path/to/Fixed_Assets
 ```
 
 Use `Reports` for the monthly summary, KPI metrics, outlet rankings, critical issues, and CSV/JSON exports.

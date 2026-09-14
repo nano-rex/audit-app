@@ -14,6 +14,7 @@ except ImportError as exc:
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "web" / "data" / "ottotree_audit_web.db"
+DEFAULT_ASSET_FOLDER = ROOT / "Fixed_Assets"
 DEFAULT_CRITERIA = [
     "Present and correctly placed",
     "Clean and free from visible damage",
@@ -221,7 +222,7 @@ def import_assets(folder, db_path, limit=0):
 
 def main():
     parser = argparse.ArgumentParser(description="Import Ottotree fixed asset XLSX listings into the audit app SQLite database.")
-    parser.add_argument("folder", nargs="?", default="/home/user/codex/Fixed_Assets", help="Folder containing Fixed Asset Listing .xlsx files")
+    parser.add_argument("folder", nargs="?", default=str(DEFAULT_ASSET_FOLDER), help="Folder containing Fixed Asset Listing .xlsx files; defaults to ./Fixed_Assets beside the repo")
     parser.add_argument("--db", default=str(DB_PATH), help="SQLite database path")
     parser.add_argument("--limit", type=int, default=0, help="Maximum rows to import; 0 imports all rows")
     args = parser.parse_args()
