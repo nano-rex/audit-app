@@ -178,8 +178,19 @@ def ensure_location(db, outlet, location, now):
     return True
 
 
+def fixed_asset_files(source):
+    source = Path(source)
+    if source.is_file():
+        if source.suffix.lower() != ".xlsx":
+            raise SystemExit(f"Expected an .xlsx file, got {source}")
+        return [source]
+    if source.is_dir():
+        return sorted(source.glob("*.xlsx"))
+    raise SystemExit(f"Fixed asset source does not exist: {source}")
+
+
 def import_assets(folder, db_path, limit=0):
-    files = sorted(Path(folder).glob("*.xlsx"))
+    files = fixed_asset_files(folder)
     if not files:
         raise SystemExit(f"No .xlsx files found in {folder}")
     ensure_schema(db_path)
@@ -283,11 +294,11 @@ def import_assets(folder, db_path, limit=0):
 
 def main():
     parser = argparse.ArgumentParser(description="Import Ottotree fixed asset XLSX listings into the audit app SQLite database.")
-    parser.add_argument("folder", nargs="?", default=str(DEFAULT_ASSET_FOLDER), help="Folder containing Fixed Asset Listing .xlsx files; defaults to ./Fixed_Assets beside the repo")
+    parser.add_argument("source", nargs="?", default=str(DEFAULT_ASSET_FOLDER), help="Fixed Asset Listing .xlsx file or folder; defaults to ./Fixed_Assets beside the repo")
     parser.add_argument("--db", default=str(DB_PATH), help="SQLite database path")
     parser.add_argument("--limit", type=int, default=0, help="Maximum rows to import; 0 imports all rows")
     args = parser.parse_args()
-    result = import_assets(args.folder, Path(args.db), args.limit)
+    result = import_assets(args.source, Path(args.db), args.limit)
     print(
         f"Synced {result['total']} fixed asset rows: "
         f"{result['created']} created, {result['updated']} updated, "
