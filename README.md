@@ -42,14 +42,22 @@ android/build/ottotree-audit-debug.apk
 Run the local SQLite-backed web server:
 
 ```sh
-cd web
-python3 server.py
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python web/server.py
 ```
 
 Then open `http://127.0.0.1:41883`.
+
+See [backend architecture](backend-architecture.md) for module responsibilities and test commands,
+[production readiness](production-readiness.md) for deployment limits and load-test results,
+and [requirements progress](requirements-progress.md) for the remaining core work.
 
 ## Data Storage
 
 The Android version uses local SQLite through `ottotree_audit.db`.
 
 The web version uses a local Python API backed by SQLite at `web/data/ottotree_audit_web.db`.
+
+Evidence and signatures are stored privately in `web/data/media/`. Back up this directory together
+with the SQLite database. Set `AUDIT_DATA_DIR` to use another data directory.

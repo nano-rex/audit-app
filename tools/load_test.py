@@ -33,8 +33,11 @@ def main():
             pass
 
     with tempfile.TemporaryDirectory(prefix="audit-load-") as storage:
-        app.DATA_DIR = Path(storage)
-        app.DB_PATH = app.DATA_DIR / "load.db"
+        if hasattr(app, "configure_data_directory"):
+            app.configure_data_directory(storage)
+        else:
+            app.DATA_DIR = Path(storage)
+            app.DB_PATH = app.DATA_DIR / "load.db"
         app.init_db()
         with app.connect() as db:
             user_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
@@ -49,7 +52,7 @@ def main():
                 db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,items_json,progress,status,created_at,updated_at) VALUES ('Ottotree','STP','Test','2026-09-14','Load test',?,100,'Draft',?,?)", (evidence, number, number))
         # Older sqlite3 context managers do not close the connection.
         db.close()
-        server_class = getattr(app, "AuditHTTPServer", app.ThreadingHTTPServer)
+        server_class = app.AuditHTTPServer if hasattr(app, "AuditHTTPServer") else app.ThreadingHTTPServer
         server = server_class(("127.0.0.1", 0), QuietHandler)
         server_errors = []
         # Summarize failures instead of printing hundreds of interleaved tracebacks.

@@ -95,7 +95,19 @@ function readFileAsDataUrl(file) {
 }
 
 async function readFilesAsStoredImages(files) {
-  return Promise.all([...files].map(readFileAsDataUrl));
+  return Promise.all([...files].map(async (file) => {
+    if (file.size > 10 * 1024 * 1024) throw new Error("Each image must be at most 10 MiB");
+    return uploadImage(await readFileAsDataUrl(file));
+  }));
+}
+
+async function uploadImage(image) {
+  const data = await requestJson("/api/media", "POST", { image });
+  return data.image;
+}
+
+function imageSource(image, marked = false) {
+  return image?.[marked ? "markedUrl" : "url"] || image?.[marked ? "markedDataUrl" : "dataUrl"] || "";
 }
 
 function renderSavedImageList(images, deleteAttribute = "data-delete-inspection-image", markAttribute = "") {
@@ -103,7 +115,8 @@ function renderSavedImageList(images, deleteAttribute = "data-delete-inspection-
   return images.map((image, index) => `
     <span class="image-pill">
       ${escapeHtml(imageLabel(image))}
-      ${markAttribute && image?.dataUrl ? `<button type="button" ${markAttribute}="${index}" aria-label="Mark ${escapeAttr(imageLabel(image))}">Mark</button>` : ""}
+      ${imageSource(image) ? `<a href="${escapeAttr(imageSource(image))}" target="_blank" rel="noopener">View</a>` : ""}
+      ${markAttribute && imageSource(image) ? `<button type="button" ${markAttribute}="${index}" aria-label="Mark ${escapeAttr(imageLabel(image))}">Mark</button>` : ""}
       <button type="button" ${deleteAttribute}="${index}" aria-label="Remove ${escapeAttr(imageLabel(image))}">x</button>
     </span>
   `).join("");

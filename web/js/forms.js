@@ -199,10 +199,15 @@ async function loadWorkOrderComments(workOrderId = "") {
 }
 
 async function openWorkOrderEditor(row = null) {
+  activeFindingRow = null;
   const dialog = document.getElementById("work-order-dialog");
   const form = document.getElementById("work-order-form");
   const isEdit = Boolean(row?.id);
   form.reset();
+  form.querySelector("[data-corrective-fields]").hidden = false;
+  form.querySelector("[data-verification-fields]").hidden = false;
+  form.dataset.savedImages = JSON.stringify(parseStoredImages(row?.images_json || "[]"));
+  form.querySelector("[data-work-order-evidence]").innerHTML = renderWorkOrderEvidence(storedImagesFromDataset(form));
   updateSetupSelects();
   form.elements.workOrderId.value = row?.id || "";
   if (row) {
@@ -222,6 +227,9 @@ async function openWorkOrderEditor(row = null) {
     form.elements.pic.value = row.pic || "";
     form.elements.title.value = row.title || "";
     form.elements.description.value = row.description || "";
+    form.elements.cause.value = row.cause || "";
+    form.elements.recommendation.value = row.recommendation || "";
+    form.elements.requiredAction.value = row.required_action || "";
     form.elements.actionTaken.value = row.action_taken || "";
     form.elements.completionDate.value = row.completion_date || "";
     form.elements.completionRemark.value = row.completion_remark || "";
@@ -412,6 +420,10 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     status: formValue(form, "status", "Assigned"),
     title: formValue(form, "title", "Work order"),
     description: formValue(form, "description", ""),
+    cause: formValue(form, "cause", ""),
+    recommendation: formValue(form, "recommendation", ""),
+    requiredAction: formValue(form, "requiredAction", ""),
+    images: storedImagesFromDataset(form),
     assignee: formValue(form, "assignee", "Technical Support"),
     dueDate: formValue(form, "dueDate", ""),
     vendor: formValue(form, "vendor", ""),
@@ -427,6 +439,21 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     closedAt: formValue(form, "closedAt", ""),
     verificationRemark: formValue(form, "verificationRemark", ""),
   };
+  if (activeFindingRow) {
+    activeFindingRow.dataset.findingDetails = JSON.stringify({
+      priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
+      cause: payload.cause, recommendation: payload.recommendation, requiredAction: payload.requiredAction,
+    });
+    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description;
+    activeFindingRow.querySelector('select[name*="-category-"]').value = payload.category;
+    const asset = activeFindingRow.closest("[data-equipment-id]");
+    asset.dataset.savedImages = JSON.stringify(payload.images);
+    asset.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(payload.images);
+    activeFindingRow = null;
+    form.closest("dialog").close();
+    updateInspectionProgress();
+    return;
+  }
   await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
   loadApp();

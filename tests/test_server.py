@@ -26,8 +26,7 @@ class ServerTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.storage = tempfile.TemporaryDirectory(prefix="audit-tests-")
-        app.DATA_DIR = Path(cls.storage.name)
-        app.DB_PATH = app.DATA_DIR / "test.db"
+        app.configure_data_directory(cls.storage.name)
         app.init_db()
         with app.connect() as db:
             cls.user_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
@@ -149,6 +148,55 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(data["monthlySummary"]["openWorkOrders"], 10)
         self.assertEqual(len(data["criticalIssues"]), 10)
         self.assertEqual(app.dashboard("Ottotree")["today"]["followUps"], 10)
+
+    def test_z_domain_route_round_trips(self):
+        cases = [
+            ("/api/equipment", "equipment", "code", {"code": "ROUTE-TEST", "name": "Route test"}),
+            ("/api/setup/departments", "departments", "code", {"code": "ROUTE-TEST"}),
+            ("/api/setup/categories", "categories", "name", {"name": "ROUTE-TEST"}),
+            ("/api/setup/outlets", "outlets", "code", {"code": "ROUTE-TEST"}),
+            ("/api/locations", "locations", "name", {"name": "ROUTE-TEST", "outlet": "STP"}),
+            ("/api/zones", "zones", "name", {"name": "ROUTE-TEST", "outlet": "STP"}),
+            ("/api/schedules", "schedules", "auditor", {"auditor": "ROUTE-TEST"}),
+            ("/api/roles", "roles", "name", {"name": "ROUTE-TEST", "tabs": ["today"]}),
+            ("/api/work-orders", "work_orders", "title", {"title": "ROUTE-TEST", "cause": "Broken", "requiredAction": "Repair"}),
+        ]
+        for path, table, field, payload in cases:
+            with self.subTest(path=path):
+                self.assertEqual(self.request(path, "POST", payload)[0], 200)
+                with app.connect() as db:
+                    row = db.execute(f"SELECT * FROM {table} WHERE {field} = ?", ("ROUTE-TEST",)).fetchone()
+                    self.assertIsNotNone(row)
+                    record_id = row["id"]
+                    if table == "work_orders":
+                        self.assertEqual(row["cause"], "Broken")
+                self.assertEqual(self.request(f"{path}/{record_id}", "PATCH", payload)[0], 200)
+                self.assertEqual(self.request(f"{path}/{record_id}", "DELETE")[0], 200)
+                with app.connect() as db:
+                    self.assertIsNone(db.execute(f"SELECT id FROM {table} WHERE id = ?", (record_id,)).fetchone())
+
+    def test_z_failed_audit_retains_evidence_and_links_one_work_order(self):
+        from test_media_reports import photo_data_url
+        status, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
+        self.assertEqual(status, 200)
+        image = json.loads(body)["image"]
+        self.assertEqual(self.request(image["url"], token=None)[0], 401)
+        self.assertEqual(self.request(image["url"])[0], 200)
+        payload = {"outlet": "STP", "auditTime": "12:30", "auditType": "Quick", "remarks": "Follow-up",
+                   "items": [{"item": "Broken fixture", "notes": "Repair needed", "priority": "Non-Priority",
+                              "pic": "Tester", "cause": "Loose screw", "images": [image]}], "complete": True}
+        status, _, body = self.request("/api/inspection-sessions", "POST", payload)
+        self.assertEqual(status, 200, body)
+        session_id = json.loads(body)["id"]
+        with app.connect() as db:
+            session = db.execute("SELECT * FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()
+            self.assertEqual((session["audit_time"], session["audit_type"], session["remarks"]), ("12:30", "Quick", "Follow-up"))
+            findings = db.execute("SELECT * FROM findings WHERE audit_id = ?", (session["audit_id"],)).fetchall()
+            self.assertEqual(len(findings), 1)
+            self.assertEqual((findings[0]["pic"], findings[0]["cause"]), ("Tester", "Loose screw"))
+            self.assertEqual(json.loads(findings[0]["images_json"])[0]["url"], image["url"])
+            orders = db.execute("SELECT * FROM work_orders WHERE source_finding_id = ?", (findings[0]["id"],)).fetchall()
+            self.assertEqual(len(orders), 1)
 
 
 if __name__ == "__main__":

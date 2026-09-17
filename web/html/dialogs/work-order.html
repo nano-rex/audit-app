@@ -1,6 +1,6 @@
   <dialog id="work-order-dialog">
     <form method="dialog" id="work-order-form">
-      <header><h2>Create Work Order</h2><button value="cancel">x</button></header>
+      <header><h2>Create Work Order</h2><button type="button" data-close-dialog>x</button></header>
       <input name="workOrderId" type="hidden">
       <div class="form-grid">
         <label>Outlet<select name="outlet"></select></label>
@@ -10,6 +10,7 @@
         <label>Priority<select name="priority"></select></label>
         <label>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
         <label>Assignee<input name="assignee" placeholder="Technical Support"></label>
+        <label>PIC<input name="pic" placeholder="Person in charge"></label>
         <label>Due Date<input name="dueDate" type="date"></label>
         <label>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
         <label>SLA Status<select name="slaStatus"><option value="">Auto</option><option>On Track</option><option>Due Soon</option><option>Overdue</option><option>Completed</option></select></label>
@@ -17,10 +18,14 @@
       </div>
       <label>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
       <label>Description<textarea name="description" placeholder="Troubleshooting detail, photo note, or outlet confirmation needed"></textarea></label>
-      <section class="form-section">
+      <label>Cause<textarea name="cause" placeholder="Known or suspected cause"></textarea></label>
+      <label>Recommendation<textarea name="recommendation" placeholder="Suggested correction"></textarea></label>
+      <label>Required Action<textarea name="requiredAction" placeholder="Work required to resolve the issue"></textarea></label>
+      <label>Finding Photos<input type="file" accept="image/*" multiple capture="environment" data-work-order-evidence-upload></label>
+      <div data-work-order-evidence data-saved-images></div>
+      <section class="form-section" data-corrective-fields>
         <h3>Corrective Action</h3>
         <div class="form-grid">
-          <label>PIC<input name="pic" placeholder="Person in charge"></label>
           <label>Completion Date<input name="completionDate" type="date"></label>
         </div>
         <label>Action Taken<textarea name="actionTaken" placeholder="Describe what was repaired, replaced, cleaned, adjusted, or verified"></textarea></label>
@@ -28,7 +33,7 @@
         <label>Completion Photo<input type="file" accept="image/*" multiple capture="environment" data-work-order-completion-photo></label>
         <div class="saved-images" data-work-order-completion-photos></div>
       </section>
-      <section class="form-section">
+      <section class="form-section" data-verification-fields>
         <h3>Verification</h3>
         <div class="form-grid">
           <label>Verified By<input name="verifiedBy" placeholder="Auditor or facilities manager"></label>
@@ -43,6 +48,6 @@
         <label>Add Comment<textarea name="timelineComment" placeholder="Add a follow-up note"></textarea></label>
         <button class="outline" type="button" data-add-work-order-comment>Add Comment</button>
       </section>
-      <button class="primary" value="default">Save Work Order</button>
+      <button class="primary" type="submit" value="default">Save Work Order</button>
     </form>
   </dialog>

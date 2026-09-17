@@ -1,6 +1,6 @@
   <dialog id="change-password-dialog" class="auth-dialog">
     <form method="dialog" id="change-password-form">
-      <header><h2>Change Password</h2><button value="cancel">x</button></header>
+      <header><h2>Change Password</h2><button type="button" data-close-dialog>x</button></header>
       <label>Current Password<input name="oldPassword" type="password" autocomplete="current-password" required></label>
       <label>New Password<input name="newPassword" type="password" autocomplete="new-password" minlength="8" required></label>
       <label>Confirm New Password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
@@ -11,7 +11,7 @@
 
   <dialog id="photo-mark-dialog" class="photo-mark-dialog">
     <form method="dialog" id="photo-mark-form">
-      <header><h2>Mark Photo</h2><button value="cancel">x</button></header>
+      <header><h2>Mark Photo</h2><button type="button" data-close-dialog>x</button></header>
       <div class="mark-toolbar">
         <button class="outline active" type="button" data-mark-tool="rect">Rectangle</button>
         <button class="outline" type="button" data-mark-tool="circle">Circle</button>
@@ -30,7 +30,7 @@
 
   <dialog id="signature-dialog">
     <form method="dialog" id="signature-form">
-      <header><h2 data-signature-title>Signature</h2><button value="cancel">x</button></header>
+      <header><h2 data-signature-title>Signature</h2><button type="button" data-close-dialog>x</button></header>
       <label>Name<input name="signatureName" placeholder="Signer name"></label>
       <label>Upload Signature<input name="signatureUpload" type="file" accept="image/*" data-signature-upload></label>
       <canvas width="720" height="260" data-signature-canvas></canvas>

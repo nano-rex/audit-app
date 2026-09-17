@@ -471,10 +471,11 @@ document.querySelector("[data-photo-mark-canvas]")?.addEventListener("pointerup"
   renderPhotoMarker();
 });
 
-document.getElementById("photo-mark-form")?.addEventListener("submit", (event) => {
+document.getElementById("photo-mark-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
-  saveMarkedPhoto();
-  event.currentTarget.closest("dialog").close();
+  const form = event.currentTarget;
+  await saveMarkedPhoto();
+  form.closest("dialog").close();
 });
 
 document.querySelectorAll("[data-open-signature]").forEach((button) => {
@@ -519,7 +520,7 @@ document.querySelector("[data-signature-clear]")?.addEventListener("click", () =
 
 document.querySelector("[data-signature-upload]")?.addEventListener("change", async (event) => {
   const [image] = await readFilesAsStoredImages(event.target.files);
-  if (!image?.dataUrl) return;
+  if (!imageSource(image)) return;
   const canvas = document.querySelector("[data-signature-canvas]");
   const ctx = canvas.getContext("2d");
   const source = new Image();
@@ -532,22 +533,23 @@ document.querySelector("[data-signature-upload]")?.addEventListener("change", as
     const height = source.height * ratio;
     ctx.drawImage(source, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
   });
-  source.src = image.dataUrl;
+  source.src = imageSource(image);
   event.target.value = "";
 });
 
-document.getElementById("signature-form")?.addEventListener("submit", (event) => {
+document.getElementById("signature-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!signatureState?.kind) return;
+  const form = event.currentTarget;
   const canvas = document.querySelector("[data-signature-canvas]");
   const signatures = inspectionSignatures();
-  signatures[signatureState.kind] = {
-    name: formValue(event.currentTarget, "signatureName", ""),
+  signatures[signatureState.kind] = await uploadImage({
+    name: formValue(form, "signatureName", ""),
     dataUrl: canvas.toDataURL("image/png"),
     signedAt: todayIsoDate(),
-  };
+  });
   setInspectionSignatures(signatures);
-  event.currentTarget.closest("dialog").close();
+  form.closest("dialog").close();
 });
 
 document.querySelector('#schedule-form select[name="outlet"]')?.addEventListener("change", () => {
@@ -617,7 +619,36 @@ checklistContainer?.addEventListener("change", async (event) => {
       `Type: ${detail.type}`,
       `Failed check: ${detail.criterion}`,
     ].filter(Boolean).join("\n"),
+    images_json: row.closest("[data-equipment-id]").dataset.savedImages || "[]",
   });
+  activeFindingRow = row;
+  const findingForm = document.getElementById("work-order-form");
+  findingForm.querySelector("h2").textContent = "Record Audit Finding";
+  findingForm.querySelector('button[type="submit"]').textContent = "Save Finding to Draft";
+  findingForm.querySelector("[data-corrective-fields]").hidden = true;
+  findingForm.querySelector("[data-verification-fields]").hidden = true;
+});
+
+document.querySelector("[data-work-order-evidence-upload]").addEventListener("change", async (event) => {
+  const input = event.target;
+  const form = input.form;
+  const images = [...storedImagesFromDataset(form), ...await readFilesAsStoredImages(input.files)];
+  form.dataset.savedImages = JSON.stringify(images);
+  form.querySelector("[data-work-order-evidence]").innerHTML = renderWorkOrderEvidence(images);
+  input.value = "";
+});
+
+document.querySelector("[data-work-order-evidence]").addEventListener("click", (event) => {
+  const form = event.currentTarget.closest("form");
+  const remove = event.target.closest("[data-delete-work-evidence]");
+  if (remove) {
+    const images = storedImagesFromDataset(form);
+    images.splice(Number(remove.dataset.deleteWorkEvidence), 1);
+    form.dataset.savedImages = JSON.stringify(images);
+    event.currentTarget.innerHTML = renderWorkOrderEvidence(images);
+  }
+  const mark = event.target.closest("[data-mark-work-evidence]");
+  if (mark) openPhotoMarker(form, Number(mark.dataset.markWorkEvidence));
 });
 
 checklistContainer?.addEventListener("click", (event) => {

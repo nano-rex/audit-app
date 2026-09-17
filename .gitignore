@@ -4,3 +4,5 @@ web/data/*.db
 web/data/*.db-*
 .DS_Store
 *.pyc
+.venv/
+web/data/media/

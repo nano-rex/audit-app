@@ -59,6 +59,7 @@ let findingCache = [];
 let inspectionItems = [];
 let inspectionSessionItems = [];
 let pendingInspectionSchedule = null;
+let activeFindingRow = null;
 let inspectionHistoryCache = [];
 let inspectionHistorySearch = "";
 let inspectionHistoryPage = 1;

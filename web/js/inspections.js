@@ -166,10 +166,14 @@ function renderInspectionImages(images) {
   return renderSavedImageList(images, "data-delete-inspection-image", "data-mark-inspection-image");
 }
 
+function renderWorkOrderEvidence(images) {
+  return renderSavedImageList(images, "data-delete-work-evidence", "data-mark-work-evidence");
+}
+
 function openPhotoMarker(itemRow, imageIndex) {
   const images = storedImagesFromDataset(itemRow);
   const image = images[imageIndex];
-  if (!itemRow || !image?.dataUrl) return;
+  if (!itemRow || !imageSource(image)) return;
   const dialog = document.getElementById("photo-mark-dialog");
   const canvas = document.querySelector("[data-photo-mark-canvas]");
   const ctx = canvas.getContext("2d");
@@ -189,13 +193,13 @@ function openPhotoMarker(itemRow, imageIndex) {
       startX: 0,
       startY: 0,
       points: [],
-      marks: [],
+      marks: structuredClone(image.marks || []),
       redoMarks: [],
     };
     renderPhotoMarker();
     dialog.showModal();
   });
-  source.src = image.markedDataUrl || image.dataUrl;
+  source.src = imageSource(image);
 }
 
 function renderPhotoMarker(preview = null) {
@@ -251,18 +255,21 @@ function photoMarkerPoint(event) {
   };
 }
 
-function saveMarkedPhoto() {
+async function saveMarkedPhoto() {
   if (!photoMarkState) return;
   const canvas = document.querySelector("[data-photo-mark-canvas]");
   const images = storedImagesFromDataset(photoMarkState.itemRow);
   const current = images[photoMarkState.imageIndex];
   if (!current) return;
-  current.markedDataUrl = canvas.toDataURL("image/png");
+  const marked = await uploadImage({ name: "marked-photo.png", dataUrl: canvas.toDataURL("image/png") });
+  current.markedUrl = marked.url;
+  current.markedId = marked.id;
+  delete current.markedDataUrl;
   current.markedName = current.name ? `marked-${current.name}` : "marked-photo.png";
   current.marks = photoMarkState.marks;
   photoMarkState.itemRow.dataset.savedImages = JSON.stringify(images);
   const savedImages = photoMarkState.itemRow.querySelector("[data-saved-images]");
-  if (savedImages) savedImages.innerHTML = renderInspectionImages(images);
+  if (savedImages) savedImages.innerHTML = photoMarkState.itemRow.id === "work-order-form" ? renderWorkOrderEvidence(images) : renderInspectionImages(images);
   updateInspectionProgress();
   photoMarkState = null;
 }
@@ -389,6 +396,7 @@ function collectInspectionPayload(complete = false) {
       const passed = formData.get(`equipment-${row.dataset.equipmentId}-criterion-${index}`) === "pass";
       const notApplicable = formData.get(`equipment-${row.dataset.equipmentId}-na-${index}`) === "na";
       items.push({
+        ...parseStoredObject(criterionRow.dataset.findingDetails),
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
@@ -400,7 +408,6 @@ function collectInspectionPayload(complete = false) {
         evidenceStatus: images.length ? images.map(imageLabel).join(", ") : "Missing image",
         notes: formData.get(`equipment-${row.dataset.equipmentId}-notes-${index}`) || "",
         images,
-        workOrderRequested: !passed && !notApplicable,
       });
     });
   });
@@ -431,7 +438,7 @@ function setInspectionSignatures(signatures = {}) {
     acknowledgedBy: "Acknowledged",
   };
   const html = Object.entries(labels).map(([key, label]) => {
-    const signed = Boolean(signatures?.[key]?.dataUrl);
+    const signed = Boolean(imageSource(signatures?.[key]));
     return `<span class="status-pill ${signed ? "status-complete" : "status-untouched"}">${label}: ${signed ? "Signed" : "Unsigned"}</span>`;
   }).join("");
   setHtml("[data-signature-status]", html);
@@ -454,10 +461,10 @@ function openSignatureDialog(kind) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (signatures[kind]?.dataUrl) {
+  if (imageSource(signatures[kind])) {
     const image = new Image();
     image.addEventListener("load", () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height));
-    image.src = signatures[kind].dataUrl;
+    image.src = imageSource(signatures[kind]);
   }
   signatureState = { kind, drawing: false, lastX: 0, lastY: 0 };
   dialog.showModal();
@@ -580,6 +587,10 @@ function applyInspectionSessionItems() {
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const item = saved.find((entry) => entry.item === criterionRow.dataset.criterion) || saved[index];
       if (!item) return;
+      criterionRow.dataset.findingDetails = JSON.stringify({
+        priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
+        cause: item.cause, recommendation: item.recommendation, requiredAction: item.requiredAction,
+      });
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
       const na = criterionRow.querySelector("[data-inspection-na]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
