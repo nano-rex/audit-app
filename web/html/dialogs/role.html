@@ -2,12 +2,21 @@
     <form method="dialog" id="role-form">
       <header><h2>Role Setup</h2><button type="button" data-close-dialog>x</button></header>
       <input name="roleId" type="hidden">
+      <nav class="sub-tabs" aria-label="Role editor">
+        <button type="button" data-editor-tab="details">Details</button>
+        <button type="button" data-editor-tab="permissions">Permissions</button>
+      </nav>
+      <section data-editor-panel="details">
       <label>Role Name<input name="name" placeholder="Auditor"></label>
       <label>Description<textarea name="description" placeholder="What this role is responsible for"></textarea></label>
-      <section class="permission-picker">
+      </section>
+      <section class="permission-picker" data-editor-panel="permissions" hidden>
         <h3>Accessible Sections</h3>
         <div data-role-permissions></div>
+        <h3>Inspection Permissions</h3>
+        <div data-role-inspection-permissions></div>
+        <p>Users inherit these permissions unless a user-specific override is enabled.</p>
       </section>
-      <button class="primary" value="default">Save Role</button>
+      <button class="primary" type="submit" value="default">Save Role</button>
     </form>
   </dialog>

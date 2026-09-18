@@ -5,9 +5,15 @@ async function loadLocations() {
   }
   const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
-  setHtml("[data-location-records]", data.items.length
-    ? `<section class="admin-group"><ul>${data.items.map(locationRow).join("")}</ul></section>`
-    : `<section class="admin-group"><ul><li><b>No locations</b><span>Add a location for this outlet.</span></li></ul></section>`);
+  locationCache = data.items;
+  renderLocations();
+}
+
+function renderLocations() {
+  const page = paginateList("locations", locationCache, selectedLocationOutlet, renderLocations);
+  setHtml("[data-location-records]", (page.items.length
+    ? `<section class="admin-group"><ul>${page.items.map(locationRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No locations</b><span>Add a location for this outlet.</span></li></ul></section>`) + page.controls);
 }
 
 async function loadZones() {
@@ -15,14 +21,7 @@ async function loadZones() {
     const response = await authFetch("/api/zones");
     const data = await response.json();
     zoneCache = data.items || [];
-    setHtml("[data-zone-records]", setupOptions.outlets.length
-      ? setupOptions.outlets.map((outlet) => {
-        const rows = zoneCache.filter((zone) => zone.outlet_code === outlet);
-        return `<section class="admin-group"><h3>${escapeHtml(outlet)}</h3><ul>${rows.length
-          ? rows.map(zoneRow).join("")
-          : `<li><b>No zones</b><span>Add a zone for this outlet.</span></li>`}</ul></section>`;
-      }).join("")
-      : `<section class="admin-group"><ul><li><b>No outlets</b><span>Create an outlet first.</span></li></ul></section>`);
+    renderZones();
     return;
   }
   const response = await authFetch(`/api/zones?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
@@ -31,9 +30,16 @@ async function loadZones() {
     ...zoneCache.filter((zone) => zone.outlet_code !== selectedZoneOutlet),
     ...data.items,
   ];
-  setHtml("[data-zone-records]", data.items.length
-    ? `<section class="admin-group"><h3>${escapeHtml(selectedZoneOutlet)}</h3><ul>${data.items.map(zoneRow).join("")}</ul></section>`
-    : `<section class="admin-group"><ul><li><b>No zones</b><span>Add a zone for this outlet.</span></li></ul></section>`);
+  renderZones();
+}
+
+function renderZones() {
+  const rows = zoneCache.filter((row) => !selectedZoneOutlet || row.outlet_code === selectedZoneOutlet);
+  const page = paginateList("zones", rows, selectedZoneOutlet, renderZones);
+  const outlets = [...new Set(page.items.map((row) => row.outlet_code))];
+  setHtml("[data-zone-records]", (page.items.length
+    ? outlets.map((outlet) => `<section class="admin-group"><h3>${escapeHtml(outlet)}</h3><ul>${page.items.filter((row) => row.outlet_code === outlet).map(zoneRow).join("")}</ul></section>`).join("")
+    : `<section class="admin-group"><ul><li><b>No zones</b><span>Add a zone for this outlet.</span></li></ul></section>`) + page.controls);
 }
 
 async function populateLocationEquipmentSelect(locationName = "") {
@@ -194,17 +200,19 @@ function renderDepartments() {
 function renderCategories() {
   const search = categoryFilters.search.toLowerCase();
   const rows = categoryCache.filter((row) => [row.name, row.description, row.sequence, row.active ? "active" : "inactive"].join(" ").toLowerCase().includes(search));
-  setHtml("[data-category-records]", rows.length
-    ? `<section class="admin-group"><ul>${rows.map(categoryRow).join("")}</ul></section>`
-    : `<section class="admin-group"><ul><li><b>No categories found</b><span>Adjust search or add a category.</span></li></ul></section>`);
+  const page = paginateList("categories", rows, categoryFilters, renderCategories);
+  setHtml("[data-category-records]", (rows.length
+    ? `<section class="admin-group"><ul>${page.items.map(categoryRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No categories found</b><span>Adjust search or add a category.</span></li></ul></section>`) + page.controls);
 }
 
 function renderOutlets() {
   const search = outletFilters.search.toLowerCase();
   const rows = outletCache.filter((row) => [row.code, row.location, row.description].join(" ").toLowerCase().includes(search));
-  setHtml("[data-outlet-records]", rows.length
-    ? `<section class="admin-group"><ul>${rows.map(outletRow).join("")}</ul></section>`
-    : `<section class="admin-group"><ul><li><b>No outlets found</b><span>Adjust search or add an outlet.</span></li></ul></section>`);
+  const page = paginateList("outlets", rows, outletFilters, renderOutlets);
+  setHtml("[data-outlet-records]", (rows.length
+    ? `<section class="admin-group"><ul>${page.items.map(outletRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No outlets found</b><span>Adjust search or add an outlet.</span></li></ul></section>`) + page.controls);
 }
 
 function updateUserFilterSelects() {

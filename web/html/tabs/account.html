@@ -1,0 +1,37 @@
+    <section id="account" class="tab-panel">
+      <article class="panel account-panel">
+        <h2>Account</h2>
+        <form id="account-form">
+          <div class="account-photo-row">
+            <img data-account-photo alt="Your profile picture" hidden>
+            <div>
+              <label>Profile picture<input type="file" accept="image/png,image/jpeg,image/webp" data-account-photo-upload></label>
+              <button type="button" class="outline" data-remove-account-photo>Remove picture</button>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label>Name<input name="name" autocomplete="name" required maxlength="100"></label>
+            <label>Email<input name="email" type="email" autocomplete="email" required></label>
+            <label>Department<select name="department"></select></label>
+            <label>Role<select name="role"></select></label>
+          </div>
+          <section class="account-signature">
+            <h3>Your Signature</h3>
+            <img data-account-signature alt="Your saved signature" hidden>
+            <label>Upload signature image<input type="file" accept="image/png,image/jpeg,image/webp" data-account-signature-upload></label>
+            <button type="button" class="outline" data-remove-account-signature>Remove signature</button>
+            <p>This image will be available when you sign an inspection.</p>
+          </section>
+          <p class="muted" data-account-access-note hidden>Your role and department are managed by an administrator.</p>
+          <p role="status" aria-live="polite" data-account-message></p>
+          <button class="primary" type="submit">Save Account</button>
+        </form>
+      </article>
+      <article class="panel account-panel">
+        <h2>Security</h2>
+        <div class="quick-actions">
+          <button class="outline" type="button" data-open-change-password>Change Password</button>
+          <button class="outline" type="button" data-logout>Logout</button>
+        </div>
+      </article>
+    </section>

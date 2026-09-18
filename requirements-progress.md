@@ -31,3 +31,35 @@ zero errors and 100 drafts saved. See `backend-architecture.md` for commands and
 This increment does not certify the full checklist complete. Workflow authorization/transitions,
 account flows, hierarchy consistency, remaining report controls/exports, notifications, and
 offline Android requirements still need the implementation and verification listed above.
+
+## 2026-09-18 web workflow and navigation increment
+
+- Departments and Roles now live under Users. Edit User opens correctly; its save errors are shown in the dialog.
+- User and role editors have a Permissions tab. Users inherit role tab access and Auditor,
+  Verifier, and Acknowledger capabilities unless an explicit user override is saved. Restoring
+  inheritance applies the current role configuration. Super remains the protected full-access role.
+- Account contains profile name/email, profile picture, a reusable signature image, Change Password,
+  and Logout. Administrative role/department changes preserve the existing privilege boundary.
+- Inspection authors come from the authenticated account. Signature actions enforce their respective
+  capabilities and record the authenticated signer and timestamp. Verifiers can sign a completed
+  audit without reopening or changing its checklist.
+- Progress saves notify active users with effective Verifier or Acknowledger permission. A verifier
+  signature notifies the audit creator. New workflow notifications are addressed per user; read/delete
+  endpoints reject access to another recipient's notification. Pre-existing broadcast messages remain.
+- Guided Inspection initially lists scheduled work. Clicking a schedule atomically creates or resumes
+  one linked draft with a real inspection ID. Schedules display `SCH-00001` style references and update
+  on completion. Concurrent starts return the same inspection. Completed inspections are retained.
+- History & Findings combines inspection history and finding details, with links to an inspection's
+  findings. Outlets, zones, locations, categories, findings, inspection history, and scheduled work use
+  shared pagination with 10/25/50/100 rows, page jumps, and filter reset behavior.
+- The hard-coded performance donut was removed. Distribution is calculated from completed audits,
+  using saved rating snapshots where available. Empty results display no fabricated chart. Work-order
+  count charts are labeled as counts rather than performance scores.
+- Work-order transitions enforce evidence before completion, verifier permission for verification,
+  recorded verifier identity, rejection/return to work, and verification before closure. Workflow
+  history is retained, and simultaneous closure creates one transition.
+
+Validation: 23 Python HTTP/database/report tests and 8 Node frontend regression tests passed,
+along with static Python checks and the synthetic 100-user run documented in `backend-architecture.md`.
+Pagination currently limits browser rendering; the APIs still return complete filtered lists.
+The remaining broader core checklist and offline Android work are not certified complete by this increment.

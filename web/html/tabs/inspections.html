@@ -1,17 +1,23 @@
     <section id="inspections" class="tab-panel">
       <div class="sub-tabs">
         <button class="active" type="button" data-inspection-subtab="guided">Guided Inspection</button>
-        <button type="button" data-inspection-subtab="history">Inspection History</button>
       </div>
       <section class="inspection-subpanel active" data-inspection-panel="guided">
-        <section class="inspect-layout">
+        <section class="panel" data-guided-schedules-panel>
+          <h2>Scheduled Work</h2>
+          <p>Select a schedule to start or resume its guided inspection.</p>
+          <button type="button" class="primary" data-open="schedule">Schedule Work</button>
+          <div class="list" data-guided-schedules></div>
+        </section>
+        <section class="inspect-layout" data-guided-content hidden>
           <form class="panel inspection-form" id="inspection-form">
             <h2>Guided Inspection</h2>
             <input name="inspectionSessionId" type="hidden">
+            <div data-current-schedule></div>
             <div class="inspection-name-display" data-current-inspection-name>New inspection</div>
             <div class="form-grid">
               <label>Outlet<select name="outlet"></select></label>
-              <label>Inspector<input name="auditor" placeholder="Who is inspecting?"></label>
+              <label>Auditor<input name="auditor" readonly placeholder="Signed-in account"></label>
               <label>Inspection Date<input name="auditDate" type="date"></label>
             </div>
             <div class="progress-strip">
@@ -24,10 +30,11 @@
               <button class="outline" type="button" data-open-signature="auditedBy">Audited By</button>
               <button class="outline" type="button" data-open-signature="verifiedBy">Verified By</button>
               <button class="outline" type="button" data-open-signature="acknowledgedBy">Acknowledged By</button>
+              <button class="outline" type="button" data-save-inspection-signatures>Save Signatures</button>
               <div data-signature-status></div>
             </section>
             <footer class="form-actions">
-              <button class="outline" type="button" data-new-inspection>New Inspection</button>
+              <button class="outline" type="button" data-back-to-schedules>Back to Scheduled Work</button>
               <a class="button-link outline disabled" data-export-inspection-pdf href="#">Export PDF</a>
               <button class="primary" type="button" data-save-inspection-progress>Save Progress</button>
             </footer>
@@ -35,37 +42,12 @@
           <aside class="panel">
             <h2>Inspection Standard</h2>
             <div class="flow-list">
-              <span><b>1</b> Select an outlet</span>
+              <span><b>1</b> Open a scheduled inspection</span>
               <span><b>2</b> Work through each zone and location</span>
               <span><b>3</b> Mark every criterion tick or cross</span>
-              <span><b>4</b> Cross opens a prefilled work order request</span>
+              <span><b>4</b> Record findings for failed checks</span>
             </div>
           </aside>
-        </section>
-      </section>
-      <section class="inspection-subpanel" data-inspection-panel="history">
-        <section class="panel">
-          <h2>Inspection History</h2>
-          <div class="history-toolbar">
-            <label>Search<input id="inspection-history-search" placeholder="Search inspection history"></label>
-            <label>From<input id="history-filter-from" type="date"></label>
-            <label>To<input id="history-filter-to" type="date"></label>
-            <label>Outlet<select id="history-filter-outlet"></select></label>
-            <label>Location<select id="history-filter-location"><option value="">All locations</option></select></label>
-            <label>Auditor<input id="history-filter-auditor" placeholder="Auditor"></label>
-            <label>Department<select id="history-filter-department"></select></label>
-            <label>Category<select id="history-filter-category"></select></label>
-            <label>Priority<select id="history-filter-priority"></select></label>
-            <label>Status<select id="history-filter-status"><option value="">All statuses</option><option>Draft</option><option>Completed</option></select></label>
-            <label>PIC<input id="history-filter-pic" placeholder="PIC"></label>
-            <span data-inspection-history-count>0 records</span>
-          </div>
-          <div class="list compact-list history-list" data-inspection-history></div>
-          <footer class="pager">
-            <button class="outline" type="button" data-history-prev>Previous</button>
-            <span data-history-page>Page 1</span>
-            <button class="outline" type="button" data-history-next>Next</button>
-          </footer>
         </section>
       </section>
     </section>

@@ -13,6 +13,9 @@ reviewability and testing; it does not by itself increase request throughput.
 | `web/routes.py` | Explicit method/path registry for mutations |
 | `web/routes_*.py` | Account, asset, inspection, location, setup, and work-order mutations |
 | `web/accounts.py`, `web/catalog.py`, `web/work_orders.py` | Account projection, catalog queries, finding/work-order queries |
+| `web/permissions.py` | Role inheritance, per-user overrides, inspection action/signature permissions |
+| `web/workflow.py` | Work-order state transitions, completion evidence, verification identity |
+| `web/inspection_notifications.py` | Notifications addressed to effective verifier/acknowledger permissions and audit creators |
 | `web/inspections.py`, `web/scoring.py` | Audit finalization, linked findings, score snapshots |
 | `web/media_store.py` | Image validation and private content-addressed storage |
 | `web/reports.py`, `web/pdf_report.py` | Report data, exports, paginated PDF rendering |
@@ -51,6 +54,11 @@ On 2026-09-15, the refactored application passed 16 Python tests and 4 frontend 
 100-user run completed 400 requests in 4.84 seconds with zero errors and all 100 drafts saved.
 Its p95 four-request user flow was 4.16 seconds. This is a local synthetic result, not a
 production capacity guarantee; it excludes concurrent logins and large uploads/PDF downloads.
+
+The 2026-09-18 feature run (permissions, signatures, targeted notifications, linked schedules)
+completed 400 requests from 100 simultaneous users in 6.0 seconds, with zero errors and
+100 drafts saved. The p95 four-request flow was 5.29 seconds. This run uses the same fixture
+sizes and has the same limits as the earlier benchmark.
 
 ## Rollback
 

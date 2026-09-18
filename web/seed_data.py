@@ -171,7 +171,7 @@ def seed_roles(db):
     admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("roles", "settings")]
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
-        ("Auditor", "Field inspection access", ["today", "inspections", "equipment", "reports"]),
+        ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
         ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
     ]
@@ -196,6 +196,19 @@ def seed_roles(db):
             """,
             (name, description, json.dumps(permissions), now),
         )
+    auditor = db.execute("SELECT permissions_json FROM roles WHERE name = 'Auditor'").fetchone()
+    for role_name, capabilities in {
+        "Super": ["auditor", "verifier", "acknowledger"],
+        "Admin": ["auditor", "verifier", "acknowledger"],
+        "Auditor": ["auditor", "verifier"],
+        "Department/PIC": ["acknowledger"],
+        "Management": ["verifier", "acknowledger"],
+    }.items():
+        db.execute("UPDATE roles SET inspection_permissions = ? WHERE name = ? AND inspection_permissions IS NULL", (json.dumps(capabilities), role_name))
+    # Upgrade only the original defaults, preserving administrator-customized roles.
+    if auditor and set(json.loads(auditor["permissions_json"])) == {"today", "inspections", "equipment", "reports"}:
+        db.execute("UPDATE roles SET permissions_json = ? WHERE name = 'Auditor'",
+                   (json.dumps(["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
 
 
 def seed_priority_levels(db):

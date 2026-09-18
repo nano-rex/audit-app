@@ -19,10 +19,11 @@ test("startup loads only the active tab and coalesces duplicate requests", async
     getElementById: () => null,
   };
   const context = vm.createContext({ document, currentUser: {}, Promise, Map });
-  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory"]) {
+  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules"]) {
     context[name] = async () => { calls.push(name); };
   }
   Object.assign(context, {
+    requireLogin: async () => true,
     wireAuth() {}, applyNavbarTabs() {}, updateSetupSelects() {}, setInspectionSignatures() {},
     inspectionSignatures: () => ({}), allowedAppTabs: () => [{ id: "today" }, { id: "equipment" }],
     showTab: (tab) => context.loadTabData(tab),
@@ -39,6 +40,9 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   assert.equal(requests, 1);
   release();
   await Promise.all([first, second]);
+  calls.length = 0;
+  await context.loadTabData("inspections");
+  assert.deepEqual(calls.sort(), ["loadGuidedSchedules", "loadInspectionHistory"].sort());
 });
 
 test("equipment renders at most 100 rows and resets pagination on filtering", () => {
@@ -76,5 +80,112 @@ test("inspection dates use the device's local day", () => {
   } finally {
     if (priorTimezone === undefined) delete process.env.TZ;
     else process.env.TZ = priorTimezone;
+  }
+});
+
+test("user management groups departments and roles without widening permissions", () => {
+  const makeNode = (dataset) => ({ dataset, hidden: false, attributes: {},
+    classList: { toggle() {} }, addEventListener() {},
+    setAttribute(key, value) { this.attributes[key] = value; },
+  });
+  const sections = ["users", "departments", "roles"];
+  const buttons = sections.map((id) => makeNode({ userSubtab: id }));
+  const panels = sections.map((id) => makeNode({ userPanel: id }));
+  const context = vm.createContext({
+    currentUser: { permissions: ["departments"] },
+    allTabs: ["today", ...sections].map((id) => ({ id, label: id })),
+    document: { querySelectorAll(selector) {
+      return selector === "[data-user-subtab]" ? buttons : selector === "[data-user-panel]" ? panels : [];
+    } },
+  });
+  vm.runInContext(source("navigation.js"), context);
+  assert.equal(JSON.stringify(context.allowedAppTabs().map((tab) => tab.id)), '["users"]');
+  context.showUserSubtab("users");
+  assert.deepEqual(buttons.map((button) => button.hidden), [true, false, true]);
+  assert.deepEqual(panels.map((panel) => panel.hidden), [true, false, true]);
+  context.currentUser.permissions = [...sections];
+  context.showUserSubtab("roles");
+  assert.deepEqual(buttons.map((button) => button.hidden), [false, false, false]);
+  assert.deepEqual(panels.map((panel) => panel.hidden), [true, true, false]);
+  assert.equal(buttons[2].attributes["aria-pressed"], "true");
+  assert.equal(JSON.stringify(context.allowedAppTabs().map((tab) => tab.id)), '["users"]');
+});
+
+test("Edit User opens from the real dialog markup and saves existing users", async () => {
+  const html = fs.readFileSync(path.join(__dirname, "../web/html/dialogs/user.html"), "utf8");
+  const submitMarkup = html.match(/<button[^>]*type="submit"[^>]*>/);
+  const elements = Object.fromEntries([...html.matchAll(/name="([^"]+)"/g)].map((match) => [match[1], { value: "", checked: false }]));
+  const heading = {}, button = {};
+  let opened = false, closed = false, submit;
+  const dialog = { showModal() { opened = true; }, close() { closed = true; } };
+  const form = { elements, reset() {}, closest: () => dialog,
+    querySelector(selector) { return selector === "h2" ? heading : submitMarkup ? button : null; },
+    addEventListener(event, handler) { if (event === "submit") submit = handler; },
+  };
+  const dummy = { addEventListener() {} };
+  let request;
+  const context = vm.createContext({
+    document: { getElementById: (id) => id === "user-form" ? form : id === "user-dialog" ? dialog : dummy, querySelector: () => dummy },
+    wireForm() {}, updateSetupSelects() {}, setText() {}, loadApp() {}, showEditorTab() {}, renderUserPermissions() {}, userPermissionOverrides() { return null; },
+    formValue: (target, key, fallback) => target.elements[key]?.value || fallback,
+    requestJson: async (...args) => { request = args; },
+  });
+  vm.runInContext(source("forms.js"), context);
+  context.openUserEditor({ id: 9, name: "User", email: "user@example.test", role: "Auditor", department: "Technical", active: 1 });
+  assert.equal(opened, true);
+  assert.equal(heading.textContent, "Edit User");
+  assert.equal(elements.name.value, "User");
+  elements.name.value = "Updated user";
+  await submit({ preventDefault() {}, currentTarget: form });
+  assert.equal(request[0], "/api/users/9");
+  assert.equal(request[1], "PATCH");
+  assert.equal(request[2].name, "Updated user");
+  assert.equal(closed, true);
+});
+
+test("performance distribution reflects counts and hides empty charts", () => {
+  const chart = { style: {}, setAttribute(key, value) { this[key] = value; } };
+  const content = {};
+  const context = vm.createContext({ document: { querySelector: () => chart },
+    setText: (key, value) => { content[key] = value; }, setHtml: (key, value) => { content[key] = value; } });
+  vm.runInContext(source("dashboard.js"), context);
+  context.renderPerformanceDistribution([]);
+  assert.equal(chart.hidden, true);
+  assert.equal(content["[data-performance-summary]"], "No completed audits");
+  context.renderPerformanceDistribution([{ label: "Good", count: 3 }, { label: "Critical", count: 1 }]);
+  assert.equal(chart.hidden, false);
+  assert.match(chart.style.background, /var\(--blue\) 0% 75%/);
+  assert.match(content["[data-performance-legend]"], /Good: 3 \(75%\)/);
+  assert.equal(content["[data-performance-summary]"], "4 completed audits");
+  context.renderPerformanceDistribution([]);
+  assert.equal(chart.hidden, true);
+  assert.equal(chart.style.background, "var(--border)");
+});
+
+test("pagination handles navigation, filtering, page sizes, and record deletion", () => {
+  const handlers = {};
+  const context = vm.createContext({ document: { addEventListener: (type, handler) => { handlers[type] = handler; } } });
+  vm.runInContext(source("pagination.js"), context);
+  for (const key of ["outlets", "zones", "locations", "findings", "inspections", "categories"]) {
+    let rows = Array.from({ length: 61 }, (_, id) => id), filter = "", result;
+    const render = () => { result = context.paginateList(key, rows, filter, render); };
+    render();
+    assert.equal(result.items.length, 25);
+    handlers.click({ target: { closest: () => ({ dataset: { listPage: key, page: "3" } }) } });
+    assert.equal(result.items[0], 50);
+    assert.equal(result.items.length, 11);
+    rows = rows.slice(0, 30);
+    render();
+    assert.equal(result.items[0], 25);
+    filter = "new search";
+    render();
+    assert.equal(result.items[0], 0);
+    handlers.change({ target: { dataset: { listSize: key }, value: "10" } });
+    assert.equal(result.items.length, 10);
+    handlers.change({ target: { dataset: { listJump: key }, value: "999" } });
+    assert.equal(result.items[0], 20);
+    rows = [];
+    render();
+    assert.match(result.controls, /Showing 0–0 of 0/);
   }
 });

@@ -4,11 +4,13 @@ import sqlite3
 import time
 import os
 import secrets
+import re
 from datetime import datetime
 from accounts import is_company_admin_user, is_super_user, public_user
 from common import hash_password, verify_password
-from config import DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE
+from config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE
 from database import connect, first_department
+from permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
 
 
 def post_auth_login(self, parsed, payload=None):
@@ -48,7 +50,7 @@ def post_auth_login(self, parsed, payload=None):
         refreshed = db.execute(
             """
             SELECT id, name, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities
+                   last_login_at, login_count, title, responsibilities, profile_photo, signature_image
             FROM users
             WHERE id = ?
             """,
@@ -73,6 +75,50 @@ def post_auth_logout(self, parsed, payload=None):
     self.end_headers()
     self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
     return
+
+
+def patch_account(self, parsed, payload=None):
+    user = self.current_user()
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        existing = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+        name = str(payload.get("name", existing["name"]) or "").strip()
+        email = str(payload.get("email", existing["email"]) or "").strip().lower()
+        role = payload.get("role", existing["role"])
+        department = payload.get("department", existing["department"])
+        if not name or len(name) > 100 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            self.json({"error": "Enter a name (up to 100 characters) and a valid email address"}, 400)
+            return
+        if not is_company_admin_user(user) and (role != existing["role"] or department != existing["department"]):
+            self.json({"error": "An administrator must change your role or department"}, 403)
+            return
+        if role == SUPER_ROLE and not is_super_user(user):
+            self.json({"error": "Only a Super user can assign the Super role"}, 403)
+            return
+        if existing["role"] == SUPER_ROLE and role != SUPER_ROLE and not db.execute("SELECT 1 FROM users WHERE role = ? AND active = 1 AND id != ?", (SUPER_ROLE, user["id"])).fetchone():
+            self.json({"error": "Keep at least one active Super user"}, 409)
+            return
+        if not db.execute("SELECT 1 FROM roles WHERE name = ?", (role,)).fetchone():
+            self.json({"error": "Select an existing role"}, 400)
+            return
+        if department and not db.execute("SELECT 1 FROM departments WHERE code = ?", (department,)).fetchone():
+            self.json({"error": "Select an existing department"}, 400)
+            return
+        if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user["id"])).fetchone():
+            self.json({"error": "That email address belongs to another account"}, 409)
+            return
+        photo = payload.get("profilePhoto", json.loads(existing["profile_photo"] or "{}")) or {}
+        if not isinstance(photo, dict) or photo and not photo.get("url", "").startswith("/api/media/"):
+            self.json({"error": "Upload a profile picture first"}, 400)
+            return
+        signature = payload.get("signatureImage", json.loads(existing["signature_image"] or "{}")) or {}
+        if not isinstance(signature, dict) or signature and not signature.get("url", "").startswith("/api/media/"):
+            self.json({"error": "Upload a signature image first"}, 400)
+            return
+        db.execute("UPDATE users SET name = ?, email = ?, department = ?, role = ?, profile_photo = ?, signature_image = ? WHERE id = ?",
+                   (name, email, department, role, json.dumps(photo), json.dumps(signature), user["id"]))
+        refreshed = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+    self.json({"ok": True, "user": public_user(refreshed)})
 
 
 def post_auth_forgot_password(self, parsed, payload=None):
@@ -139,9 +185,9 @@ def post_users(self, parsed, payload=None):
             self.json({"ok": False, "error": "Super role assignment requires Super access"}, status=403)
             return
         password = payload.get("password") or DEFAULT_PASSWORD
-        db.execute(
+        cursor = db.execute(
             """
-            INSERT OR REPLACE INTO users
+            INSERT INTO users
             (name, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
@@ -158,6 +204,8 @@ def post_users(self, parsed, payload=None):
                 now,
             ),
         )
+        overrides = validate_overrides(payload.get("permissionOverrides"))
+        db.execute("UPDATE users SET permission_overrides = ? WHERE id = ?", (json.dumps(overrides) if overrides is not None else None, cursor.lastrowid))
     self.json({"ok": True})
 
 
@@ -173,13 +221,14 @@ def post_roles(self, parsed, payload=None):
             return
         db.execute(
             """
-            INSERT OR REPLACE INTO roles (name, description, permissions_json, protected, created_at)
-            VALUES (?, ?, ?, 0, ?)
+            INSERT INTO roles (name, description, permissions_json, inspection_permissions, protected, created_at)
+            VALUES (?, ?, ?, ?, 0, ?)
             """,
             (
                 name,
                 payload.get("description", ""),
-                json.dumps(payload.get("permissions") or []),
+                json.dumps(validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
+                json.dumps(validate_list(payload.get("inspectionPermissions", []), INSPECTION_PERMISSIONS)),
                 now,
             ),
         )
@@ -230,6 +279,9 @@ def patch_users(self, parsed, payload=None):
         if cursor.rowcount == 0:
             self.send_error(404)
             return
+        if "permissionOverrides" in payload:
+            overrides = validate_overrides(payload["permissionOverrides"])
+            db.execute("UPDATE users SET permission_overrides = ? WHERE id = ?", (json.dumps(overrides) if overrides is not None else None, int(user_id)))
     self.json({"ok": True})
     return
 
@@ -243,7 +295,7 @@ def patch_roles(self, parsed, payload=None):
         self.json({"ok": False, "error": "Super access required"}, status=403)
         return
     with connect() as db:
-        role = db.execute("SELECT protected FROM roles WHERE id = ?", (int(role_id),)).fetchone()
+        role = db.execute("SELECT name, protected, inspection_permissions FROM roles WHERE id = ?", (int(role_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
@@ -251,25 +303,28 @@ def patch_roles(self, parsed, payload=None):
             self.json({"ok": False, "error": "The Super role cannot be changed"}, status=400)
             return
         name = (payload.get("name") or "New Role").strip()
-        if name.lower() in ("admin", "super"):
+        if name.lower() == "super" or name.lower() == "admin" and role["name"] != "Admin":
             self.json({"ok": False, "error": "Super is reserved"}, status=400)
             return
         cursor = db.execute(
             """
             UPDATE roles
-            SET name = ?, description = ?, permissions_json = ?
+            SET name = ?, description = ?, permissions_json = ?, inspection_permissions = ?
             WHERE id = ?
             """,
             (
                 name,
                 payload.get("description", ""),
-                json.dumps(payload.get("permissions") or []),
+                json.dumps(validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
+                json.dumps(validate_list(payload.get("inspectionPermissions", json.loads(role["inspection_permissions"] or "[]")), INSPECTION_PERMISSIONS)),
                 int(role_id),
             ),
         )
         if cursor.rowcount == 0:
             self.send_error(404)
             return
+        if name != role["name"]:
+            db.execute("UPDATE users SET role = ? WHERE role = ?", (name, role["name"]))
     self.json({"ok": True})
     return
 

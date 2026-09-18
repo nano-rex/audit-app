@@ -64,6 +64,7 @@ def finalize_inspection(db, session_id, payload, now):
         db.execute("UPDATE work_orders SET work_order_ref = ? WHERE id = ?", (work_order_ref(order_id, audit_date), order_id))
         create_notification(db, "Finding assigned", f"{finding_reference}: {department} / {pic or 'PIC unassigned'}", related_type="work-order", related_id=order_id)
     db.execute("UPDATE inspection_sessions SET status = 'Completed', progress = 100, audit_id = ?, updated_at = ? WHERE id = ?", (audit_id, now, session_id))
+    db.execute("UPDATE schedules SET status = 'Completed' WHERE id = (SELECT schedule_id FROM inspection_sessions WHERE id = ?)", (session_id,))
     return audit_id
 
 
@@ -71,7 +72,7 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_json, created_at, updated_at
+            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_json, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
@@ -120,3 +121,9 @@ def inspection_session(session_id):
     data["scoring"] = json.loads(audit["scoring_json"]) if audit and audit["scoring_json"] else None
     data["findings"] = [dict(item) for item in findings]
     return data
+
+
+def schedule_items():
+    with connect() as db:
+        rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.scheduled_date, schedules.id DESC").fetchall()
+    return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}"} for row in rows]}

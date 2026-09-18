@@ -20,7 +20,7 @@ def setup_records():
             "SELECT id, name, description, sequence, active FROM categories ORDER BY sequence, name"
         ).fetchall()]
         roles = [dict(row) for row in db.execute(
-            "SELECT id, name, description, permissions_json, protected FROM roles ORDER BY protected DESC, name"
+            "SELECT id, name, description, permissions_json, inspection_permissions, protected FROM roles ORDER BY protected DESC, name"
         ).fetchall()]
         priorities = [dict(row) for row in db.execute(
             "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
@@ -32,6 +32,7 @@ def setup_records():
     for zone in zones:
         zone["locations"] = json.loads(zone.pop("locations_json") or "[]")
     for role in roles:
+        role["inspectionPermissions"] = json.loads(role.pop("inspection_permissions") or "[]")
         role["permissions"] = json.loads(role.pop("permissions_json") or "[]")
     return {
         "departments": departments,
@@ -49,12 +50,13 @@ def setup_records():
 def role_items():
     with connect() as db:
         rows = db.execute(
-            "SELECT id, name, description, permissions_json, protected FROM roles ORDER BY protected DESC, name"
+            "SELECT id, name, description, permissions_json, inspection_permissions, protected FROM roles ORDER BY protected DESC, name"
         ).fetchall()
     items = []
     for row in rows:
         item = dict(row)
         item["permissions"] = json.loads(item.pop("permissions_json") or "[]")
+        item["inspectionPermissions"] = json.loads(item.pop("inspection_permissions") or "[]")
         items.append(item)
     return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
 
@@ -64,12 +66,16 @@ def users():
         rows = db.execute(
             """
             SELECT id, name, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities
+                   last_login_at, login_count, title, responsibilities, permission_overrides
             FROM users
             ORDER BY role, name
             """
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    items = [dict(row) for row in rows]
+    for item in items:
+        raw = item.pop("permission_overrides")
+        item["permissionOverrides"] = json.loads(raw) if raw is not None else None
+    return {"items": items}
 
 
 def locations(outlet):

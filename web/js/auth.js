@@ -37,6 +37,10 @@ function hideLogin() {
 }
 
 function renderCurrentUser() {
+  const inspection = document.getElementById("inspection-form");
+  if (inspection && !inspection.elements.inspectionSessionId.value) inspection.elements.auditor.value = currentUser?.name || "";
+  const audit = document.getElementById("new-audit-form");
+  if (audit) audit.elements.auditor.value = currentUser?.name || "";
   const strip = document.querySelector("[data-account-strip]");
   if (strip) strip.hidden = !currentUser;
   const label = document.querySelector("[data-auth-user]");

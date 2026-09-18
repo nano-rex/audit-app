@@ -1,6 +1,15 @@
     <section id="findings" class="tab-panel">
+      <h2>History &amp; Findings</h2>
+      <nav class="sub-tabs" aria-label="History and findings">
+        <button type="button" class="active" data-history-findings-tab="history">Inspection History</button>
+        <button type="button" data-history-findings-tab="findings">Findings</button>
+      </nav>
+      <!-- include: html/tabs/inspection-history.html -->
+      <section data-history-findings-panel="findings" hidden>
       <section class="panel filter">
         <h2>Findings</h2>
+        <span data-finding-inspection-scope>All inspections</span>
+        <button type="button" class="outline" data-all-inspection-findings>Show All Inspections</button>
         <label>Search<input id="finding-search" placeholder="Search findings"></label>
         <label>Outlet<select id="finding-filter-outlet"></select></label>
         <label>Location<select id="finding-filter-location"><option value="">All locations</option></select></label>
@@ -14,5 +23,6 @@
           <h2>Audit Findings</h2>
           <div class="list compact-list" data-findings></div>
         </article>
+      </section>
       </section>
     </section>

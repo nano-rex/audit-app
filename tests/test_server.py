@@ -61,6 +61,23 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request(path, token=None)[0], 404, path)
         self.assertEqual(self.request("/", token=None)[0], 200)
 
+    def test_users_page_contains_nested_management_sections(self):
+        status, _, body = self.request("/", token=None)
+        self.assertEqual(status, 200)
+        html = body.decode()
+        self.assertNotIn("<!-- include:", html)
+        self.assertIn('id="department-search"', html)
+        self.assertIn('id="role-search"', html)
+        self.assertIn('data-user-panel="departments"', html)
+        self.assertIn('data-user-panel="roles"', html)
+        self.assertNotIn('data-tab="departments"', html)
+        self.assertNotIn('data-tab="roles"', html)
+        self.assertIn('data-guided-content hidden', html)
+        self.assertIn('data-guided-schedules-panel', html)
+        self.assertNotIn('data-inspection-subtab="history"', html)
+        self.assertIn('data-history-findings-panel="history"', html)
+        self.assertIn('History &amp; Findings', html)
+
     def test_static_compression_and_revalidation(self):
         status, headers, body = self.request("/", headers={"Accept-Encoding": "gzip"})
         self.assertEqual(status, 200)
@@ -117,6 +134,34 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request("/api/setup/departments", "POST", {}, token="limited")[0], 403)
         self.assertEqual(self.request("/api/equipment", token="limited")[0], 200)
         self.assertEqual(self.request("/api/setup", token="limited")[0], 200)
+
+    def test_account_profile_updates_permissions_and_picture(self):
+        from test_media_reports import photo_data_url
+        with app.connect() as db:
+            department = db.execute("SELECT code FROM departments ORDER BY id LIMIT 1").fetchone()[0]
+            cursor = db.execute("INSERT INTO users(name, role, email, department, active, created_at) VALUES ('Profile User', 'Auditor', 'profile@example.test', ?, 1, 0)", (department,))
+            user_id = cursor.lastrowid
+        app.SESSION_TOKENS["profile"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        self.assertEqual(self.request("/api/account", token=None)[0], 401)
+        self.assertEqual(self.request("/api/account", "PATCH", {"role": "Super"}, token="profile")[0], 403)
+        self.assertEqual(self.request("/api/account", "PATCH", {"department": "Another department"}, token="profile")[0], 403)
+        self.assertEqual(self.request("/api/account", "PATCH", {"email": "invalid"}, token="profile")[0], 400)
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "profile.png"}}, token="profile")
+        photo = json.loads(body)["image"]
+        payload = {"name": "Updated Profile", "email": "PROFILE-UPDATED@EXAMPLE.TEST", "profilePhoto": photo}
+        status, _, body = self.request("/api/account", "PATCH", payload, token="profile")
+        self.assertEqual(status, 200, body)
+        user = json.loads(body)["user"]
+        self.assertEqual((user["name"], user["email"], user["role"]), ("Updated Profile", "profile-updated@example.test", "Auditor"))
+        _, _, body = self.request("/api/auth/me", token="profile")
+        self.assertEqual(json.loads(body)["user"]["profilePhoto"]["url"], photo["url"])
+        with app.connect() as db:
+            other_email = "duplicate@example.test"
+            db.execute("INSERT INTO users(name,role,email,active,created_at) VALUES ('Duplicate','Auditor',?,1,0)", (other_email,))
+        self.assertEqual(self.request("/api/account", "PATCH", {"email": other_email.upper()}, token="profile")[0], 409)
+        self.assertEqual(self.request("/api/account", "PATCH", {"profilePhoto": {}}, token="profile")[0], 200)
+        _, _, body = self.request("/api/account", token="profile")
+        self.assertEqual(json.loads(body)["user"]["profilePhoto"], {})
 
     def test_invalid_bodies(self):
         for body in ("[]", "null", "{", '{"items":[1]}'):
@@ -197,6 +242,172 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(json.loads(findings[0]["images_json"])[0]["url"], image["url"])
             orders = db.execute("SELECT * FROM work_orders WHERE source_finding_id = ?", (findings[0]["id"],)).fetchall()
             self.assertEqual(len(orders), 1)
+
+    def test_z_workflow_rules_identity_history_and_concurrent_close(self):
+        from test_media_reports import photo_data_url
+        for status, expected in (("Invalid", 400), ("Closed", 409), ("Verified", 409)):
+            self.assertEqual(self.request("/api/work-orders", "POST", {"status": status})[0], expected)
+        with app.connect() as db:
+            cursor = db.execute("INSERT INTO users(name, role, email, department, active, created_at) VALUES ('Workflow PIC', 'Department/PIC', 'workflow@test', 'Technical', 1, 0)")
+            app.SESSION_TOKENS["pic"] = {"user_id": cursor.lastrowid, "expires_at": time.time() + 3600}
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Workflow test", "pic": "Workflow PIC"})[0], 200)
+        with app.connect() as db:
+            record_id = db.execute("SELECT id FROM work_orders WHERE title = 'Workflow test'").fetchone()[0]
+        path = f"/api/work-orders/{record_id}"
+        self.assertEqual(self.request(path, "PATCH", {"status": "Closed"})[0], 409)
+        self.assertEqual(self.request(path, "PATCH", {"status": "Completed"}, token="pic")[0], 400)
+        self.assertEqual(self.request(path, "PATCH", {"pic": "Someone else"}, token="pic")[0], 403)
+        self.assertEqual(self.request(path, "DELETE", token="pic")[0], 403)
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "repair.png"}})
+        image = json.loads(body)["image"]
+        completion = {"status": "Completed", "actionTaken": "Repaired", "completionDate": "2026-01-01",
+                      "completionRemark": "Checked operation", "completionPhoto": [image]}
+        self.assertEqual(self.request(path, "PATCH", completion, token="pic")[0], 200)
+        self.assertEqual(self.request(path, "PATCH", {"status": "Verified", "verificationRemark": "Fine"}, token="pic")[0], 403)
+        self.assertEqual(self.request(path, "PATCH", {"status": "Verified"})[0], 400)
+        self.assertEqual(self.request(path, "PATCH", {"status": "In Progress", "verificationRemark": "Needs retest"})[0], 200)
+        self.assertEqual(self.request(path, "PATCH", completion, token="pic")[0], 200)
+        self.assertEqual(self.request(path, "PATCH", {"status": "Verified", "verifiedBy": "Forged identity", "verifiedAt": "2000-01-01", "verificationRemark": "Retest passed"})[0], 200)
+        with app.connect() as db:
+            row = db.execute("SELECT * FROM work_orders WHERE id = ?", (record_id,)).fetchone()
+            self.assertEqual(row["title"], "Workflow test")  # Partial PATCH preserves omitted fields.
+            self.assertNotEqual(row["verified_by"], "Forged identity")
+            self.assertNotEqual(row["verified_at"], "2000-01-01")
+            self.assertEqual(row["action_taken"], "Repaired")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            statuses = list(pool.map(lambda _: self.request(path, "PATCH", {"status": "Closed", "verificationRemark": "Accepted"})[0], range(2)))
+        self.assertEqual(sorted(statuses), [200, 409])
+        self.assertEqual(self.request(path, "PATCH", {"title": "Changed"})[0], 409)
+        self.assertEqual(self.request(path, "DELETE")[0], 409)
+        with app.connect() as db:
+            events = db.execute("SELECT * FROM comments WHERE record_type = 'work_order' AND record_id = ?", (record_id,)).fetchall()
+        self.assertEqual(len(events), 5)
+        self.assertTrue(all(row["system_generated"] for row in events))
+        self.assertEqual(self.request(f"/api/comments/{events[0]['id']}", "DELETE")[0], 409)
+
+    def test_z_workflow_rejects_changes_to_another_pic_assignment(self):
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Other PIC", "pic": "Another person"})[0], 200)
+        with app.connect() as db:
+            record_id = db.execute("SELECT id FROM work_orders WHERE title = 'Other PIC'").fetchone()[0]
+            cursor = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Unassigned PIC', 'Department/PIC', 'unassigned@test', 1, 0)")
+        app.SESSION_TOKENS["unassigned-pic"] = {"user_id": cursor.lastrowid, "expires_at": time.time() + 3600}
+        self.assertEqual(self.request(f"/api/work-orders/{record_id}", "PATCH", {"status": "In Progress"}, token="unassigned-pic")[0], 403)
+
+    def test_z_report_distribution_uses_completed_audits_and_saved_ratings(self):
+        empty = app.report("Mini Studio")["charts"]["performanceDistribution"]
+        self.assertEqual(sum(row["count"] for row in empty), 0)
+        with app.connect() as db:
+            for score, snapshot, status in ((95, {"rating": "Good"}, "Completed"), (80, {}, "Completed"), (65, {}, "Completed"), (40, {}, "Completed"), (100, {}, "Draft")):
+                cursor = db.execute("INSERT INTO audits(business_unit,outlet,branch,audit_date,auditor,audit_type,score,created_at,scoring_json) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test','Standard',?,0,?)", (score, json.dumps(snapshot)))
+                db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,items_json,progress,status,audit_id,created_at,updated_at) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test','[]',100,?,?,0,0)", (status, cursor.lastrowid))
+        data = app.report("Mini Studio")
+        counts = {row["label"]: row["count"] for row in data["charts"]["performanceDistribution"]}
+        self.assertEqual(counts, {"Excellent": 0, "Good": 2, "Below Expectation": 1, "Critical": 1})
+        self.assertEqual(sum(counts.values()), data["monthlySummary"]["audits"])
+
+    def test_z_permissions_inheritance_signatures_and_targeted_notifications(self):
+        from test_media_reports import photo_data_url
+        people = {}
+        for key, capabilities in (("author", ["auditor"]), ("reviewer", ["verifier"]), ("ack", ["acknowledger"])):
+            role = {"name": f"Test {key}", "permissions": ["inspections", "notifications"], "inspectionPermissions": capabilities}
+            self.assertEqual(self.request("/api/roles", "POST", role)[0], 200)
+            user = {"name": f"Test {key}", "email": f"{key}@example.test", "role": role["name"], "active": True}
+            self.assertEqual(self.request("/api/users", "POST", user)[0], 200)
+            with app.connect() as db:
+                user_id = db.execute("SELECT id FROM users WHERE email = ?", (user["email"],)).fetchone()[0]
+            app.SESSION_TOKENS[key] = {"user_id": user_id, "expires_at": time.time() + 3600}
+            people[key] = (user_id, user)
+            _, _, body = self.request("/api/account", token=key)
+            effective = json.loads(body)["user"]
+            self.assertEqual(effective["permissionSource"], "role")
+            self.assertEqual(effective["inspectionPermissions"], capabilities)
+
+        self.assertEqual(self.request("/api/inspection-sessions", "POST", {"items": [{"passed": True}]}, token="reviewer")[0], 403)
+        payload = {"outlet": "STP", "auditor": "Forged auditor", "items": [{"item": "First", "passed": True}, {"item": "Second"}]}
+        status, _, body = self.request("/api/inspection-sessions", "POST", payload, token="author")
+        self.assertEqual(status, 200, body)
+        session_id = json.loads(body)["id"]
+        path = f"/api/inspection-sessions/{session_id}"
+        _, _, body = self.request(path, token="reviewer")
+        session = json.loads(body)
+        self.assertEqual(session["auditor"], "Test author")
+        self.assertEqual(session["owner_user_id"], people["author"][0])
+
+        def notices(token):
+            status, _, body = self.request("/api/notifications", token=token)
+            self.assertEqual(status, 200)
+            return [row for row in json.loads(body)["items"] if row["related_type"] == "inspection" and row["related_id"] == session_id]
+
+        self.assertEqual(len(notices("reviewer")), 1)
+        self.assertEqual(len(notices("ack")), 1)
+        self.assertEqual(len(notices("author")), 0)
+        self.assertEqual(self.request(path, "PATCH", payload, token="author")[0], 200)
+        self.assertEqual(len(notices("reviewer")), 1)  # An unchanged save is not another progress event.
+        self.assertEqual(self.request(path, "PATCH", {"items": []}, token="reviewer")[0], 403)
+        payload["items"][1]["passed"] = True
+        payload["complete"] = True
+        self.assertEqual(self.request(path, "PATCH", payload, token="author")[0], 200)
+        _, _, body = self.request("/api/media", "POST", {"image": {"name": "signature.png", "dataUrl": photo_data_url()}}, token="reviewer")
+        signature = json.loads(body)["image"]
+        self.assertEqual(self.request("/api/account", "PATCH", {"signatureImage": signature}, token="reviewer")[0], 200)
+        _, _, body = self.request("/api/account", token="reviewer")
+        self.assertEqual(json.loads(body)["user"]["signatureImage"]["url"], signature["url"])
+        self.assertEqual(self.request(path, "PATCH", {"signatures": {"verifiedBy": signature}}, token="author")[0], 403)
+        self.assertEqual(self.request(path, "PATCH", {"signatures": {"verifiedBy": signature}}, token="reviewer")[0], 200)
+        _, _, body = self.request(path, token="reviewer")
+        verified_session = json.loads(body)
+        self.assertEqual(verified_session["auditor"], "Test author")
+        self.assertEqual(verified_session["signatures"]["verifiedBy"]["signedByUserId"], people["reviewer"][0])
+        self.assertEqual(verified_session["status"], "Completed")
+        author_notifications = notices("author")
+        self.assertEqual([row["title"] for row in author_notifications], ["Audit verified"])
+        notice_path = f"/api/notifications/{author_notifications[0]['id']}"
+        self.assertEqual(self.request(notice_path, "PATCH", {}, token="reviewer")[0], 404)
+        self.assertEqual(self.request(notice_path, "DELETE", token="reviewer")[0], 404)
+        self.assertEqual(self.request(notice_path, "PATCH", {}, token="author")[0], 200)
+        signatures = verified_session["signatures"] | {"acknowledgedBy": signature}
+        self.assertEqual(self.request(path, "PATCH", {"signatures": signatures}, token="ack")[0], 200)
+
+        user_id, user = people["reviewer"]
+        overridden = user | {"permissionOverrides": {"permissions": ["notifications"], "inspectionPermissions": ["acknowledger"]}}
+        self.assertEqual(self.request(f"/api/users/{user_id}", "PATCH", overridden)[0], 200)
+        _, _, body = self.request("/api/account", token="reviewer")
+        effective = json.loads(body)["user"]
+        self.assertEqual(effective["permissionSource"], "user")
+        self.assertEqual(effective["inspectionPermissions"], ["acknowledger"])
+        self.assertEqual(self.request(path, token="reviewer")[0], 403)
+        with app.connect() as db:
+            role_id = db.execute("SELECT id FROM roles WHERE name = ?", (user["role"],)).fetchone()[0]
+        self.assertEqual(self.request(f"/api/roles/{role_id}", "PATCH", {"name": user["role"], "permissions": ["inspections"], "inspectionPermissions": []})[0], 200)
+        _, _, body = self.request("/api/account", token="reviewer")
+        self.assertEqual(json.loads(body)["user"]["inspectionPermissions"], ["acknowledger"])
+        self.assertEqual(self.request(f"/api/users/{user_id}", "PATCH", user | {"permissionOverrides": None})[0], 200)
+        _, _, body = self.request("/api/account", token="reviewer")
+        self.assertEqual(json.loads(body)["user"]["inspectionPermissions"], [])
+
+    def test_z_schedule_ids_resume_one_inspection_and_track_completion(self):
+        status, _, body = self.request("/api/schedules", "POST", {"outlet": "STP", "scheduledDate": "2026-09-18", "auditor": "Assigned auditor"})
+        self.assertEqual(status, 200)
+        schedule = json.loads(body)
+        self.assertGreater(schedule["id"], 0)
+        self.assertEqual(schedule["scheduleRef"], f"SCH-{schedule['id']:05d}")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+            responses = list(pool.map(lambda _: self.request("/api/schedules/start", "POST", {"scheduleId": schedule["id"]}), range(5)))
+        self.assertTrue(all(response[0] == 200 for response in responses))
+        ids = {json.loads(response[2])["id"] for response in responses}
+        self.assertEqual(len(ids), 1)
+        session_id = ids.pop()
+        _, _, body = self.request(f"/api/inspection-sessions/{session_id}")
+        session = json.loads(body)
+        self.assertEqual(session["schedule_id"], schedule["id"])
+        self.assertNotEqual(session["auditor"], "Assigned auditor")
+        self.assertTrue(session["inspection_name"].endswith(f"_{session_id}"))
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [{"passed": True}], "complete": True})[0], 200)
+        _, _, body = self.request("/api/schedules")
+        saved = next(row for row in json.loads(body)["items"] if row["id"] == schedule["id"])
+        self.assertEqual((saved["inspection_id"], saved["status"], saved["progress"]), (session_id, "Completed", 100))
+        self.assertEqual(self.request(f"/api/schedules/{schedule['id']}", "DELETE")[0], 409)
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "DELETE")[0], 409)
 
 
 if __name__ == "__main__":

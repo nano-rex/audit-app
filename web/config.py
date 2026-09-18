@@ -97,7 +97,7 @@ DEFAULT_SYSTEM_SETTINGS = {
 APP_TABS = (
     ("today", "To-do"),
     ("inspections", "Inspections"),
-    ("findings", "Findings"),
+    ("findings", "History & Findings"),
     ("work-orders", "Work Orders"),
     ("equipment", "Fixed Assets"),
     ("reports", "Reports"),

@@ -94,6 +94,7 @@ function notificationRow(row) {
       </div>
       <span class="row-actions">
         <strong class="${row.status === "Unread" ? "warn" : ""}">${escapeHtml(row.status || "Unread")}</strong>
+        ${row.related_type === "inspection" && (currentUser?.permissions || []).includes("inspections") ? `<button type="button" class="outline" data-open-inspection-session="${Number(row.related_id)}">Open Inspection</button>` : ""}
         <button type="button" class="outline" data-read-notification="${row.id}">Read</button>
         <button type="button" class="danger" data-delete-notification="${row.id}">Delete</button>
       </span>
@@ -217,15 +218,12 @@ function findingRow(row) {
 }
 function scheduleRow(row) {
   const matchingSession = inspectionHistoryCache.find((session) =>
-    session.outlet === row.outlet
-    && session.audit_date === row.scheduled_date
-    && session.auditor === row.auditor
-    && session.status !== "Completed"
+    session.schedule_id === row.id
   );
-  const displayName = matchingSession?.inspection_name || `${row.outlet}_${row.scheduled_date}_${row.id}`;
+  const displayName = row.schedule_ref || `SCH-${String(row.id).padStart(5, "0")}`;
   const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "No saved time";
-  const status = matchingSession
-    ? inspectionHistoryProgressStatus(matchingSession)
+  const status = row.inspection_id || matchingSession
+    ? inspectionHistoryProgressStatus(matchingSession || { status: row.inspection_status, progress: row.progress })
     : { className: "status-untouched", label: "Not Started (0%)" };
   return `
     <article data-schedule-id="${row.id}">

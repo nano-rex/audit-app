@@ -1,4 +1,10 @@
     <section id="users" class="tab-panel">
+      <nav class="sub-tabs" aria-label="User management">
+        <button class="active" type="button" data-user-subtab="users" aria-controls="user-accounts">Users</button>
+        <button type="button" data-user-subtab="departments" aria-controls="departments">Departments</button>
+        <button type="button" data-user-subtab="roles" aria-controls="roles">Roles</button>
+      </nav>
+      <section id="user-accounts" class="user-subpanel active" data-user-panel="users">
       <section class="panel filter">
         <h2>Users</h2>
         <label>Search<input id="user-search" placeholder="Search users"></label>
@@ -12,4 +18,7 @@
           <div class="admin-list" data-users></div>
         </article>
       </section>
+      </section>
+      <!-- include: html/tabs/departments.html -->
+      <!-- include: html/tabs/roles.html -->
     </section>

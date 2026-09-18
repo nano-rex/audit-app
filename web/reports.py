@@ -5,7 +5,7 @@ import csv
 import html
 from datetime import datetime
 from media_store import MediaStore
-from scoring import summarize as summarize_score
+from scoring import summarize as summarize_score, rating_for_score
 import config
 from accounts import branding_settings
 from common import rating, scope, sla_status
@@ -20,6 +20,14 @@ def dashboard(unit):
     work_order_where, work_order_params = scope(unit, "work_orders")
     equipment_where, equipment_params = scope(unit, "equipment")
     with connect() as db:
+        settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings WHERE key LIKE 'scoring.%'")}
+        distribution = dict.fromkeys(("Excellent", "Good", "Below Expectation", "Critical"), 0)
+        for audit in db.execute(f"SELECT score, scoring_json FROM audits WHERE {audit_where}", audit_params):
+            snapshot = json.loads(audit["scoring_json"] or "{}")
+            band = snapshot.get("rating") or rating_for_score(audit["score"], settings)
+            if band not in distribution:
+                band = rating_for_score(audit["score"], settings)
+            distribution[band] += 1
         stats = db.execute(
             f"""
             SELECT COUNT(*) total,
@@ -194,6 +202,7 @@ def dashboard(unit):
         "workOrders": [dict(row) for row in work_orders],
         "equipment": [dict(row) for row in equipment_rows],
         "charts": {
+            "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],
             "priorityVsNonPriority": [
                 {"label": "Priority", "count": len(priority_findings)},
                 {"label": "Non-Priority", "count": len(non_priority_findings)},

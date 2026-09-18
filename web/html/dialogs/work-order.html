@@ -8,7 +8,7 @@
         <label>Department<select name="requestType"></select></label>
         <label>Category<select name="category"></select></label>
         <label>Priority<select name="priority"></select></label>
-        <label>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
+        <label>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
         <label>Assignee<input name="assignee" placeholder="Technical Support"></label>
         <label>PIC<input name="pic" placeholder="Person in charge"></label>
         <label>Due Date<input name="dueDate" type="date"></label>
@@ -25,6 +25,7 @@
       <div data-work-order-evidence data-saved-images></div>
       <section class="form-section" data-corrective-fields>
         <h3>Corrective Action</h3>
+        <p>To complete this work order, enter the action taken, PIC, completion date, remark, and a completion photo.</p>
         <div class="form-grid">
           <label>Completion Date<input name="completionDate" type="date"></label>
         </div>
@@ -36,11 +37,12 @@
       <section class="form-section" data-verification-fields>
         <h3>Verification</h3>
         <div class="form-grid">
-          <label>Verified By<input name="verifiedBy" placeholder="Auditor or facilities manager"></label>
-          <label>Verified Date<input name="verifiedAt" type="date"></label>
-          <label>Closed Date<input name="closedAt" type="date"></label>
+          <label>Verified By<input name="verifiedBy" readonly placeholder="Recorded when verified"></label>
+          <label>Verified Date<input name="verifiedAt" type="date" readonly></label>
+          <label>Closed Date<input name="closedAt" type="date" readonly></label>
         </div>
         <label>Verification Remark<textarea name="verificationRemark" placeholder="Acceptance note, rejection reason, or close-out comment"></textarea></label>
+        <p>An auditor or facilities manager verifies completed work before closing it. Choose In Progress with a remark to return work for correction.</p>
       </section>
       <section class="form-section" data-work-order-comments-section hidden>
         <h3>Comments Timeline</h3>

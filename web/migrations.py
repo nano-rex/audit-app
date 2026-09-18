@@ -426,6 +426,16 @@ def init_db():
             "CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(lower(email))",
         ):
             db.execute(statement)
+        ensure_column(db, "comments", "system_generated", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "users", "profile_photo", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(db, "users", "permission_overrides", "TEXT")
+        ensure_column(db, "roles", "inspection_permissions", "TEXT")
+        ensure_column(db, "users", "signature_image", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(db, "inspection_sessions", "owner_user_id", "INTEGER")
+        ensure_column(db, "inspection_sessions", "schedule_id", "INTEGER")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")
+        ensure_column(db, "notifications", "recipient_user_id", "INTEGER")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_user_id, created_at DESC)")
         db.execute("UPDATE equipment SET location = zone WHERE location IS NULL OR location = ''")
         db.execute("UPDATE equipment SET installation_date = last_checked WHERE installation_date IS NULL OR installation_date = ''")
         db.execute("DELETE FROM audits WHERE auditor = 'Sample Auditor'")

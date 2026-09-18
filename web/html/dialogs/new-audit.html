@@ -3,7 +3,7 @@
       <header><h2>New Audit - Ottotree</h2><button type="button" data-close-dialog>x</button></header>
       <label>Outlet<select name="outlet"><option>Select outlet</option></select></label>
       <label>Audit Date<input name="auditDate" type="date"></label>
-      <label>Auditor Name<input name="auditor" placeholder="Who is auditing?"></label>
+      <label>Auditor<input name="auditor" readonly placeholder="Signed-in account"></label>
       <fieldset>
         <legend>Audit Type</legend>
         <label><input type="radio" name="auditType" value="Standard" checked> Standard (1-4 Scale)</label>
@@ -22,6 +22,6 @@
         <span data-question-copy>Is the big headphone display present and in good condition?</span>
       </section>
       <label>Total Score<input name="score" type="number" min="0" max="100" placeholder="0 - 100"></label>
-      <button class="primary" value="default">Save Audit</button>
+      <button class="primary" type="submit" value="default">Save Audit</button>
     </form>
   </dialog>

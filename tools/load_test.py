@@ -96,7 +96,10 @@ def main():
             ordered = sorted(values)
             return {"median_ms": round(statistics.median(ordered) * 1000, 1), "p95_ms": round(ordered[max(0, int(len(ordered) * .95 + .999) - 1)] * 1000, 1)}
         with app.connect() as db:
-            saved = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE auditor != 'Load test' AND auditor LIKE 'Load %'").fetchone()[0]
+            if hasattr(app, "configure_data_directory"):
+                saved = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE owner_user_id = ?", (user_id,)).fetchone()[0]
+            else:
+                saved = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE auditor != 'Load test' AND auditor LIKE 'Load %'").fetchone()[0]
         db.close()
         output = {"baseline": args.baseline, "users": args.users, "assets_added": 2500, "drafts_seeded": 300, "evidence_bytes_per_draft": 16384, "seconds": round(elapsed, 2), "flow": summary([value for value, _ in results]), "requests": len(samples), "errors": [record for record in samples if record[2] != 200], "drafts_saved": saved, "endpoints": {path: summary([row[1] for row in samples if row[0] == path]) | {"mean_bytes": round(statistics.mean(row[3] for row in samples if row[0] == path))} for path in sorted({row[0] for row in samples})}}
         output["error_count"] = len(output["errors"])

@@ -20,25 +20,16 @@ async function loadTabData(tabId) {
   const loaders = {
     today: loadDashboard,
     reports: async () => { await loadDashboard(); await loadReport(); },
-    findings: loadFindings,
+    findings: () => Promise.all([loadInspectionHistory(), loadFindings()]),
     "work-orders": loadWorkOrders,
     "corrective-actions": loadWorkOrders,
     equipment: loadEquipment,
-    users: loadUsers,
+    users: () => (currentUser?.permissions || ["users"]).includes("users") ? loadUsers() : Promise.resolve(),
+    account: loadAccount,
     notifications: loadNotifications,
     outlets: () => Promise.all([loadLocations(), loadZones()]),
     inspections: async () => {
-      if (!inspectionsInitialized) {
-        inspectionsInitialized = true;
-        try {
-          await loadChecklist();
-          await restoreLastInspectionSession();
-        } catch (error) {
-          inspectionsInitialized = false;
-          throw error;
-        }
-      }
-      await loadInspectionHistory();
+      await Promise.all([loadGuidedSchedules(), loadInspectionHistory()]);
     },
   };
   if (!loaders[tabId]) return;
@@ -57,7 +48,7 @@ function loadApp() {
 
 async function initializeApp() {
   appReady = false;
-  if (!currentUser && !await requireLogin()) return;
+  if (!await requireLogin()) return;
   const activeTab = document.querySelector(".tab-panel.active")?.id;
   await Promise.all([loadBranding(), loadSetup()]);
   applyNavbarTabs();

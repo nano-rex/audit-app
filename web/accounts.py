@@ -1,21 +1,18 @@
 """Accounts for the audit application."""
 import json
 from common import read_setting
-from config import ADMIN_ROLE, APP_TABS, DEFAULT_REPORT_SETTINGS, SUPER_ROLE
+from config import ADMIN_ROLE, DEFAULT_REPORT_SETTINGS, SUPER_ROLE
 from database import connect
+from permissions import resolve_permissions
 
 
 def public_user(row):
     if not row:
         return None
-    permissions = []
-    if row["role"] == SUPER_ROLE:
-        permissions = [tab[0] for tab in APP_TABS]
-    else:
-        with connect() as db:
-            role = db.execute("SELECT permissions_json FROM roles WHERE name = ?", (row["role"],)).fetchone()
-            if role:
-                permissions = json.loads(role["permissions_json"] or "[]")
+    with connect() as db:
+        record = db.execute("SELECT permission_overrides FROM users WHERE id = ?", (row["id"],)).fetchone()
+        overrides = json.loads(record["permission_overrides"]) if record and record["permission_overrides"] is not None else None
+        permissions, inspection_permissions = resolve_permissions(db, row["role"], overrides)
     return {
         "id": row["id"],
         "name": row["name"],
@@ -28,6 +25,11 @@ def public_user(row):
         "lastLoginAt": row["last_login_at"] or "",
         "resetRequired": bool(row["reset_required"]),
         "permissions": permissions,
+        "inspectionPermissions": inspection_permissions,
+        "permissionOverrides": overrides,
+        "permissionSource": "user" if overrides is not None else "role",
+        "profilePhoto": json.loads(row["profile_photo"] or "{}") if "profile_photo" in row.keys() else {},
+        "signatureImage": json.loads(row["signature_image"] or "{}") if "signature_image" in row.keys() else {},
     }
 
 

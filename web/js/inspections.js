@@ -1,28 +1,25 @@
 async function applyInspectionSchedule(row) {
-  inspectionsInitialized = true;
-  const form = document.getElementById("inspection-form");
-  if (!form || !row) return;
-  await loadInspectionHistory();
-  const matchingSession = inspectionHistoryCache.find((session) =>
-    session.outlet === row.outlet
-    && session.audit_date === row.scheduled_date
-    && session.auditor === row.auditor
-    && session.status !== "Completed"
-  );
-  if (matchingSession) {
-    await openInspectionSession(matchingSession.id);
-    return;
-  }
-  form.elements.inspectionSessionId.value = "";
-  document.querySelector("[data-save-inspection-progress]").disabled = false;
-  setCurrentInspectionName();
-  inspectionSessionItems = [];
-  updateSetupSelects();
-  form.elements.outlet.value = row.outlet || "";
-  form.elements.auditDate.value = row.scheduled_date || "";
-  form.elements.auditor.value = row.auditor || "";
-  setInspectionSignatures({});
-  await updateInspectionLocationSelect();
+  if (!row?.id) throw new Error("This schedule has no ID. Reload the scheduled work list.");
+  const result = await requestJson("/api/schedules/start", "POST", { scheduleId: row.id });
+  await openInspectionSession(result.id);
+}
+
+let guidedSchedules = [];
+
+function showGuidedContent(open) {
+  document.querySelector("[data-guided-content]").hidden = !open;
+  document.querySelector("[data-guided-schedules-panel]").hidden = open;
+}
+
+async function loadGuidedSchedules() {
+  const response = await authFetch("/api/schedules");
+  guidedSchedules = (await response.json()).items || [];
+  renderGuidedSchedules();
+}
+
+function renderGuidedSchedules() {
+  const page = paginateList("scheduled-work", guidedSchedules, "", renderGuidedSchedules);
+  setHtml("[data-guided-schedules]", (page.items.length ? page.items.map(scheduleRow).join("") : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
 }
 
 function openScheduledInspection(row) {
@@ -31,6 +28,7 @@ function openScheduledInspection(row) {
 }
 
 function showInspectionSubtab(tabId) {
+  if (tabId === "guided") showGuidedContent(false);
   document.querySelectorAll("[data-inspection-subtab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.inspectionSubtab === tabId);
   });
@@ -341,19 +339,11 @@ function renderInspectionHistory() {
       && (!historyFilters.status || row.status === historyFilters.status)
       && (!historyFilters.pic || (row.pics || []).join(" ").toLowerCase().includes(historyFilters.pic.toLowerCase()));
   });
-  const pages = Math.max(1, Math.ceil(rows.length / inspectionHistoryPageSize));
-  inspectionHistoryPage = Math.min(Math.max(1, inspectionHistoryPage), pages);
-  const start = (inspectionHistoryPage - 1) * inspectionHistoryPageSize;
-  const pageRows = rows.slice(start, start + inspectionHistoryPageSize);
-  setHtml("[data-inspection-history]", pageRows.length
-    ? pageRows.map(inspectionHistoryRow).join("")
-    : `<article><div><b>No inspection history</b><span>Saved progress and completed inspections appear here.</span></div></article>`);
+  const page = paginateList("inspections", rows, { ...historyFilters, search }, renderInspectionHistory);
+  setHtml("[data-inspection-history]", (page.items.length
+    ? page.items.map(inspectionHistoryRow).join("")
+    : `<article><div><b>No inspection history</b><span>Saved progress and completed inspections appear here.</span></div></article>`) + page.controls);
   setText("[data-inspection-history-count]", `${rows.length} ${rows.length === 1 ? "record" : "records"}`);
-  setText("[data-history-page]", `Page ${inspectionHistoryPage} of ${pages}`);
-  const prev = document.querySelector("[data-history-prev]");
-  const next = document.querySelector("[data-history-next]");
-  if (prev) prev.disabled = inspectionHistoryPage <= 1;
-  if (next) next.disabled = inspectionHistoryPage >= pages;
 }
 
 function inspectionHistoryRow(row) {
@@ -361,16 +351,17 @@ function inspectionHistoryRow(row) {
   const status = inspectionHistoryProgressStatus(row);
   return `
     <article>
-      <div data-open-inspection-session="${row.id}">
+      <div>
         <b>${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
         <span>${escapeHtml(row.audit_date)} | ${escapeHtml(savedAt)}</span>
         <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
-        <button type="button" class="outline" data-open-inspection-session="${row.id}">Open</button>
+        ${(currentUser?.permissions || []).includes("inspections") ? `<button type="button" class="outline" data-open-inspection-session="${row.id}">Open</button>` : ""}
+        ${row.audit_id ? `<button type="button" class="outline" data-view-inspection-findings="${row.audit_id}">Findings (${row.findings_count || 0})</button>` : ""}
         ${row.status === "Completed" ? `<a class="button-link outline" href="/api/inspection-sessions/${row.id}/export.pdf">PDF</a>` : ""}
-        <button type="button" class="danger" data-delete-inspection-session="${row.id}">Delete</button>
+        ${row.status !== "Completed" && (currentUser?.inspectionPermissions || []).includes("auditor") ? `<button type="button" class="danger" data-delete-inspection-session="${row.id}">Delete</button>` : ""}
       </span>
     </article>
   `;
@@ -429,6 +420,10 @@ function inspectionSignatures() {
 }
 
 function setInspectionSignatures(signatures = {}) {
+  const signaturePermissions = { auditedBy: "auditor", verifiedBy: "verifier", acknowledgedBy: "acknowledger" };
+  document.querySelectorAll("[data-open-signature]").forEach((button) => {
+    button.disabled = !(currentUser?.inspectionPermissions || []).includes(signaturePermissions[button.dataset.openSignature]);
+  });
   const form = document.getElementById("inspection-form");
   if (!form) return;
   form.dataset.signatures = JSON.stringify(signatures || {});
@@ -456,15 +451,17 @@ function openSignatureDialog(kind) {
     acknowledgedBy: "Acknowledged By",
   };
   form.reset();
-  form.elements.signatureName.value = signatures[kind]?.name || "";
+  form.elements.signatureName.value = currentUser?.name || "";
+  form.elements.signatureName.readOnly = true;
   setText("[data-signature-title]", labels[kind] || "Signature");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "#fff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  if (imageSource(signatures[kind])) {
+  const savedSignature = signatures[kind] || currentUser?.signatureImage;
+  if (imageSource(savedSignature)) {
     const image = new Image();
     image.addEventListener("load", () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height));
-    image.src = imageSource(signatures[kind]);
+    image.src = imageSource(savedSignature);
   }
   signatureState = { kind, drawing: false, lastX: 0, lastY: 0 };
   dialog.showModal();
@@ -553,6 +550,10 @@ function updateInspectionActions(progress, payload) {
   if (button) button.textContent = isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
   const form = document.getElementById("inspection-form");
   const id = form ? formValue(form, "inspectionSessionId", "") : "";
+  const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && form?.dataset.completed !== "true";
+  if (button) button.disabled = !editable;
+  const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
+  if (signaturesButton) signaturesButton.disabled = !id || !(currentUser?.inspectionPermissions || []).length;
   const link = document.querySelector("[data-export-inspection-pdf]");
   if (!link) return;
   if (id) {
@@ -614,6 +615,8 @@ async function openInspectionSession(id) {
   const session = await response.json();
   const form = document.getElementById("inspection-form");
   form.elements.inspectionSessionId.value = session.id;
+  form.dataset.completed = String(session.status === "Completed");
+  setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
   setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
@@ -624,6 +627,7 @@ async function openInspectionSession(id) {
   await updateInspectionLocationSelect();
   showTab("inspections");
   showInspectionSubtab("guided");
+  showGuidedContent(true);
 }
 
 async function restoreLastInspectionSession() {

@@ -1,20 +1,23 @@
 """Routes work orders for the audit application."""
 import time
-from common import create_notification, json_text, priority_due_date, sla_status, work_order_ref, workflow_dates
+from common import create_notification, json_text, priority_due_date, sla_status, work_order_ref
 from database import connect, first_category, first_department, first_outlet
 from work_orders import sync_finding_from_work_order
+from workflow import WorkflowError, validate_update
 
 
 def post_work_orders(self, parsed, payload=None):
     now = int(time.time() * 1000)
+    payload = validate_update(payload, None, self.current_user())
     with connect() as db:
         default_outlet = first_outlet(db)
         default_department = first_department(db)
         default_category = first_category(db)
-        status, verified_at, closed_at = workflow_dates(payload)
+        status = payload.get("status", "Assigned")
+        verified_at, closed_at = payload["verifiedAt"], payload["closedAt"]
         priority = payload.get("priority", "Medium")
         due_date = payload.get("dueDate") or priority_due_date(db, priority, now)
-        current_sla_status = payload.get("slaStatus") or sla_status(status, due_date)
+        current_sla_status = sla_status(status, due_date)
         cursor = db.execute(
             """
             INSERT INTO work_orders
@@ -76,7 +79,7 @@ def post_comments(self, parsed, payload=None):
                 payload.get("recordType", "general"),
                 int(payload.get("recordId") or 0),
                 payload.get("comment", ""),
-                payload.get("author", self.current_user().get("name", "")),
+                self.current_user().get("name", ""),
                 now,
             ),
         )
@@ -103,8 +106,8 @@ def patch_notifications(self, parsed, payload=None):
         return
     with connect() as db:
         cursor = db.execute(
-            "UPDATE notifications SET status = 'Read', read_at = ? WHERE id = ?",
-            (int(time.time() * 1000), int(record_id)),
+            "UPDATE notifications SET status = 'Read', read_at = ? WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)",
+            (int(time.time() * 1000), int(record_id), self.current_user()["id"]),
         )
         if cursor.rowcount == 0:
             self.send_error(404)
@@ -118,11 +121,19 @@ def patch_work_orders(self, parsed, payload=None):
     if not item_id.isdigit():
         self.send_error(400)
         return
+    user = self.current_user()
     with connect() as db:
-        status, verified_at, closed_at = workflow_dates(payload)
+        db.execute("BEGIN IMMEDIATE")
+        existing = db.execute("SELECT * FROM work_orders WHERE id = ?", (int(item_id),)).fetchone()
+        if not existing:
+            self.json({"error": "Work order not found"}, 404)
+            return
+        payload = validate_update(payload, existing, user)
+        status = payload["status"]
+        verified_at, closed_at = payload["verifiedAt"], payload["closedAt"]
         priority = payload.get("priority", "Medium")
         due_date = payload.get("dueDate") or priority_due_date(db, priority, int(time.time() * 1000))
-        current_sla_status = payload.get("slaStatus") or sla_status(status, due_date)
+        current_sla_status = sla_status(status, due_date)
         cursor = db.execute(
             """
             UPDATE work_orders
@@ -165,8 +176,13 @@ def patch_work_orders(self, parsed, payload=None):
             return
         save_finding_details(db, int(item_id), payload)
         sync_finding_from_work_order(db, int(item_id))
-        if status in ("Completed", "Verified", "Closed"):
-            create_notification(db, "Corrective action completed", payload.get("title", "Work order"), "In-App", "work_order", int(item_id))
+        if status != existing["status"]:
+            message = f"Status changed from {existing['status']} to {status}"
+            if payload.get("verificationRemark"):
+                message += f": {payload['verificationRemark']}"
+            db.execute("INSERT INTO comments(record_type, record_id, comment, author, created_at, system_generated) VALUES ('work_order', ?, ?, ?, ?, 1)",
+                       (int(item_id), message, user["name"], int(time.time() * 1000)))
+            create_notification(db, f"Work order {status.lower()}", payload.get("title", "Work order"), "In-App", "work_order", int(item_id))
     self.json({"ok": True})
     return
 
@@ -189,7 +205,7 @@ def delete_notifications(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
-        cursor = db.execute("DELETE FROM notifications WHERE id = ?", (int(record_id),))
+        cursor = db.execute("DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)", (int(record_id), self.current_user()["id"]))
         if cursor.rowcount == 0:
             self.send_error(404)
             return
@@ -203,6 +219,10 @@ def delete_comments(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        event = db.execute("SELECT system_generated FROM comments WHERE id = ?", (int(record_id),)).fetchone()
+        if event and event["system_generated"]:
+            raise WorkflowError("Workflow history cannot be deleted")
         cursor = db.execute("DELETE FROM comments WHERE id = ?", (int(record_id),))
         if cursor.rowcount == 0:
             self.send_error(404)
@@ -216,7 +236,13 @@ def delete_work_orders(self, parsed, payload=None):
     if not record_id.isdigit():
         self.send_error(400)
         return
+    if self.current_user().get("role") == "Department/PIC":
+        raise WorkflowError("Department/PIC users cannot delete work orders", 403)
     with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT source_finding_id, status FROM work_orders WHERE id = ?", (int(record_id),)).fetchone()
+        if row and (row["source_finding_id"] or row["status"] in {"Completed", "Verified", "Closed"}):
+            raise WorkflowError("Audit-linked or completed work orders must be retained")
         cursor = db.execute("DELETE FROM work_orders WHERE id = ?", (int(record_id),))
         if cursor.rowcount == 0:
             self.send_error(404)

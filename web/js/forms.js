@@ -36,7 +36,10 @@ function resetUserForm() {
   form.elements.resetPassword.checked = false;
   form.querySelector("h2").textContent = "User Setup";
   form.querySelector('button[type="submit"]').textContent = "Save User";
+  setText("[data-user-form-message]", "");
   updateSetupSelects();
+  form.elements.inheritPermissions.checked = true;
+  showEditorTab(form, "details");
 }
 
 function openUserEditor(row = null) {
@@ -56,6 +59,8 @@ function openUserEditor(row = null) {
     form.querySelector("h2").textContent = "Edit User";
     form.querySelector('button[type="submit"]').textContent = "Save Changes";
   }
+  form.elements.inheritPermissions.checked = row?.permissionOverrides == null;
+  renderUserPermissions(row?.permissionOverrides);
   dialog.showModal();
 }
 
@@ -80,6 +85,8 @@ function openRoleEditor(row = null) {
   form.elements.description.value = row?.description || "";
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
+  form.querySelector("[data-role-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, row?.inspectionPermissions || [], "inspectionPermissions", Boolean(row?.protected));
+  showEditorTab(form, "details");
   form.querySelector("h2").textContent = row ? "Edit Role" : "Role Setup";
   form.querySelector('button[type="submit"], button[value="default"]').textContent = row ? "Save Changes" : "Save Role";
   form.querySelector('button[type="submit"], button[value="default"]').disabled = Boolean(row?.protected);
@@ -348,6 +355,7 @@ async function saveInspectionSession(complete = false) {
   try {
     const result = await requestJson(id ? `/api/inspection-sessions/${id}` : "/api/inspection-sessions", id ? "PATCH" : "POST", payload);
     form.elements.inspectionSessionId.value = result.id;
+    if (complete) form.dataset.completed = "true";
     setCurrentInspectionName(result.inspectionName || `${payload.outlet}_${payload.auditDate}_${result.id}`, "Editing");
     localStorage.setItem(lastInspectionSessionKey, result.id);
     updateInspectionProgress();
@@ -553,11 +561,21 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
     active: Boolean(form.elements.active.checked),
     resetRequired: Boolean(form.elements.resetRequired.checked),
     resetPassword: Boolean(form.elements.resetPassword.checked),
+    permissionOverrides: userPermissionOverrides(form),
   };
-  await requestJson(id ? `/api/users/${id}` : "/api/users", id ? "PATCH" : "POST", payload);
-  form.closest("dialog").close();
-  resetUserForm();
-  loadApp();
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  setText("[data-user-form-message]", "");
+  try {
+    await requestJson(id ? `/api/users/${id}` : "/api/users", id ? "PATCH" : "POST", payload);
+    form.closest("dialog").close();
+    resetUserForm();
+    loadApp();
+  } catch (error) {
+    setText("[data-user-form-message]", error.message);
+  } finally {
+    button.disabled = false;
+  }
 });
 
 document.getElementById("role-form")?.addEventListener("submit", async (event) => {
@@ -568,6 +586,7 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
     name: formValue(form, "name", "New Role"),
     description: formValue(form, "description", ""),
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
+    inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
   };
   await requestJson(id ? `/api/roles/${id}` : "/api/roles", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();

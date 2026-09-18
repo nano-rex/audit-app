@@ -4,15 +4,16 @@ import time
 from database import connect
 
 
-def notifications():
+def notifications(user_id):
     with connect() as db:
         rows = db.execute(
             """
             SELECT id, title, message, channel, status, related_type, related_id, created_at, read_at
             FROM notifications
+            WHERE recipient_user_id = ? OR recipient_user_id IS NULL
             ORDER BY created_at DESC, id DESC
             LIMIT 100
-            """
+            """, (user_id,)
         ).fetchall()
     return {"items": [dict(row) for row in rows]}
 

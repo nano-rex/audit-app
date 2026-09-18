@@ -63,6 +63,7 @@ function renderFindings() {
       row.status,
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
+      && (!findingFilters.auditId || String(row.audit_id) === findingFilters.auditId)
       && (!findingFilters.outlet || row.outlet === findingFilters.outlet)
       && (!findingFilters.location || row.location === findingFilters.location)
       && (!findingFilters.department || row.assigned_department === findingFilters.department)
@@ -70,9 +71,10 @@ function renderFindings() {
       && (!findingFilters.priority || row.priority === findingFilters.priority)
       && (!findingFilters.status || row.status === findingFilters.status);
   });
-  setHtml("[data-findings]", rows.length
-    ? rows.map(findingRow).join("")
-    : `<article><div><b>No findings found</b><span>Completed inspections with failed criteria will appear here.</span></div></article>`);
+  const page = paginateList("findings", rows, findingFilters, renderFindings);
+  setHtml("[data-findings]", (rows.length
+    ? page.items.map(findingRow).join("")
+    : `<article><div><b>No findings found</b><span>Completed inspections with failed criteria will appear here.</span></div></article>`) + page.controls);
 }
 
 function renderWorkOrders() {
@@ -239,6 +241,7 @@ async function loadReport() {
 }
 
 function renderReportCharts(charts) {
+  renderPerformanceDistribution(charts.performanceDistribution || []);
   const chartMap = [
     ["priorityVsNonPriority", "Priority vs Non-Priority"],
     ["findingsByDepartment", "Issues by Department"],
@@ -246,9 +249,9 @@ function renderReportCharts(charts) {
     ["findingsByCategory", "Issues by Category"],
     ["monthlyAuditTrend", "Monthly Audit Trend"],
     ["findingsTrend", "Findings Trend"],
-    ["departmentPerformance", "Department Performance"],
-    ["locationPerformance", "Location Performance"],
-    ["categoryPerformance", "Category Performance"],
+    ["departmentPerformance", "Work Orders by Department"],
+    ["locationPerformance", "Work Orders by Location"],
+    ["categoryPerformance", "Work Orders by Category"],
   ];
   setHtml("[data-report-charts]", chartMap.map(([key, label]) => {
     const source = charts[key] || [];
@@ -264,4 +267,25 @@ function renderReportCharts(charts) {
       </article>
     `;
   }).join(""));
+}
+
+function renderPerformanceDistribution(rows) {
+  const bands = [
+    ["Excellent", "#24c362"], ["Good", "var(--blue)"],
+    ["Below Expectation", "var(--orange)"], ["Critical", "var(--red)"],
+  ].map(([label, color]) => ({ label, color, count: Math.max(0, Number(rows.find((row) => row.label === label)?.count) || 0) }));
+  const total = bands.reduce((sum, band) => sum + band.count, 0);
+  const chart = document.querySelector("[data-performance-chart]");
+  if (!chart) return;
+  chart.hidden = total === 0;
+  setText("[data-performance-summary]", total ? `${total} completed ${total === 1 ? "audit" : "audits"}` : "No completed audits");
+  setHtml("[data-performance-legend]", total ? bands.map((band) => `<span><i class="legend-swatch" style="background:${band.color}" aria-hidden="true"></i>${band.label}: ${band.count} (${Math.round(band.count * 100 / total)}%)</span>`).join("") : "");
+  let end = 0;
+  const stops = bands.map((band) => {
+    const start = end;
+    end += total ? band.count * 100 / total : 0;
+    return `${band.color} ${start}% ${end}%`;
+  });
+  chart.style.background = total ? `conic-gradient(${stops.join(", ")})` : "var(--border)";
+  chart.setAttribute("aria-label", total ? bands.map((band) => `${band.label}: ${band.count}`).join(", ") : "No completed audits");
 }

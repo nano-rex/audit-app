@@ -15,7 +15,7 @@ from common import checklist, inspection_name
 from config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from database import connect
 from http_support import api_errors, static_content, static_fingerprint
-from inspections import inspection_session, inspection_sessions
+from inspections import inspection_session, inspection_sessions, schedule_items
 from reports import dashboard, inspection_pdf, report, report_csv, report_xls
 from response_cache import PreparedJson, cached_response
 from work_orders import comments, finding_items, notifications, work_order_items
@@ -80,7 +80,7 @@ class Handler(BaseHTTPRequestHandler):
             row = db.execute(
                 """
                 SELECT id, name, role, email, department, active, reset_required,
-                       last_login_at, login_count, title, responsibilities
+                       last_login_at, login_count, title, responsibilities, profile_photo, signature_image
                 FROM users
                 WHERE id = ? AND active = 1
                 """,
@@ -99,6 +99,11 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             self.json({"ok": False, "error": "Login required"}, status=401)
             return False
+        route = parsed.path.removeprefix("/api/").split("/", 1)[0]
+        if ((route in {"audits", "inspections"} and self.command == "POST") or
+                (route == "inspection-sessions" and self.command == "DELETE")) and "auditor" not in user.get("inspectionPermissions", []):
+            self.json({"error": "Auditor permission is required"}, 403)
+            return False
         if is_super_user(user):
             return True
         route = parsed.path.removeprefix("/api/").split("/", 1)[0]
@@ -113,9 +118,9 @@ class Handler(BaseHTTPRequestHandler):
             "users": {"users"},
             "roles": {"roles"},
             "settings": {"settings"},
-            "schedules": {"today"},
+            "schedules": {"today", "inspections"},
             "captain-logins": {"today"},
-            "findings": {"findings"},
+            "findings": {"findings", "inspections"},
             "work-orders": {"work-orders", "corrective-actions"},
             "notifications": {"notifications"},
             "locations": {"outlets"},
@@ -128,9 +133,13 @@ class Handler(BaseHTTPRequestHandler):
             allowed = {required} if required else set()
         else:
             allowed = permissions.get(route, set())
+        if route == "notifications" and self.command in {"GET", "PATCH", "DELETE"}:
+            allowed = set()  # Each user can access their own addressed notifications.
         if self.command == "POST" and route == "work-orders":
             allowed |= {"inspections"}  # Inspectors can raise issues from failed criteria.
         if self.command == "GET":
+            if route == "inspection-sessions":
+                allowed |= {"findings"}
             if route in {"setup", "locations", "zones"}:
                 return True  # Shared selection lists used by the permitted workflows.
             if route == "equipment":
@@ -145,7 +154,7 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if not self.require_auth(parsed):
             return
-        if parsed.path == "/api/auth/me":
+        if parsed.path in {"/api/auth/me", "/api/account"}:
             user = self.current_user()
             if not user:
                 self.json({"ok": False, "error": "Login required"}, status=401)
@@ -180,6 +189,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/checklist":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.json({"items": checklist(unit)})
+            return
+        if parsed.path == "/api/schedules":
+            self.json(schedule_items())
             return
         if parsed.path == "/api/work-orders":
             self.json(work_order_items())
@@ -251,7 +263,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json(users())
             return
         if parsed.path == "/api/notifications":
-            self.json(notifications())
+            self.json(notifications(self.current_user()["id"]))
             return
         if parsed.path == "/api/comments":
             params = parse_qs(parsed.query)
@@ -272,6 +284,8 @@ class Handler(BaseHTTPRequestHandler):
         if not self.require_auth(parsed):
             return
         payload = MediaStore(config.DATA_DIR / "media").normalize(payload)
+        if parsed.path in {"/api/audits", "/api/inspections"}:
+            payload["auditor"] = self.current_user()["name"]
         if parsed.path == "/api/media":
             if not isinstance(payload.get("image"), dict) or not payload["image"].get("url"):
                 self.json({"error": "An image is required"}, 400)

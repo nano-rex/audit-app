@@ -6,13 +6,32 @@
 }
 
 .inspection-subpanel,
-.outlet-subpanel {
+.outlet-subpanel,
+.user-subpanel {
   display: none;
 }
 
 .inspection-subpanel.active,
-.outlet-subpanel.active {
+.outlet-subpanel.active,
+.user-subpanel.active {
   display: block;
+}
+
+[data-user-subtab][hidden],
+.user-subpanel[hidden],
+[data-guided-content][hidden],
+[data-guided-schedules-panel][hidden] {
+  display: none;
+}
+
+[data-history-findings-panel][hidden] {
+  display: none;
+}
+
+[data-user-subtab].active {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: var(--green);
 }
 
 .panel,

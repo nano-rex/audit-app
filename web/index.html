@@ -17,25 +17,23 @@
     </div>
     <div class="account-strip" data-account-strip hidden>
       <span data-auth-user></span>
-      <button class="outline" type="button" data-open-change-password>Change Password</button>
-      <button class="outline" type="button" data-logout>Logout</button>
+      <button class="outline" type="button" data-jump-tab="account">Account</button>
     </div>
     <div class="nav-row">
       <nav class="tabs" aria-label="Audit sections">
         <button class="active" data-tab="today">To-do</button>
         <button data-tab="inspections">Inspections</button>
-        <button data-tab="findings">Findings</button>
+        <button data-tab="findings">History &amp; Findings</button>
         <button data-tab="work-orders">Work Orders</button>
         <button data-tab="equipment">Fixed Assets</button>
         <button data-tab="reports">Reports</button>
         <button data-tab="corrective-actions">Corrective Actions</button>
         <button data-tab="notifications">Notifications</button>
         <button data-tab="categories">Categories</button>
-        <button data-tab="departments">Departments</button>
         <button data-tab="outlets">Outlets</button>
         <button data-tab="users">Users</button>
-        <button data-tab="roles">Roles</button>
         <button data-tab="settings">Settings</button>
+        <button data-tab="account">Account</button>
       </nav>
       <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="tab-menu" aria-label="Open tab menu">☰</button>
       <div class="tab-menu" id="tab-menu" hidden>
@@ -55,11 +53,10 @@
     <!-- include: html/tabs/corrective-actions.html -->
     <!-- include: html/tabs/notifications.html -->
     <!-- include: html/tabs/categories.html -->
-    <!-- include: html/tabs/departments.html -->
     <!-- include: html/tabs/outlets.html -->
     <!-- include: html/tabs/users.html -->
-    <!-- include: html/tabs/roles.html -->
     <!-- include: html/tabs/settings.html -->
+    <!-- include: html/tabs/account.html -->
   </main>
 
   <!-- include: html/dialogs/new-audit.html -->
@@ -79,6 +76,7 @@
   <script src="js/auth.js?v=20260909-login"></script>
   <script src="js/state.js?v=20260908-photo-storage"></script>
   <script src="js/utils.js?v=20260908-photo-storage"></script>
+  <script src="js/pagination.js"></script>
   <script src="js/setup.js?v=20260908-photo-storage"></script>
   <script src="js/rows.js?v=20260908-photo-storage"></script>
   <script src="js/dashboard.js?v=20260908-photo-storage"></script>
@@ -86,6 +84,8 @@
   <script src="js/navigation.js?v=20260908-photo-storage"></script>
   <script src="js/events.js?v=20260908-photo-storage"></script>
   <script src="js/forms.js?v=20260908-photo-storage"></script>
+  <script src="js/permissions.js"></script>
+  <script src="js/account.js"></script>
   <script src="js/boot.js?v=20260908-photo-storage"></script>
 </body>
 </html>

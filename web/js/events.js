@@ -9,19 +9,19 @@ document.querySelectorAll("[data-open]").forEach((button) => {
 });
 
 document.addEventListener("click", async (event) => {
-  if (event.target.closest("[data-new-inspection]")) {
-    if (!confirm("Start a new inspection? Unsaved changes will be discarded.")) return;
-    const form = document.getElementById("inspection-form");
-    form.reset();
-    form.elements.inspectionSessionId.value = "";
-    form.elements.auditDate.value = todayIsoDate();
-    form.elements.auditor.value = currentUser?.name || "";
-    inspectionSessionItems = [];
-    localStorage.removeItem(lastInspectionSessionKey);
-    setInspectionSignatures({});
-    setCurrentInspectionName();
-    document.querySelector("[data-save-inspection-progress]").disabled = false;
-    await loadChecklist();
+  const findingLink = event.target.closest("[data-view-inspection-findings]");
+  const allFindings = event.target.closest("[data-all-inspection-findings]");
+  if (findingLink || allFindings) {
+    findingFilters.auditId = findingLink?.dataset.viewInspectionFindings || "";
+    setText("[data-finding-inspection-scope]", findingFilters.auditId ? `Audit #${findingFilters.auditId}` : "All inspections");
+    renderFindings();
+    showHistoryFindingsSection("findings");
+    return;
+  }
+  if (event.target.closest("[data-back-to-schedules]")) {
+    if (!confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;
+    showGuidedContent(false);
+    await loadGuidedSchedules();
     return;
   }
   const equipmentPageButton = event.target.closest("[data-equipment-page]");
@@ -263,7 +263,6 @@ document.querySelector("[data-menu-tabs]")?.addEventListener("change", (event) =
 
 document.getElementById("inspection-history-search")?.addEventListener("input", (event) => {
   inspectionHistorySearch = event.target.value;
-  inspectionHistoryPage = 1;
   renderInspectionHistory();
 });
 
@@ -281,26 +280,14 @@ document.getElementById("inspection-history-search")?.addEventListener("input", 
 ].forEach(([id, key]) => {
   document.getElementById(id)?.addEventListener("input", (event) => {
     historyFilters[key] = event.target.value;
-    inspectionHistoryPage = 1;
     if (key === "outlet") updateHistoryFilterSelects();
     renderInspectionHistory();
   });
   document.getElementById(id)?.addEventListener("change", (event) => {
     historyFilters[key] = event.target.value;
-    inspectionHistoryPage = 1;
     if (key === "outlet") updateHistoryFilterSelects();
     renderInspectionHistory();
   });
-});
-
-document.querySelector("[data-history-prev]")?.addEventListener("click", () => {
-  inspectionHistoryPage -= 1;
-  renderInspectionHistory();
-});
-
-document.querySelector("[data-history-next]")?.addEventListener("click", () => {
-  inspectionHistoryPage += 1;
-  renderInspectionHistory();
 });
 
 document.getElementById("location-outlet")?.addEventListener("change", (event) => {
@@ -480,6 +467,16 @@ document.getElementById("photo-mark-form")?.addEventListener("submit", async (ev
 
 document.querySelectorAll("[data-open-signature]").forEach((button) => {
   button.addEventListener("click", () => openSignatureDialog(button.dataset.openSignature));
+});
+
+document.querySelector("[data-save-inspection-signatures]")?.addEventListener("click", async () => {
+  const id = document.getElementById("inspection-form").elements.inspectionSessionId.value;
+  if (!id) { alert("Save the inspection before saving signatures."); return; }
+  try {
+    await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures: inspectionSignatures() });
+    await openInspectionSession(id);
+    alert("Signatures saved.");
+  } catch (error) { alert(error.message); }
 });
 
 document.querySelector("[data-signature-canvas]")?.addEventListener("pointerdown", (event) => {

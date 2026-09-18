@@ -17,6 +17,8 @@ document.querySelectorAll("[data-outlet-subtab]").forEach((button) => {
 });
 
 function showTab(tabId) {
+  const userSection = ["departments", "roles"].includes(tabId) ? tabId : null;
+  if (userSection) tabId = "users";
   const allowedTabs = allowedAppTabs();
   if (!allowedTabs.some((tab) => tab.id === tabId)) {
     tabId = allowedTabs[0]?.id || defaultNavbarTabs[0];
@@ -27,6 +29,8 @@ function showTab(tabId) {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === tabId);
   });
+  if (tabId === "users") showUserSubtab(userSection || activeUserSection);
+  if (tabId === "inspections") showGuidedContent(false);
   if (tabId === "inspections" && pendingInspectionSchedule) {
     const row = pendingInspectionSchedule;
     pendingInspectionSchedule = null;
@@ -72,5 +76,44 @@ function applyNavbarTabs() {
 function allowedAppTabs() {
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowedIds = new Set(permissions);
-  return allTabs.filter((tab) => allowedIds.has(tab.id));
+  allowedIds.add("account");
+  allowedIds.add("notifications");
+  if (allowedIds.has("inspections")) allowedIds.add("findings");
+  if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
+  return allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
 }
+
+let activeUserSection = "users";
+
+function showUserSubtab(sectionId) {
+  const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
+  const allowed = ["users", "departments", "roles"].filter((id) => permissions.includes(id));
+  activeUserSection = allowed.includes(sectionId) ? sectionId : allowed[0];
+  document.querySelectorAll("[data-user-subtab]").forEach((button) => {
+    button.hidden = !allowed.includes(button.dataset.userSubtab);
+    const active = button.dataset.userSubtab === activeUserSection;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-user-panel]").forEach((panel) => {
+    const active = panel.dataset.userPanel === activeUserSection;
+    panel.hidden = !active;
+    panel.classList.toggle("active", active);
+  });
+}
+
+document.querySelectorAll("[data-user-subtab]").forEach((button) => {
+  button.addEventListener("click", () => showUserSubtab(button.dataset.userSubtab));
+});
+
+function showHistoryFindingsSection(name) {
+  document.querySelectorAll("[data-history-findings-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.historyFindingsTab === name);
+    button.setAttribute("aria-pressed", String(button.dataset.historyFindingsTab === name));
+  });
+  document.querySelectorAll("[data-history-findings-panel]").forEach((panel) => { panel.hidden = panel.dataset.historyFindingsPanel !== name; });
+}
+
+document.querySelectorAll("[data-history-findings-tab]").forEach((button) => {
+  button.addEventListener("click", () => showHistoryFindingsSection(button.dataset.historyFindingsTab));
+});

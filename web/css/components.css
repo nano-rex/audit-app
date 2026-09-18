@@ -242,7 +242,7 @@ dialog label {
   aspect-ratio: 1;
   margin: 0 auto;
   border-radius: 50%;
-  background: conic-gradient(#24c362 0 52%, var(--blue) 52% 76%, var(--orange) 76% 86%, var(--red) 86% 100%);
+  background: var(--border);
   position: relative;
 }
 
@@ -252,6 +252,78 @@ dialog label {
   inset: 30%;
   border-radius: 50%;
   background: #fff;
+}
+
+.donut[hidden] {
+  display: none;
+}
+
+.account-panel {
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+#account-form {
+  display: grid;
+  gap: 18px;
+}
+
+.account-photo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+}
+
+.list-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+  width: 100%;
+}
+
+.list-pager label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.list-pager input,
+.list-pager select {
+  width: 76px;
+  min-width: 0;
+}
+
+[data-account-photo] {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+[data-account-signature] {
+  max-width: 280px;
+  max-height: 120px;
+  object-fit: contain;
+}
+
+[data-editor-panel][hidden] {
+  display: none;
+}
+
+.sub-tabs button.active {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 50%;
 }
 
 .empty p {

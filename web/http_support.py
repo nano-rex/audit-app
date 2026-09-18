@@ -21,11 +21,13 @@ def static_fingerprint(target, second):
 def static_content(target, fingerprint):
     # The fingerprint includes partial mtimes, so edits invalidate the rendered shell.
     if target.name == "index.html":
-        def include(match):
+        def include(match, parents=()):
             partial = (ROOT / match.group(1)).resolve()
             if not partial.is_relative_to(ROOT / "html") or not partial.is_file():
                 return ""
-            return partial.read_text(encoding="utf-8")
+            if partial in parents or len(parents) >= 8:
+                raise ValueError("Circular or excessively nested HTML include")
+            return INCLUDE_PATTERN.sub(lambda child: include(child, (*parents, partial)), partial.read_text(encoding="utf-8"))
         body = INCLUDE_PATTERN.sub(include, target.read_text(encoding="utf-8")).encode("utf-8")
     else:
         body = target.read_bytes()
@@ -60,9 +62,12 @@ def api_errors(method):
     def guarded(self):
         try:
             return method(self)
+        except PermissionError as error:
+            if not getattr(self, "response_started", False):
+                self.json({"error": str(error)}, 403)
         except (ValueError, TypeError) as error:
             if not getattr(self, "response_started", False):
-                self.json({"error": str(error) or "Invalid request fields"}, 400)
+                self.json({"error": str(error) or "Invalid request fields"}, getattr(error, "status", 400))
         except sqlite3.IntegrityError:
             if not getattr(self, "response_started", False):
                 self.json({"error": "This record conflicts with an existing record"}, 409)
