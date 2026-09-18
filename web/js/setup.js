@@ -129,7 +129,7 @@ function renderAuditTypes() {
 function populateSettingsForms() {
   const getSetting = (key, fallback = "") => setupOptions.settings[key] ?? fallback;
   const scoring = {
-    passMark: getSetting("scoring.passMark", 80),
+    passMark: getSetting("scoring.passMark", 70),
     weightingMode: getSetting("scoring.weighting", "Equal"),
     ratingBands: {
       excellent: getSetting("scoring.excellentBand", 90),
@@ -160,7 +160,9 @@ function populateSettingsForms() {
   };
   const scoringForm = document.getElementById("scoring-settings-form");
   if (scoringForm) {
-    scoringForm.elements.passMark.value = scoring.passMark ?? 80;
+    scoringForm.elements.passMark.value = scoring.passMark ?? 70;
+    const weights = getSetting("scoring.weights", {});
+    setHtml("[data-category-weights]", setupOptions.categories.map((category) => `<label>${escapeHtml(category)}<input type="number" min="0.1" max="100" step="0.1" required data-category-weight="${escapeAttr(category)}" value="${Number(weights[category] ?? 1)}"></label>`).join(""));
     scoringForm.elements.weightingMode.value = scoring.weightingMode || "Equal";
     scoringForm.elements.excellentFrom.value = scoring.ratingBands?.excellent ?? 90;
     scoringForm.elements.goodFrom.value = scoring.ratingBands?.good ?? 75;

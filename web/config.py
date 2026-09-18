@@ -115,7 +115,8 @@ APP_TABS = (
 INCLUDE_PATTERN = re.compile(r"<!--\s*include:\s*([a-zA-Z0-9_./-]+)\s*-->")
 
 
-SESSION_TOKENS = {}
+from session_store import SessionStore
+SESSION_TOKENS = SessionStore()
 
 
 DEFAULT_PASSWORD = "password123"

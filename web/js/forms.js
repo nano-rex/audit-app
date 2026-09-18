@@ -329,14 +329,41 @@ async function openEquipmentEditor(row) {
   dialog.showModal();
 }
 
-wireForm("new-audit-form", "/api/audits", (form) => ({
-  businessUnit: currentUnit,
-  outlet: formValue(form, "outlet", ""),
-  auditDate: formValue(form, "auditDate", todayIsoDate()),
-  auditor: formValue(form, "auditor", "Unnamed Auditor"),
-  auditType: formValue(form, "auditType", "Standard"),
-  score: Math.max(0, Math.min(100, Number(formValue(form, "score", "0")) || 0)),
-}));
+async function resetNewAuditForm() {
+  const form = document.getElementById("new-audit-form");
+  form.reset();
+  await loadSetup();
+  updateSetupSelects();
+  const now = new Date();
+  form.elements.auditDate.value = todayIsoDate();
+  form.elements.auditTime.value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  form.elements.auditor.value = currentUser?.name || "";
+  form.querySelector("[data-new-audit-message]").textContent = "";
+}
+
+document.getElementById("new-audit-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector('button[type="submit"]');
+  if (button.disabled || !form.reportValidity()) return;
+  button.disabled = true;
+  const message = form.querySelector("[data-new-audit-message]");
+  try {
+    const result = await requestJson("/api/audits/start", "POST", {
+      businessUnit: currentUnit, outlet: form.elements.outlet.value,
+      auditDate: form.elements.auditDate.value, auditTime: form.elements.auditTime.value,
+      auditType: form.elements.auditType.value, remarks: form.elements.remarks.value,
+    });
+    document.getElementById("new-audit").close();
+    showTab("inspections");
+    await loadGuidedSchedules();
+    setText("[data-current-audit-reference]", result.auditRef);
+  } catch (error) {
+    message.textContent = `Unable to create audit: ${error.message}`;
+  } finally {
+    button.disabled = false;
+  }
+});
 
 async function saveInspectionSession(complete = false) {
   const form = document.getElementById("inspection-form");
@@ -627,16 +654,18 @@ document.getElementById("audit-type-form")?.addEventListener("submit", async (ev
 document.getElementById("scoring-settings-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  await requestJson("/api/settings", "POST", {
-    settings: {
-      "scoring.passMark": Number(formValue(form, "passMark", "80")) || 80,
-      "scoring.weighting": formValue(form, "weightingMode", "Equal"),
-      "scoring.excellentBand": Number(formValue(form, "excellentFrom", "90")) || 90,
-      "scoring.goodBand": Number(formValue(form, "goodFrom", "75")) || 75,
-      "scoring.belowBand": Number(formValue(form, "needsImprovementFrom", "60")) || 60,
-    },
-  });
-  loadApp();
+  try {
+    await requestJson("/api/settings", "POST", { settings: {
+      "scoring.passMark": Number(form.elements.passMark.value),
+      "scoring.weighting": form.elements.weightingMode.value,
+      "scoring.excellentBand": Number(form.elements.excellentFrom.value),
+      "scoring.goodBand": Number(form.elements.goodFrom.value),
+      "scoring.belowBand": Number(form.elements.needsImprovementFrom.value),
+      "scoring.weights": Object.fromEntries([...form.querySelectorAll("[data-category-weight]")].map((input) => [input.dataset.categoryWeight, Number(input.value)])),
+    } });
+    setText("[data-scoring-message]", "Scoring settings saved.");
+    loadApp();
+  } catch (error) { setText("[data-scoring-message]", error.message); }
 });
 
 document.getElementById("system-settings-form")?.addEventListener("submit", async (event) => {

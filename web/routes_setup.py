@@ -1,8 +1,9 @@
 """Routes setup for the audit application."""
-from relational_values import save_value
+from relational_values import save_value, load_value
 import time
 import config
 from media_store import MediaStore
+from scoring import validate_settings
 from accounts import is_super_user
 from database import connect
 
@@ -86,7 +87,11 @@ def post_settings(self, parsed, payload=None):
         if not is_super_user(self.current_user()):
             self.json({"ok": False, "error": "Super access required"}, status=403)
             return
-        for key, value in (payload.get("settings") or {}).items():
+        incoming = payload.get("settings") or {}
+        if any(key.startswith("scoring.") for key in incoming):
+            saved = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT * FROM app_settings WHERE key LIKE 'scoring.%'")}
+            validate_settings(saved | incoming)
+        for key, value in incoming.items():
             if key == "report.logoUrl" and value:
                 MediaStore(config.DB_PATH).normalize({"url": value})
             db.execute("INSERT OR REPLACE INTO app_settings (key, value_data_id) VALUES (?, ?)", (key, save_value(db, value)))

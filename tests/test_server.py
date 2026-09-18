@@ -195,6 +195,73 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(len(data["criticalIssues"]), 10)
         self.assertEqual(app.dashboard("Ottotree")["today"]["followUps"], 10)
 
+    def test_scoring_settings_validation_and_saved_snapshot(self):
+        with app.connect() as db:
+            original = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT * FROM app_settings WHERE key LIKE 'scoring.%'")}
+        try:
+            for invalid in ({"scoring.weights": {"Safety": 0}}, {"scoring.passMark": 101}, {"scoring.goodBand": 95}, {"scoring.weighting": "Unknown"}):
+                self.assertEqual(self.request("/api/settings", "POST", {"settings": invalid})[0], 400)
+            configured = {"scoring.weighting": "Weighted", "scoring.weights": {"Safety": 3, "Other": 1}, "scoring.passMark": 0}
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": configured})[0], 200)
+            # A failed criterion requires notes but retains the weighted score snapshot.
+            status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": [{"category": "Safety", "passed": True}, {"category": "Other", "passed": False, "notes": "Repair"}], "complete": True})
+            self.assertEqual(status, 200, body)
+            session = json.loads(self.request(f"/api/inspection-sessions/{json.loads(body)['id']}")[2])
+            self.assertEqual(session["scoring"]["score"], 75)
+            self.assertEqual(session["scoring"]["passMark"], 0)
+            self.assertTrue(session["scoring"]["meetsPassMark"])
+        finally:
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": original})[0], 200)
+
+    def test_recovery_requests_and_durable_sessions(self):
+        from session_store import SessionStore
+        with app.connect() as db:
+            user_id = db.execute("INSERT INTO users(name, role, email, password_hash, active, created_at) VALUES ('Recovery User', 'Auditor', 'recovery@example.com', ?, 1, 0)", (app.hash_password("TestPassword123"),)).lastrowid
+        for email in ("recovery@example.com", "nobody@example.com", "recovery@example.com"):
+            self.assertEqual(self.request("/api/auth/forgot-password", "POST", {"email": email}, token=None)[0], 200)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM password_reset_requests WHERE user_id = ?", (user_id,)).fetchone()[0], 1)
+            self.assertEqual(db.execute("SELECT count(*) FROM notifications WHERE related_type = 'user' AND related_id = ?", (user_id,)).fetchone()[0], 1)
+        status, headers, body = self.request("/api/auth/login", "POST", {"email": "recovery@example.com", "password": "TestPassword123", "remember": True}, token=None)
+        self.assertEqual(status, 200, body)
+        token = headers["Set-Cookie"].split(";", 1)[0].split("=", 1)[1]
+        self.assertEqual(SessionStore().get(token)["user_id"], user_id)
+        self.assertGreater(SessionStore().get(token)["expires_at"], time.time() + 29 * 86400)
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM auth_sessions WHERE token_hash = ?", (token,)).fetchone())
+        self.assertEqual(self.request("/api/auth/logout", "POST", {}, token=token)[0], 200)
+        self.assertIsNone(SessionStore().get(token))
+
+    def test_new_audit_header_reference_and_completion(self):
+        with app.connect() as db:
+            audit_type = db.execute("SELECT name FROM audit_types WHERE active = 1 LIMIT 1").fetchone()[0]
+            name = db.execute("SELECT name FROM users WHERE id = ?", (self.user_id,)).fetchone()[0]
+        payload = {"outlet": "STP", "auditDate": "2026-09-18", "auditTime": "09:35", "auditType": audit_type,
+                   "remarks": "Morning review", "auditor": "Forged name"}
+        for change in ({"outlet": "Missing"}, {"auditDate": "2026-02-30"}, {"auditTime": "25:70"}, {"auditType": "Missing"}, {"remarks": "x" * 5001}):
+            self.assertEqual(self.request("/api/audits/start", "POST", payload | change)[0], 400, change.keys())
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+            responses = list(pool.map(lambda _: self.request("/api/audits/start", "POST", payload), range(5)))
+        self.assertTrue(all(response[0] == 200 for response in responses), responses)
+        created = [json.loads(response[2]) for response in responses]
+        self.assertEqual(len({item["auditRef"] for item in created}), 5)
+        for item in created:
+            self.assertRegex(item["auditRef"], r"^AUD-2026-\d{4,}$")
+        record = created[0]
+        path = f"/api/inspection-sessions/{record['id']}"
+        saved = json.loads(self.request(path)[2])
+        self.assertEqual((saved["auditor"], saved["audit_time"], saved["audit_type"], saved["remarks"]), (name, "09:35", audit_type, "Morning review"))
+        self.assertEqual(saved["audit_ref"], record["auditRef"])
+        self.assertEqual(saved["schedule_id"], record["scheduleId"])
+        self.assertEqual(saved["status"], "Draft")
+        self.assertEqual(self.request(path, "PATCH", {"auditTime": "99:99"})[0], 400)
+        status, _, body = self.request(path, "PATCH", {"items": [{"passed": True}], "complete": True})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            audit = db.execute("SELECT * FROM audits WHERE id = ?", (json.loads(body)["auditId"],)).fetchone()
+            self.assertEqual((audit["audit_ref"], audit["audit_time"], audit["audit_type"], audit["remarks"]), (record["auditRef"], "09:35", audit_type, "Morning review"))
+        self.assertEqual(self.request(path, "PATCH", {"remarks": "Changed"})[0], 409)
+
     def test_z_domain_route_round_trips(self):
         cases = [
             ("/api/equipment", "equipment", "code", {"code": "ROUTE-TEST", "name": "Route test"}),

@@ -28,7 +28,7 @@ Status legend:
 
 - [x] Login page
 - [~] Username and password login
-- [~] Forgot password
+- [x] Forgot password (administrator-reviewed reset request)
 - [x] Remember me
 - [x] Change password
 - [x] Logout
@@ -71,14 +71,14 @@ Status legend:
 
 ## 5. Create New Audit
 
-- [~] `+ New Audit` primary flow
-- [~] Automatic audit reference number, e.g. `AUD-2026-0001`
-- [~] Audit date
-- [~] Audit time
-- [~] Auditor name
-- [~] Location/outlet
-- [~] Audit type setup
-- [~] Remarks
+- [x] `+ New Audit` primary flow
+- [x] Automatic audit reference number, e.g. `AUD-2026-0001`
+- [x] Audit date
+- [x] Audit time
+- [x] Auditor name
+- [x] Location/outlet
+- [x] Audit type setup
+- [x] Remarks
 
 ## 6. Area / Location Selection
 
@@ -211,14 +211,14 @@ Status legend:
 
 ## 17. Audit Scoring System
 
-- [~] Score calculated from inspection criteria
-- [~] Total audit item count in report
-- [~] Passed count
-- [~] Failed count
-- [~] Rating bands from spec
-- [~] Configurable scoring rules
-- [~] Configurable pass mark
-- [~] Configurable weighting
+- [x] Score calculated from inspection criteria
+- [x] Total audit item count in report
+- [x] Passed count
+- [x] Failed count
+- [x] Rating bands from spec
+- [x] Configurable scoring rules
+- [x] Configurable pass mark
+- [x] Configurable weighting
 
 ## 18. Reporting
 

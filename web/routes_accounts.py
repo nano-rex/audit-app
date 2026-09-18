@@ -123,8 +123,18 @@ def patch_account(self, parsed, payload=None):
 
 
 def post_auth_forgot_password(self, parsed, payload=None):
-    self.json({"ok": True, "message": "Ask a Super user to reset this user's password from Users setup."})
-    return
+    email = str(payload.get("email") or "").strip().lower()
+    now = int(time.time() * 1000)
+    with connect() as db:
+        user = db.execute("SELECT id, name FROM users WHERE lower(email) = ? AND active = 1", (email,)).fetchone()
+        if user:
+            previous = db.execute("SELECT requested_at FROM password_reset_requests WHERE user_id = ?", (user["id"],)).fetchone()
+            if not previous or now - previous["requested_at"] >= 15 * 60 * 1000:
+                db.execute("INSERT INTO password_reset_requests(user_id, requested_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET requested_at = excluded.requested_at, resolved_at = NULL", (user["id"], now))
+                for admin in db.execute("SELECT id FROM users WHERE role = ? AND active = 1", (SUPER_ROLE,)).fetchall():
+                    db.execute("INSERT INTO notifications(title,message,channel,status,related_type,related_id,created_at,recipient_user_id) VALUES (?,?,'In-App','Unread','user',?,?,?)",
+                               ("Password reset requested", f"{user['name']} requested a password reset. Review this account in Users.", user["id"], now, admin["id"]))
+    self.json({"ok": True, "message": "If an active account matches, a reset request has been sent to your administrator. Contact them to verify your identity and receive a temporary password."})
 
 
 def post_auth_register(self, parsed, payload=None):
@@ -132,7 +142,7 @@ def post_auth_register(self, parsed, payload=None):
     name = (payload.get("name") or "").strip()
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
-    if not name or not email or len(password) < 8:
+    if not name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(password) < 8:
         self.json({"ok": False, "error": "Name, email, and an 8-character password are required"}, status=400)
         return
     with connect() as db:
@@ -171,6 +181,8 @@ def post_auth_change_password(self, parsed, payload=None):
             "UPDATE users SET password_hash = ?, reset_required = 0 WHERE id = ?",
             (hash_password(new_password), user["id"]),
         )
+        db.execute("DELETE FROM auth_sessions WHERE user_id = ? AND token_hash != ?", (user["id"], SESSION_TOKENS.key(self.session_token())))
+        db.execute("UPDATE password_reset_requests SET resolved_at = ? WHERE user_id = ?", (int(time.time() * 1000), user["id"]))
     self.json({"ok": True})
     return
 
@@ -280,6 +292,9 @@ def patch_users(self, parsed, payload=None):
         if cursor.rowcount == 0:
             self.send_error(404)
             return
+        if reset_password or password:
+            db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
+            db.execute("UPDATE password_reset_requests SET resolved_at = ? WHERE user_id = ?", (int(time.time() * 1000), int(user_id)))
         if "permissionOverrides" in payload:
             overrides = validate_overrides(payload["permissionOverrides"])
             db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides) if overrides is not None else None, int(user_id)))

@@ -1,27 +1,15 @@
   <dialog id="new-audit">
     <form method="dialog" id="new-audit-form">
-      <header><h2>New Audit - Ottotree</h2><button type="button" data-close-dialog>x</button></header>
-      <label>Outlet<select name="outlet"><option>Select outlet</option></select></label>
-      <label>Audit Date<input name="auditDate" type="date"></label>
+      <header><h2>New Audit</h2><button type="button" data-close-dialog aria-label="Close">x</button></header>
+      <p>Create a scheduled draft, then open it from Scheduled Work to begin the checklist. An audit reference is assigned when you create it.</p>
+      <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
+      <label>Audit Date<input name="auditDate" type="date" required></label>
+      <label>Audit Time<input name="auditTime" type="time" required></label>
       <label>Auditor<input name="auditor" readonly placeholder="Signed-in account"></label>
-      <fieldset>
-        <legend>Audit Type</legend>
-        <label><input type="radio" name="auditType" value="Standard" checked> Standard (1-4 Scale)</label>
-        <label><input type="radio" name="auditType" value="Quick"> Quick (Yes/No)</label>
-      </fieldset>
-      <aside class="guide">
-        <b>Scoring Guide</b>
-        <span>1 = Not Acceptable - Needs immediate follow-up</span>
-        <span>2 = Below Standard - Issues to address</span>
-        <span>3 = Good - Acceptable performance</span>
-        <span>4 = Excellent - Meets all standards</span>
-      </aside>
-      <section class="question-card">
-        <b data-question-section>Main Entrance</b>
-        <strong data-question-title>Big Headphone Display</strong>
-        <span data-question-copy>Is the big headphone display present and in good condition?</span>
-      </section>
-      <label>Total Score<input name="score" type="number" min="0" max="100" placeholder="0 - 100"></label>
-      <button class="primary" type="submit" value="default">Save Audit</button>
+      <label>Audit Type<select name="auditType" required></select></label>
+      <small>Audit types are managed in Settings.</small>
+      <label>Remarks<textarea name="remarks" maxlength="5000" rows="3"></textarea></label>
+      <p data-new-audit-message role="status"></p>
+      <button class="primary" type="submit">Create Audit</button>
     </form>
   </dialog>

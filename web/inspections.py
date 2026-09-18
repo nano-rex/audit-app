@@ -2,7 +2,8 @@
 from relational_values import load_value, save_value, hydrate
 from datetime import datetime
 from scoring import summarize as summarize_score
-from common import audit_ref, create_notification, finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
+from audit_metadata import allocate_reference
+from common import create_notification, finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
 from database import connect, first_category, first_department, first_outlet, insert_record
 
 
@@ -19,7 +20,7 @@ def finalize_inspection(db, session_id, payload, now):
         "auditor": payload.get("auditor", "Unnamed Auditor"), "audit_type": payload.get("auditType") or "Standard",
         "remarks": payload.get("remarks", ""), "score": summary["score"], "scoring_data_id": save_value(db, summary), "created_at": now,
     })
-    reference = audit_ref(audit_id, audit_date)
+    reference = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0] or allocate_reference(db, audit_date)
     db.execute("UPDATE audits SET audit_ref = ? WHERE id = ?", (reference, audit_id))
     for item in items:
         item_id = insert_record(db, "inspection_items", {
@@ -72,7 +73,7 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
+            SELECT id, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
@@ -120,7 +121,7 @@ def inspection_session(session_id):
     data["items"] = load_value(data.pop("items_data_id") or "[]")
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
     data["inspection_name"] = normalized_inspection_name(data)
-    data["audit_ref"] = audit["audit_ref"] if audit else ""
+    data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
     data["findings"] = [hydrate(item) for item in findings]
     return data
@@ -128,5 +129,5 @@ def inspection_session(session_id):
 
 def schedule_items():
     with connect() as db:
-        rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.scheduled_date, schedules.id DESC").fetchall()
+        rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.scheduled_date, schedules.id DESC").fetchall()
     return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}"} for row in rows]}

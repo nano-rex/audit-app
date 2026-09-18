@@ -37,6 +37,9 @@ function hideLogin() {
 }
 
 function renderCurrentUser() {
+  document.querySelectorAll('[data-open="new-audit"]').forEach((button) => {
+    button.hidden = !(currentUser?.permissions || []).includes("inspections") || !(currentUser?.inspectionPermissions || []).includes("auditor");
+  });
   const inspection = document.getElementById("inspection-form");
   if (inspection && !inspection.elements.inspectionSessionId.value) inspection.elements.auditor.value = currentUser?.name || "";
   const audit = document.getElementById("new-audit-form");

@@ -2,6 +2,7 @@
 from relational_values import load_value, save_value, migrate_columns, install_reference_cleanup
 import time
 import config
+from audit_metadata import allocate_reference
 from media_store import MediaStore
 from storage_migration import backup_legacy_database
 from datetime import datetime
@@ -441,6 +442,13 @@ def init_db():
         ensure_column(db, "users", "signature_image_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "inspection_sessions", "owner_user_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "schedule_id", "INTEGER")
+        ensure_column(db, "inspection_sessions", "audit_ref", "TEXT")
+        db.execute("CREATE TABLE IF NOT EXISTS audit_reference_counters(year TEXT PRIMARY KEY, next_number INTEGER NOT NULL)")
+        for session in db.execute("SELECT id, audit_id, audit_date FROM inspection_sessions WHERE audit_ref IS NULL OR audit_ref = ''").fetchall():
+            audit = db.execute("SELECT audit_ref FROM audits WHERE id = ?", (session["audit_id"],)).fetchone()
+            reference = audit["audit_ref"] if audit else allocate_reference(db, session["audit_date"])
+            db.execute("UPDATE inspection_sessions SET audit_ref = ? WHERE id = ?", (reference, session["id"]))
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_session_audit_reference ON inspection_sessions(audit_ref) WHERE audit_ref IS NOT NULL AND audit_ref != ''")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")
         ensure_column(db, "notifications", "recipient_user_id", "INTEGER")
         db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_user_id, created_at DESC)")
@@ -471,4 +479,7 @@ def init_db():
             (hash_password(DEFAULT_PASSWORD),),
         )
 
+        db.execute("CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires_at REAL NOT NULL)")
+        db.execute("DELETE FROM auth_sessions WHERE expires_at < ?", (time.time(),))
+        db.execute("CREATE TABLE IF NOT EXISTS password_reset_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id), requested_at INTEGER NOT NULL, resolved_at INTEGER)")
         install_reference_cleanup(db)

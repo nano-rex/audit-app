@@ -6,6 +6,7 @@
         <section class="panel" data-guided-schedules-panel>
           <h2>Scheduled Work</h2>
           <p>Select a schedule to start or resume its guided inspection.</p>
+          <button type="button" class="primary" data-open="new-audit" hidden>+ New Audit</button>
           <button type="button" class="primary" data-open="schedule">Schedule Work</button>
           <div class="list" data-guided-schedules></div>
         </section>
@@ -14,11 +15,15 @@
             <h2>Guided Inspection</h2>
             <input name="inspectionSessionId" type="hidden">
             <div data-current-schedule></div>
+            <strong data-current-audit-reference></strong>
             <div class="inspection-name-display" data-current-inspection-name>New inspection</div>
             <div class="form-grid">
               <label>Outlet<select name="outlet"></select></label>
               <label>Auditor<input name="auditor" readonly placeholder="Signed-in account"></label>
-              <label>Inspection Date<input name="auditDate" type="date"></label>
+              <label>Inspection Date<input name="auditDate" type="date" required></label>
+              <label>Audit Time<input name="auditTime" type="time"></label>
+              <label>Audit Type<select name="auditType"></select></label>
+              <label>Remarks<textarea name="remarks" maxlength="5000" rows="3"></textarea></label>
             </div>
             <div class="progress-strip">
               <span data-inspection-progress>0% complete</span>

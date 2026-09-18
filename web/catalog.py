@@ -66,7 +66,8 @@ def users():
         rows = db.execute(
             """
             SELECT id, name, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id
+                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id,
+                   EXISTS(SELECT 1 FROM password_reset_requests WHERE user_id = users.id AND resolved_at IS NULL) AS reset_requested
             FROM users
             ORDER BY role, name
             """

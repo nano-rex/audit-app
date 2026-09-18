@@ -4,6 +4,7 @@ document.querySelectorAll("[data-open]").forEach((button) => {
     if (button.dataset.open === "schedule") {
       await resetScheduleForm();
     }
+    if (button.dataset.open === "new-audit") await resetNewAuditForm();
     dialog.showModal();
   });
 });

@@ -22,3 +22,24 @@ def summarize(items, settings):
             "passMark": float(settings.get("scoring.passMark", 70)),
             "meetsPassMark": bool(applicable) and score >= float(settings.get("scoring.passMark", 70)),
             "weighting": settings.get("scoring.weighting", "Equal"), "weights": weights}
+
+
+def validate_settings(settings):
+    import math
+    for key in ("passMark", "excellentBand", "goodBand", "belowBand"):
+        try:
+            value = float(settings[f"scoring.{key}"])
+        except (KeyError, TypeError, ValueError):
+            raise ValueError("Scoring thresholds must be numbers between 0 and 100") from None
+        if not math.isfinite(value) or not 0 <= value <= 100:
+            raise ValueError("Scoring thresholds must be numbers between 0 and 100")
+    if not float(settings["scoring.excellentBand"]) > float(settings["scoring.goodBand"]) > float(settings["scoring.belowBand"]):
+        raise ValueError("Excellent, Good, and Below Expectation thresholds must be in descending order")
+    if settings.get("scoring.weighting") not in {"Equal", "Weighted"}:
+        raise ValueError("Select Equal or Weighted scoring")
+    weights = settings.get("scoring.weights", {})
+    if not isinstance(weights, dict):
+        raise ValueError("Category weights must map categories to numbers")
+    for name, weight in weights.items():
+        if not isinstance(name, str) or not isinstance(weight, (int, float)) or not math.isfinite(weight) or not 0 < weight <= 100:
+            raise ValueError("Category weights must be greater than zero and at most 100")

@@ -110,7 +110,7 @@ function userRow(row) {
       <div>
         <b>${escapeHtml(row.name)} - ${escapeHtml(row.role)}</b>
         <span>${escapeHtml(row.email)} | ${escapeHtml(row.department || "No department")} | ${escapeHtml(row.title || "No title")} | ${escapeHtml(row.responsibilities || "No responsibilities")}</span>
-        <span>${escapeHtml(status)} | Last login: ${escapeHtml(login)}${row.reset_required || row.resetRequired ? " | Password change required" : ""}</span>
+        <span>${escapeHtml(status)} | Last login: ${escapeHtml(login)}${row.reset_requested ? " | Password reset requested" : ""}${row.reset_required || row.resetRequired ? " | Password change required" : ""}</span>
       </div>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-user='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -228,7 +228,7 @@ function scheduleRow(row) {
   return `
     <article data-schedule-id="${row.id}">
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
-        <b>${escapeHtml(displayName)}</b>
+        <b>${escapeHtml(displayName)}${row.audit_ref || matchingSession?.audit_ref ? ` · ${escapeHtml(row.audit_ref || matchingSession.audit_ref)}` : ""}</b>
         <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(savedAt)}</span>
         <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor)}</span>
       </div>

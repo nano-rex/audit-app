@@ -108,3 +108,25 @@ The 100-user storage run completed 400 requests in 8.29 seconds with no failures
 drafts saved (p95 four-request flow 7.65 seconds). This fixture uses 2,500 assets, 300 drafts,
 and valid shared PNG evidence stored as a BLOB. It does not simulate large simultaneous uploads
 or PDF generation, and is not a production capacity guarantee.
+
+
+## Core audit creation, scoring, and account recovery
+
+- Section 5 is complete: + New Audit creates a scheduled draft, reserves a unique
+  `AUD-YYYY-NNNN` reference, records the authenticated auditor, and validates outlet,
+  date, time, audit type, and remarks. Open the created schedule to enter the guided checklist.
+  References survive draft editing and completion; concurrent creates receive distinct references.
+- Section 17 is complete: category weights are editable in Settings, thresholds and weights
+  are validated, N/A is excluded, and completion retains the exact scoring snapshot. A pass
+  mark of zero is handled correctly rather than being replaced with a fallback value.
+- Login sessions now persist as hashed tokens and expiry columns in SQLite, so Remember Me
+  survives server restarts. Logout revokes the stored session, password changes revoke other
+  sessions, and administrator password resets revoke the user's sessions.
+- Forgot Password creates a rate-limited request and an addressed administrator notification.
+  Administrators see a reset-request indicator in Users; resolving it requires the existing
+  password reset action and identity verification outside the app. Email delivery remains
+  part of the deferred external integrations.
+
+Validation: 31 Python tests and 9 frontend tests passed. New checks exercise concurrent audit
+references, invalid headers, metadata persistence through completion, weighted snapshots,
+invalid scoring settings, reset-request deduplication, and durable hashed sessions.

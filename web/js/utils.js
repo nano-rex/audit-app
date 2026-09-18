@@ -151,7 +151,7 @@ function updateSetupSelects() {
     updateSelectOptions(select, setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], false, "Select priority");
   });
   document.querySelectorAll('select[name="auditType"]').forEach((select) => {
-    updateSelectOptions(select, setupOptions.auditTypes.length ? setupOptions.auditTypes : ["Routine Audit"], false, "Select audit type");
+    updateSelectOptions(select, setupOptions.auditTypes, false, "Select audit type");
   });
 }
 

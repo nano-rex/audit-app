@@ -326,7 +326,7 @@ function renderInspectionHistory() {
   const search = inspectionHistorySearch.toLowerCase();
   const rows = inspectionHistoryCache.filter((row) => {
     const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-    const haystack = [row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
+    const haystack = [row.audit_ref, row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
       && (!historyFilters.dateFrom || row.audit_date >= historyFilters.dateFrom)
       && (!historyFilters.dateTo || row.audit_date <= historyFilters.dateTo)
@@ -352,7 +352,7 @@ function inspectionHistoryRow(row) {
   return `
     <article>
       <div>
-        <b>${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
+        <b>${escapeHtml(row.audit_ref || "")} · ${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
         <span>${escapeHtml(row.audit_date)} | ${escapeHtml(savedAt)}</span>
         <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
       </div>
@@ -408,6 +408,9 @@ function collectInspectionPayload(complete = false) {
     zone: "All Locations",
     auditDate: formValue(form, "auditDate", todayIsoDate()),
     auditor: formValue(form, "auditor", "Unnamed Inspector"),
+    auditTime: form.elements.auditTime.value || null,
+    auditType: form.elements.auditType.value || null,
+    remarks: form.elements.remarks.value || (form.dataset.remarksNull === "true" ? null : ""),
     complete,
     items,
     signatures: inspectionSignatures(),
@@ -623,6 +626,15 @@ async function openInspectionSession(id) {
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";
   form.elements.auditor.value = session.auditor || "";
+  form.elements.auditTime.value = session.audit_time || "";
+  const typeSelect = form.elements.auditType;
+  updateSelectOptions(typeSelect, [...new Set([...setupOptions.auditTypes, session.audit_type || ""])], false);
+  typeSelect.value = session.audit_type || "";
+  form.elements.remarks.value = session.remarks || "";
+  form.dataset.remarksNull = String(session.remarks == null);
+  const readOnly = session.status === "Completed" || !(currentUser?.inspectionPermissions || []).includes("auditor");
+  ["outlet", "auditDate", "auditTime", "auditType", "remarks"].forEach((name) => { form.elements[name].disabled = readOnly; });
+  setText("[data-current-audit-reference]", session.audit_ref || "");
   setInspectionSignatures(session.signatures || {});
   await updateInspectionLocationSelect();
   showTab("inspections");
