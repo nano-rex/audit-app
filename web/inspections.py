@@ -3,7 +3,8 @@ from relational_values import load_value, save_value, hydrate
 from datetime import datetime
 from scoring import summarize as summarize_score
 from audit_metadata import allocate_reference
-from common import create_notification, finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
+from reminders import notify_work_order
+from common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
 from database import connect, first_category, first_department, first_outlet, insert_record
 
 
@@ -63,7 +64,7 @@ def finalize_inspection(db, session_id, payload, now):
             "outlet_confirmed": 0, "created_at": now,
         })
         db.execute("UPDATE work_orders SET work_order_ref = ? WHERE id = ?", (work_order_ref(order_id, audit_date), order_id))
-        create_notification(db, "Finding assigned", f"{finding_reference}: {department} / {pic or 'PIC unassigned'}", related_type="work-order", related_id=order_id)
+        notify_work_order(db, order_id, "Assigned")
     db.execute("UPDATE inspection_sessions SET status = 'Completed', progress = 100, audit_id = ?, updated_at = ? WHERE id = ?", (audit_id, now, session_id))
     db.execute("UPDATE schedules SET status = 'Completed' WHERE id = (SELECT schedule_id FROM inspection_sessions WHERE id = ?)", (session_id,))
     return audit_id
@@ -73,7 +74,7 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
+            SELECT id, closed_at, closed_by, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """

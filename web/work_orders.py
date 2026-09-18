@@ -2,9 +2,12 @@
 from relational_values import save_value, hydrate_many
 import time
 from database import connect
+from report_filters import report_scope
 
 
 def notifications(user_id):
+    from reminders import deliver_due_reminders
+    deliver_due_reminders()
     with connect() as db:
         rows = db.execute(
             """
@@ -93,18 +96,12 @@ def sync_finding_from_work_order(db, work_order_id):
     )
 
 
-def finding_items():
+def finding_items(unit="Ottotree", filters=None):
+    where, params = report_scope(unit, "findings", filters)
     with connect() as db:
         rows = db.execute(
-            """
-            SELECT id, finding_ref, audit_id, audit_ref, business_unit, outlet, location,
-                   category, priority, assigned_department, pic, comment, status,
-                   priority_classification, cause, recommendation, required_action, images_data_id, due_date,
-                   corrective_action, completion_date, completion_photo_data_id, completion_remark,
-                   verified_by, verified_at, verification_remark, closed_at, source_item_id,
-                   created_at, updated_at
-            FROM findings
-            ORDER BY created_at DESC, id DESC
-            """
+            f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor
+                FROM findings LEFT JOIN audits ON audits.id = findings.audit_id
+                WHERE {where} ORDER BY findings.created_at DESC, findings.id DESC""", params
         ).fetchall()
     return {"items": hydrate_many(rows)}

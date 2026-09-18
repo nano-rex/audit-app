@@ -57,6 +57,45 @@ class ServerTests(unittest.TestCase):
         connection.close()
         return result
 
+    def test_audit_closure_requires_signatures_and_closed_actions_and_is_immutable(self):
+        from test_media_reports import photo_data_url
+        payload = {"outlet": "STP", "auditDate": "2026-09-18", "items": [{"section": "Safety", "item": "Door", "passed": True}]}
+        status, _, body = self.request("/api/inspection-sessions", "POST", payload)
+        self.assertEqual(status, 200, body)
+        session_id = json.loads(body)["id"]
+        path = f"/api/inspection-sessions/{session_id}"
+        close = lambda token="test": self.request("/api/inspection-sessions/close", "POST", {"id": session_id}, token=token)
+        with app.connect() as db:
+            override = save_value(db, {"permissions": ["inspections"], "inspectionPermissions": ["auditor"]})
+            user_id = db.execute("INSERT INTO users(name,role,email,active,created_at,permission_overrides_data_id) VALUES ('Closure auditor','Auditor','closure@example.test',1,0,?)", (override,)).lastrowid
+        app.SESSION_TOKENS["closure-auditor"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        self.assertEqual(close("closure-auditor")[0], 403)
+        self.assertEqual(close()[0], 409)
+        self.assertEqual(self.request(path, "PATCH", {"complete": True})[0], 200)
+        self.assertEqual(close()[0], 409)
+        _, _, body = self.request("/api/media", "POST", {"image": {"name": "signature.png", "dataUrl": photo_data_url()}})
+        signature = json.loads(body)["image"]
+        signatures = {key: signature for key in ("auditedBy", "verifiedBy", "acknowledgedBy")}
+        self.assertEqual(self.request(path, "PATCH", {"signatures": signatures})[0], 200)
+        with app.connect() as db:
+            audit_id = db.execute("SELECT audit_id FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0]
+            order_id = db.execute("INSERT INTO work_orders(business_unit,outlet,zone,request_type,priority,title,assignee,status,created_at,source_audit_id) VALUES ('Ottotree','STP','Room','TECH','High','Repair','Tester','Assigned',0,?)", (audit_id,)).lastrowid
+        self.assertEqual(close()[0], 409)
+        with app.connect() as db:
+            db.execute("UPDATE work_orders SET status = 'Closed' WHERE id = ?", (order_id,))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(lambda _: close(), range(2)))
+        self.assertTrue(all(result[0] == 200 for result in results), results)
+        self.assertEqual(self.request(path, "PATCH", {"signatures": {}})[0], 409)
+        self.assertEqual(self.request(path, "DELETE")[0], 409)
+        _, _, body = self.request(path)
+        session = json.loads(body)
+        self.assertTrue(session["closed_at"])
+        self.assertTrue(session["closed_by"])
+        with app.connect() as db:
+            count = db.execute("SELECT COUNT(*) FROM comments WHERE record_type = 'inspection' AND record_id = ? AND comment = 'Audit closed'", (session_id,)).fetchone()[0]
+        self.assertEqual(count, 1)
+
     def test_static_allowlist(self):
         for path in ("/data/ottotree_audit_web.db", "/server.py", "/README.md", "/js/../server.py", "/js/%2e%2e/server.py"):
             self.assertEqual(self.request(path, token=None)[0], 404, path)

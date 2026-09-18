@@ -215,8 +215,14 @@ function applyEquipmentTemplate(name) {
 }
 
 async function loadReport() {
-  const response = await authFetch(`/api/reports?unit=${encodeURIComponent(currentUnit)}`);
+  const form = document.getElementById("report-filter-form");
+  const query = new URLSearchParams({ unit: currentUnit });
+  for (const key of ["from", "to", "outlet"]) {
+    if (form?.elements[key].value) query.set(key, form.elements[key].value);
+  }
+  const response = await authFetch(`/api/reports?${query}`);
   const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Report could not be loaded");
   document.querySelector('[data-report="audits"]').textContent = data.monthlySummary.audits;
   document.querySelector('[data-report="averageScore"]').textContent = `${data.monthlySummary.averageScore}/100`;
   document.querySelector('[data-report="openWorkOrders"]').textContent = data.monthlySummary.openWorkOrders;
@@ -229,9 +235,12 @@ async function loadReport() {
   document.querySelector("[data-report-critical]").innerHTML = data.criticalIssues.length
     ? data.criticalIssues.map(workOrderRow).join("")
     : `<article><div><b>No critical issues</b><span>High priority work orders will appear here.</span></div></article>`;
-  document.querySelector("[data-export-json]").href = `/api/reports/export.json?unit=${encodeURIComponent(currentUnit)}`;
-  document.querySelector("[data-export-csv]").href = `/api/reports/export.csv?unit=${encodeURIComponent(currentUnit)}`;
-  document.querySelector("[data-export-xls]").href = `/api/reports/export.xls?unit=${encodeURIComponent(currentUnit)}`;
+  document.querySelector("[data-export-json]").href = `/api/reports/export.json?${query}`;
+  document.querySelector("[data-export-csv]").href = `/api/reports/export.csv?${query}`;
+  document.querySelector("[data-export-xls]").href = `/api/reports/export.xlsx?${query}`;
+  setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
+  for (const key of ["assigned", "completed", "pending", "responseRate"]) setText(`[data-kpi="${key}"]`, `${data.kpi[key]}${key === "responseRate" ? "%" : ""}`);
+  setHtml("[data-bars]", data.rankings.map((row) => `<label>${escapeHtml(row.outlet)}<span style="--value:${row.latest}">${row.latest}</span></label>`).join(""));
   renderReportCharts(data.charts || {});
 }
 
@@ -242,25 +251,29 @@ function renderReportCharts(charts) {
     ["findingsByDepartment", "Issues by Department"],
     ["findingsByArea", "Issues by Area"],
     ["findingsByCategory", "Issues by Category"],
-    ["monthlyAuditTrend", "Monthly Audit Trend"],
+    ["monthlyAuditTrend", "Monthly Audit Count"],
+    ["monthlyAuditScores", "Monthly Audit Scores", true],
+    ["auditComparison", "Previous vs Current Audit", true],
+    ["priorityTrend", "Priority Trend"],
+    ["roomAuditTrend", "Room / Location Audit Trend", true],
     ["findingsTrend", "Findings Trend"],
-    ["departmentPerformance", "Work Orders by Department"],
-    ["locationPerformance", "Work Orders by Location"],
-    ["categoryPerformance", "Work Orders by Category"],
+    ["departmentPerformance", "Completion by Department", "percent"],
+    ["locationPerformance", "Completion by Location", "percent"],
+    ["categoryPerformance", "Completion by Category", "percent"],
   ];
-  setHtml("[data-report-charts]", chartMap.map(([key, label]) => auditChart(label, charts[key] || [])).join(""));
+  setHtml("[data-report-charts]", chartMap.map(([key, label, scale]) => auditChart(label, charts[key] || [], scale)).join(""));
 }
 
 function auditChart(title, source, score = false) {
   const entries = (Array.isArray(source) ? source : Object.entries(source).map(([label, count]) => ({ label, count })))
     .map((row) => ({ label: row.label || row.month || row.outlet || "Unassigned",
-      value: Math.max(0, Number(row.count ?? row.audits ?? row.average ?? row.score ?? 0) || 0) }));
+      value: Math.max(0, Number((score ? row.score : row.count ?? row.audits ?? row.average ?? row.score) ?? 0) || 0) }));
   const maximum = score ? 100 : Math.max(1, ...entries.map((row) => row.value));
   const hasData = entries.length && (score || entries.some((row) => row.value > 0));
   return `<article class="panel mini-chart"><h2>${escapeHtml(title)}</h2>
-    <p class="muted">${score ? "Average completed audit score · 0–100" : "Number of records"}</p>
+    <p class="muted">${score === "percent" ? "Completed corrective actions · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
     ${hasData ? `<ol class="audit-chart">${entries.map((row) => `<li>
-      <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score ? "/100" : ""}</strong></div>
+      <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score === "percent" ? "%" : score ? "/100" : ""}</strong></div>
       <div class="audit-chart-track" aria-hidden="true"><span style="width:${Math.min(100, row.value * 100 / maximum)}%"></span></div>
     </li>`).join("")}</ol>` : '<p class="muted">No data yet</p>'}</article>`;
 }

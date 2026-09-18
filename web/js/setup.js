@@ -142,7 +142,7 @@ function populateSettingsForms() {
     appSubtitle: getSetting("report.appSubtitle", "Loudspeaker & Mini Studio operations"),
     businessUnitLabel: getSetting("report.businessUnitLabel", "Ottotree"),
     todayHeading: getSetting("report.todayHeading", "inspections for today"),
-    reportHeading: getSetting("report.reportHeading", "monthly audit report"),
+    reportHeading: getSetting("report.reportHeading", "audit report"),
     loginTitle: getSetting("report.loginTitle", "Ottotree Audit"),
     companyName: getSetting("report.companyName", "Ottotree"),
     departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),

@@ -336,7 +336,7 @@ function renderInspectionHistory() {
       && (!historyFilters.department || (row.departments || []).includes(historyFilters.department))
       && (!historyFilters.category || (row.categories || []).includes(historyFilters.category))
       && (!historyFilters.priority || (row.priorities || []).includes(historyFilters.priority))
-      && (!historyFilters.status || row.status === historyFilters.status)
+      && (!historyFilters.status || (row.closed_at ? "Closed" : row.status) === historyFilters.status)
       && (!historyFilters.pic || (row.pics || []).join(" ").toLowerCase().includes(historyFilters.pic.toLowerCase()));
   });
   const page = paginateList("inspections", rows, { ...historyFilters, search }, renderInspectionHistory);
@@ -361,6 +361,7 @@ function inspectionHistoryRow(row) {
         ${(currentUser?.permissions || []).includes("inspections") ? `<button type="button" class="outline" data-open-inspection-session="${row.id}">Open</button>` : ""}
         ${row.audit_id ? `<button type="button" class="outline" data-view-inspection-findings="${row.audit_id}">Findings (${row.findings_count || 0})</button>` : ""}
         ${row.status === "Completed" ? `<a class="button-link outline" href="/api/inspection-sessions/${row.id}/export.pdf">PDF</a>` : ""}
+        ${row.status === "Completed" && !row.closed_at && (currentUser?.inspectionPermissions || []).includes("verifier") ? `<button type="button" class="outline" data-close-inspection-session="${row.id}">Close audit</button>` : ""}
         ${row.status !== "Completed" && (currentUser?.inspectionPermissions || []).includes("auditor") ? `<button type="button" class="danger" data-delete-inspection-session="${row.id}">Delete</button>` : ""}
       </span>
     </article>
@@ -369,6 +370,7 @@ function inspectionHistoryRow(row) {
 
 function inspectionHistoryProgressStatus(row) {
   const progress = Number(row.progress) || 0;
+  if (row.closed_at) return { className: "status-complete", label: "Closed (100%)" };
   if (row.status === "Completed") return { className: "status-complete", label: `Completed (${progress}%)` };
   if (progress >= 100) return { className: "status-complete", label: "Ready to Complete (100%)" };
   if (progress > 0) return { className: "status-progress", label: `In Progress (${progress}%)` };
@@ -556,7 +558,7 @@ function updateInspectionActions(progress, payload) {
   const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && form?.dataset.completed !== "true";
   if (button) button.disabled = !editable;
   const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
-  if (signaturesButton) signaturesButton.disabled = !id || !(currentUser?.inspectionPermissions || []).length;
+  if (signaturesButton) signaturesButton.disabled = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
   const link = document.querySelector("[data-export-inspection-pdf]");
   if (!link) return;
   if (id) {
@@ -619,8 +621,9 @@ async function openInspectionSession(id) {
   const form = document.getElementById("inspection-form");
   form.elements.inspectionSessionId.value = session.id;
   form.dataset.completed = String(session.status === "Completed");
+  form.dataset.closed = String(Boolean(session.closed_at));
   setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
-  setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.status === "Completed" ? "Completed" : "Editing");
+  setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
   inspectionSessionItems = session.items || [];

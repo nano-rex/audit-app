@@ -245,11 +245,11 @@ Status legend:
 
 ## 20. Bar Chart / Graph
 
-- [~] Audit score chart
-- [~] Previous vs current audit chart
-- [~] Findings by category chart
-- [~] Findings by priority chart
-- [~] Findings by department chart
+- [x] Audit score chart
+- [x] Previous vs current audit chart
+- [x] Findings by category chart
+- [x] Findings by priority chart
+- [x] Findings by department chart
 
 ## 21. Photo Findings Report
 
@@ -311,25 +311,25 @@ Status legend:
 - [~] Continue saved draft inspection
 - [~] Delete inspection history
 - [~] Progress status in history
-- [~] Room/location-specific historical audit trend
+- [x] Room/location-specific historical audit trend
 - [~] Findings count per historical audit
-- [~] Closed audit state
+- [x] Closed audit state
 
 ## 26. Management Dashboard
 
-- [~] Overall audit score
-- [~] Total audits
-- [~] Total findings
-- [~] Priority findings
-- [~] Outstanding findings
-- [~] Overdue findings
-- [~] Completion rate
-- [~] Monthly audit score chart
-- [~] Findings trend chart
-- [~] Priority trend chart
-- [~] Department performance chart
-- [~] Location performance chart
-- [~] Category performance chart
+- [x] Overall audit score
+- [x] Total audits
+- [x] Total findings
+- [x] Priority findings
+- [x] Outstanding findings
+- [x] Overdue findings
+- [x] Completion rate
+- [x] Monthly audit score chart
+- [x] Findings trend chart
+- [x] Priority trend chart
+- [x] Department performance chart
+- [x] Location performance chart
+- [x] Category performance chart
 
 ## 27. Overdue Alert
 
@@ -341,21 +341,21 @@ Status legend:
 
 ## 28. Notification
 
-- [~] Assigned finding notification
-- [~] Due soon reminder
-- [~] Overdue notification
-- [~] Completed notification
-- [~] Email integration
-- [~] WhatsApp integration
-- [~] Mobile push integration
+- [x] Assigned finding notification
+- [x] Due soon reminder
+- [x] Overdue notification
+- [x] Completed notification
+- [ ] Email integration (deferred external integration)
+- [ ] WhatsApp integration (deferred external integration)
+- [ ] Mobile push integration (deferred external integration)
 
 ## 29. Export
 
 - [~] PDF export
-- [~] Excel export
-- [~] CSV export
-- [~] JSON export
-- [~] Detailed finding list export
+- [x] Excel export
+- [x] CSV export
+- [x] JSON export
+- [x] Detailed finding list export
 
 ## 30. Recommended App Menu
 

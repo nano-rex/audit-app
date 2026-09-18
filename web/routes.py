@@ -1,4 +1,5 @@
 """HTTP mutation dispatch, grouped by domain in routes_*.py."""
+from audit_closure import close_audit
 from routes_accounts import delete_roles, delete_users, patch_account, patch_roles, patch_users, post_auth_change_password, post_auth_forgot_password, post_auth_login, post_auth_logout, post_auth_register, post_roles, post_users
 from routes_assets import delete_equipment, patch_equipment, post_equipment
 from routes_inspections import delete_inspection_sessions, delete_schedules, patch_inspection_sessions, patch_schedules, post_audits, post_captain_logins, post_inspection_sessions, post_inspections, post_schedules
@@ -18,6 +19,7 @@ ROUTES = {
         '/api/audits/start': start_audit,
         '/api/inspections': post_inspections,
         '/api/inspection-sessions': post_inspection_sessions,
+        '/api/inspection-sessions/close': close_audit,
         '/api/schedules': post_schedules,
         '/api/schedules/start': start_schedule,
         '/api/captain-logins': post_captain_logins,

@@ -1,6 +1,7 @@
 """Routes work orders for the audit application."""
 from relational_values import data_value
 import time
+from reminders import notify_work_order
 from common import create_notification, priority_due_date, sla_status, work_order_ref
 from database import connect, first_category, first_department, first_outlet
 from work_orders import sync_finding_from_work_order
@@ -60,11 +61,7 @@ def post_work_orders(self, parsed, payload=None):
             (work_order_ref(cursor.lastrowid), cursor.lastrowid),
         )
         save_finding_details(db, cursor.lastrowid, payload)
-        create_notification(db, "Work order assigned", payload.get("title", "Work order"), "In-App", "work_order", cursor.lastrowid)
-        if current_sla_status == "Due Soon":
-            create_notification(db, "Work order due soon", f"{payload.get('title', 'Work order')} is due on {due_date}", "In-App", "work_order", cursor.lastrowid)
-        if current_sla_status == "Overdue":
-            create_notification(db, "Work order overdue", f"{payload.get('title', 'Work order')} passed its due date {due_date}", "In-App", "work_order", cursor.lastrowid)
+        notify_work_order(db, cursor.lastrowid, status)
     self.json({"ok": True})
 
 
@@ -183,7 +180,9 @@ def patch_work_orders(self, parsed, payload=None):
                 message += f": {payload['verificationRemark']}"
             db.execute("INSERT INTO comments(record_type, record_id, comment, author, created_at, system_generated) VALUES ('work_order', ?, ?, ?, ?, 1)",
                        (int(item_id), message, user["name"], int(time.time() * 1000)))
-            create_notification(db, f"Work order {status.lower()}", payload.get("title", "Work order"), "In-App", "work_order", int(item_id))
+            notify_work_order(db, int(item_id), status)
+        elif any(payload.get(key, "") != (existing[column] or "") for key, column in (("pic", "pic"), ("assignee", "assignee"), ("requestType", "request_type"))):
+            notify_work_order(db, int(item_id), "Assigned")
     self.json({"ok": True})
     return
 

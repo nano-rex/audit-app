@@ -79,6 +79,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const closeInspectionButton = event.target.closest("[data-close-inspection-session]");
+  if (closeInspectionButton) {
+    if (!confirm("Close this audit permanently? All findings must be closed and all three signatures recorded. The audit cannot be edited afterward.")) return;
+    try {
+      await requestJson("/api/inspection-sessions/close", "POST", { id: Number(closeInspectionButton.dataset.closeInspectionSession) });
+      await loadInspectionHistory();
+    } catch (error) {
+      alert(error.message);
+    }
+    return;
+  }
+
   const deleteInspectionButton = event.target.closest("[data-delete-inspection-session]");
   if (deleteInspectionButton && confirm("Delete this inspection history item?")) {
     await requestJson(`/api/inspection-sessions/${deleteInspectionButton.dataset.deleteInspectionSession}`, "DELETE");
@@ -843,4 +855,13 @@ document.querySelector("[data-add-work-order-comment]")?.addEventListener("click
   });
   form.elements.timelineComment.value = "";
   loadWorkOrderComments(id);
+});
+
+document.getElementById("report-filter-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try { await loadReport(); setText("[data-report-filter-message]", "Filters applied."); }
+  catch (error) { setText("[data-report-filter-message]", error.message); }
+});
+document.getElementById("report-filter-form")?.addEventListener("reset", () => {
+  setTimeout(() => loadReport().catch(showLoadError), 0);
 });

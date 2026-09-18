@@ -3,10 +3,12 @@
 import os
 from pathlib import Path
 import sys
+import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
 from api import Handler
+from reminders import reminder_loop
 from http_support import AuditHTTPServer
 from database import connect
 from migrations import init_db
@@ -35,4 +37,10 @@ if __name__ == "__main__":
     server = AuditHTTPServer(("127.0.0.1", port), Handler)
     print(f"Serving Ottotree Audit at http://127.0.0.1:{port}")
     print(f"SQLite database: {config.DB_PATH}")
-    server.serve_forever()
+    stop = threading.Event()
+    threading.Thread(target=reminder_loop, args=(stop,), daemon=True).start()
+    try:
+        server.serve_forever()
+    finally:
+        stop.set()
+        server.server_close()

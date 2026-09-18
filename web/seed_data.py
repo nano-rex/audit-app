@@ -245,7 +245,7 @@ def seed_settings(db):
         if not db.execute("SELECT 1 FROM app_settings WHERE key = ?", (key,)).fetchone():
             db.execute("INSERT INTO app_settings(key, value_data_id) VALUES (?, ?)", (key, save_value(db, value)))
     for key, previous in {
-        "companyName": "Audit App", "logoText": "AUDIT", "appTitle": "Audit App",
+        "reportHeading": "monthly audit report", "companyName": "Audit App", "logoText": "AUDIT", "appTitle": "Audit App",
         "appSubtitle": "Facilities audit workspace", "businessUnitLabel": "Facilities", "loginTitle": "Audit App",
     }.items():
         row = db.execute("SELECT value_data_id FROM app_settings WHERE key = ?", (f"report.{key}",)).fetchone()

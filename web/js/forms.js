@@ -682,7 +682,7 @@ document.getElementById("system-settings-form")?.addEventListener("submit", asyn
       "report.appSubtitle": formValue(form, "appSubtitle", "Loudspeaker & Mini Studio operations"),
       "report.businessUnitLabel": formValue(form, "businessUnitLabel", "Ottotree"),
       "report.todayHeading": formValue(form, "todayHeading", "inspections for today"),
-      "report.reportHeading": formValue(form, "reportHeading", "monthly audit report"),
+      "report.reportHeading": formValue(form, "reportHeading", "audit report"),
       "report.loginTitle": formValue(form, "loginTitle", "Ottotree Audit"),
       "system.emailEnabled": channels.includes("Email"),
       "system.whatsappEnabled": channels.includes("WhatsApp"),

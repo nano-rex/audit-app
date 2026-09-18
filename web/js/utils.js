@@ -138,8 +138,8 @@ function updateSelectOptions(select, values, includePlaceholder = false, placeho
 
 function updateSetupSelects() {
   document.querySelectorAll('select[name="outlet"]').forEach((select) => {
-    const includePlaceholder = select.querySelector("option")?.textContent.startsWith("Select") || select.querySelector("option")?.textContent.startsWith("--");
-    updateSelectOptions(select, setupOptions.outlets, includePlaceholder, "Select outlet");
+    const includePlaceholder = select.form?.id === "report-filter-form" || select.querySelector("option")?.textContent.startsWith("Select") || select.querySelector("option")?.textContent.startsWith("--");
+    updateSelectOptions(select, setupOptions.outlets, includePlaceholder, select.form?.id === "report-filter-form" ? "All outlets" : "Select outlet");
   });
   document.querySelectorAll('select[name="requestType"], select[name="department"]').forEach((select) => {
     updateSelectOptions(select, setupOptions.departments, false, "Select department");

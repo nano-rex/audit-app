@@ -77,7 +77,7 @@ DEFAULT_REPORT_SETTINGS = {
     "appSubtitle": "Loudspeaker & Mini Studio operations",
     "businessUnitLabel": "Ottotree",
     "todayHeading": "inspections for today",
-    "reportHeading": "monthly audit report",
+    "reportHeading": "audit report",
     "loginTitle": "Ottotree Audit",
 }
 

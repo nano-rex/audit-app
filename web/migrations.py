@@ -443,6 +443,8 @@ def init_db():
         ensure_column(db, "inspection_sessions", "owner_user_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "schedule_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "audit_ref", "TEXT")
+        ensure_column(db, "inspection_sessions", "closed_at", "INTEGER")
+        ensure_column(db, "inspection_sessions", "closed_by", "TEXT")
         db.execute("CREATE TABLE IF NOT EXISTS audit_reference_counters(year TEXT PRIMARY KEY, next_number INTEGER NOT NULL)")
         for session in db.execute("SELECT id, audit_id, audit_date FROM inspection_sessions WHERE audit_ref IS NULL OR audit_ref = ''").fetchall():
             audit = db.execute("SELECT audit_ref FROM audits WHERE id = ?", (session["audit_id"],)).fetchone()
@@ -482,4 +484,5 @@ def init_db():
         db.execute("CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires_at REAL NOT NULL)")
         db.execute("DELETE FROM auth_sessions WHERE expires_at < ?", (time.time(),))
         db.execute("CREATE TABLE IF NOT EXISTS password_reset_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id), requested_at INTEGER NOT NULL, resolved_at INTEGER)")
+        db.execute("CREATE TABLE IF NOT EXISTS due_notification_events(user_id INTEGER NOT NULL, work_order_id INTEGER NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, due_date TEXT NOT NULL, PRIMARY KEY(user_id,work_order_id,kind,day,due_date))")
         install_reference_cleanup(db)

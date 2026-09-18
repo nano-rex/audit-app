@@ -237,21 +237,22 @@ class Handler(BaseHTTPRequestHandler):
             outlet = parse_qs(parsed.query).get("outlet", [""])[0]
             self.json(zones(outlet))
             return
+        report_filters = {key: parse_qs(parsed.query).get(key, [""])[0] for key in ("outlet", "from", "to")}
         if parsed.path == "/api/reports":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json(report(unit))
+            self.json(cached_response(("report", unit, *report_filters.values()), lambda: report(unit, report_filters)))
             return
         if parsed.path == "/api/reports/export.json":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(json.dumps(report(unit), indent=2).encode("utf-8"), "application/json", "audit-report.json")
+            self.download(json.dumps(report(unit, report_filters), indent=2).encode("utf-8"), "application/json", "audit-report.json")
             return
         if parsed.path == "/api/reports/export.csv":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(report_csv(unit), "text/csv", "audit-report.csv")
+            self.download(report_csv(unit, report_filters), "text/csv", "audit-report.csv")
             return
-        if parsed.path == "/api/reports/export.xls":
+        if parsed.path in {"/api/reports/export.xls", "/api/reports/export.xlsx"}:
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(report_xls(unit), "application/vnd.ms-excel", "audit-report.xls")
+            self.download(report_xls(unit, report_filters), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audit-report.xlsx")
             return
         if parsed.path == "/api/setup":
             self.json(cached_response(("setup",), setup_records))

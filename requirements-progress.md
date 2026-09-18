@@ -130,3 +130,49 @@ or PDF generation, and is not a production capacity guarantee.
 Validation: 31 Python tests and 9 frontend tests passed. New checks exercise concurrent audit
 references, invalid headers, metadata persistence through completion, weighted snapshots,
 invalid scoring settings, reset-request deduplication, and durable hashed sessions.
+
+
+## Reporting and in-app reminders
+
+- Reports now filter by business unit, outlet, and audit date range. CSV, native XLSX,
+  and JSON exports use the same filters. Detailed exports exclude other units/outlets;
+  spreadsheet cells treat user-entered formulas as text. XLSX contains Summary and
+  Findings sheets with audit metadata and corrective-action fields.
+- Added previous/current outlet comparisons, monthly audit scores, room score trends,
+  and priority trends. Department/location/category performance shows the percentage
+  of completed corrective actions, with no fabricated values. Room scores are the
+  percentage of applicable checks passed; completed audit scores retain their weighting.
+- Assignment and completion notices target assignees, with completion also notifying
+  verifiers. Reassignment generates a notice for the new assignee. Due-soon and overdue
+  reminders run every minute while the server is running, at most once per recipient,
+  work order, due date, reminder kind, and day. Completed orders stop receiving reminders.
+- Email, WhatsApp, and mobile push remain explicitly deferred external integrations.
+
+Validation: 33 Python tests and 9 frontend tests passed, including scoped exports,
+valid XLSX parsing, spreadsheet formula handling, room trends, date validation, and
+addressed/deduplicated reminders. No browser/device acceptance test has been run.
+
+
+## Final audit closure
+
+History & Findings now offers **Close audit** to verifiers. Closure requires a completed
+inspection, all three recorded signatures, and all linked findings/work orders closed.
+The database transaction prevents concurrent closure from creating duplicate history.
+Closed audits retain their completed scores and reports, display a Closed status, and
+reject subsequent checklist/signature changes or deletion. PDF reports record the
+closure timestamp and the authenticated verifier's name.
+
+Room-level trend calculations run only for Reports, so the landing Dashboard does not
+load all completed checklist snapshots to render its six overview charts.
+
+Validation for audit closure: 34 Python regression tests and 9 frontend checks passed.
+The closure test covers capability denial, incomplete audits, missing signatures, open
+corrective actions, concurrent closure, one retained history event, and blocked edits.
+The filtered ranking regression also checks that an audit outside the selected dates
+cannot become the displayed latest audit.
+
+The latest isolated load run used 100 concurrent users, 2,500 assets and 300 seeded drafts:
+400 requests, zero failures, and 100 drafts saved in 14.91 seconds. The p95 four-request
+flow was 11.43 seconds. This is slower than the earlier 8.29-second run; timings vary
+with the shared host and session persistence now also uses SQLite. It is not evidence
+that production meets a particular response-time target.

@@ -5,7 +5,7 @@ const brandingDefaults = {
   appSubtitle: "Facilities audit workspace",
   businessUnitLabel: "Facilities",
   todayHeading: "inspections for today",
-  reportHeading: "monthly audit report",
+  reportHeading: "audit report",
   loginTitle: "Audit App",
 };
 let branding = { ...brandingDefaults };

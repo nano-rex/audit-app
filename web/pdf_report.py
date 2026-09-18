@@ -1,4 +1,5 @@
 """Paginated audit reports with actual evidence and signature images."""
+from datetime import datetime, timezone
 from html import escape
 from io import BytesIO
 import json
@@ -51,6 +52,9 @@ def build_report(session, brand, summary, media):
               paragraph(f"Auditor: {session.get('auditor')} | Date: {session.get('audit_date')} {session.get('audit_time') or ''}"),
               paragraph(f"Audit type: {session.get('audit_type') or 'Standard'}"),
               paragraph(session.get("remarks")), Spacer(1, 12)]
+    if session.get("closed_at"):
+        closed_date = datetime.fromtimestamp(session["closed_at"] / 1000, timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        story.append(paragraph(f"Closed: {closed_date} | Closed by: {session.get('closed_by') or ''}"))
     logo = brand.get("logoUrl")
     if logo and logo.startswith("/api/media/"):
         images([{"url": logo, "name": "Company logo"}], "Logo")

@@ -312,6 +312,9 @@ def patch_inspection_sessions(self, parsed, payload=None):
         if not existing:
             self.json({"error": "Inspection not found"}, 404)
             return
+        if existing["closed_at"]:
+            self.json({"error": "Closed audits cannot be changed"}, 409)
+            return
         existing = dict(existing)
         existing["signatures_data_id"] = load_value(existing["signatures_data_id"] or "{}")
         payload, changed = authorize_inspection_update(user, payload, existing)

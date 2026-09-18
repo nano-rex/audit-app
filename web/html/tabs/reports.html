@@ -2,15 +2,23 @@
       <section class="today-hero report-hero">
         <div>
           <span>Reporting</span>
-          <h2><span data-unit-text></span> <span data-report-heading>monthly audit report</span></h2>
-          <p>All completed audits and current work orders.</p>
+          <h2><span data-unit-text></span> <span data-report-heading>audit report</span></h2>
+          <p>All-time results by default. Use the date and outlet filters to narrow this report.</p>
         </div>
         <div class="quick-actions">
           <a class="button-link primary" data-export-json href="/api/reports/export.json?unit=Mini%20Studio">Export JSON</a>
           <a class="button-link outline" data-export-csv href="/api/reports/export.csv?unit=Mini%20Studio">Export CSV</a>
-          <a class="button-link outline" data-export-xls href="/api/reports/export.xls?unit=Mini%20Studio">Export Excel</a>
+          <a class="button-link outline" data-export-xls href="/api/reports/export.xlsx?unit=Mini%20Studio">Export Excel</a>
         </div>
       </section>
+      <form class="panel filter" id="report-filter-form">
+        <label>From<input type="date" name="from"></label>
+        <label>To<input type="date" name="to"></label>
+        <label>Outlet<select name="outlet"><option value="">All outlets</option></select></label>
+        <button type="submit" class="primary">Apply Filters</button>
+        <button type="reset" class="outline">Clear Filters</button>
+        <p data-report-filter-message role="status"></p>
+      </form>
       <section class="stats">
         <article><span>Audits</span><strong data-report="audits">0</strong></article>
         <article><span>Average Score</span><strong data-report="averageScore">0/100</strong></article>

@@ -1,26 +1,26 @@
 """Reports for the audit application."""
 from relational_values import load_value, hydrate
-from io import StringIO
+from io import StringIO, BytesIO
 import csv
-import html
 from datetime import datetime
 from media_store import MediaStore
 from scoring import summarize as summarize_score, rating_for_score
 import config
 from accounts import branding_settings
-from common import rating, scope, sla_status
+from common import rating, sla_status
+from report_filters import report_scope
 from database import connect
 from work_orders import finding_items
 
 
-def dashboard(unit):
-    audit_where, audit_params = scope(unit, "audits")
+def dashboard(unit, filters=None, include_room_trends=False):
+    audit_where, audit_params = report_scope(unit, "audits", filters)
     audit_where = f"{audit_where} AND audits.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed' AND audit_id IS NOT NULL)"
-    schedule_where, schedule_params = scope(unit, "schedules")
-    work_order_where, work_order_params = scope(unit, "work_orders")
-    equipment_where, equipment_params = scope(unit, "equipment")
-    finding_where, finding_params = scope(unit, "findings")
-    session_where, session_params = scope(unit, "inspection_sessions")
+    schedule_where, schedule_params = report_scope(unit, "schedules", filters)
+    work_order_where, work_order_params = report_scope(unit, "work_orders", filters)
+    equipment_where, equipment_params = report_scope(unit, "equipment", filters)
+    finding_where, finding_params = report_scope(unit, "findings", filters)
+    session_where, session_params = report_scope(unit, "inspection_sessions", filters)
     with connect() as db:
         settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings WHERE key LIKE 'scoring.%'")}
         distribution = dict.fromkeys(("Excellent", "Good", "Below Expectation", "Critical"), 0)
@@ -42,25 +42,14 @@ def dashboard(unit):
         ).fetchone()
         outlets = db.execute(
             f"""
-            SELECT outlet, branch,
-                   COALESCE(ROUND(AVG(score)), 0) average,
-                   COUNT(*) audit_count,
-                   (SELECT score FROM audits latest
-                    WHERE latest.business_unit = audits.business_unit
-                      AND latest.outlet = audits.outlet
-                      AND latest.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed')
-                    ORDER BY created_at DESC, id DESC LIMIT 1) latest,
-                   (SELECT audit_date FROM audits latest
-                    WHERE latest.business_unit = audits.business_unit
-                      AND latest.outlet = audits.outlet
-                      AND latest.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed')
-                    ORDER BY created_at DESC, id DESC LIMIT 1) audit_date
-            FROM audits
-            WHERE {audit_where}
-            GROUP BY outlet
-            ORDER BY outlet
-            """,
-            audit_params,
+            WITH filtered_audits AS (SELECT * FROM audits WHERE {audit_where})
+            SELECT outlet, branch, ROUND(AVG(score)) average, COUNT(*) audit_count,
+                   (SELECT score FROM filtered_audits latest WHERE latest.outlet = grouped.outlet
+                    ORDER BY audit_date DESC, id DESC LIMIT 1) latest,
+                   (SELECT audit_date FROM filtered_audits latest WHERE latest.outlet = grouped.outlet
+                    ORDER BY audit_date DESC, id DESC LIMIT 1) audit_date
+            FROM filtered_audits grouped GROUP BY outlet ORDER BY outlet
+            """, audit_params,
         ).fetchall()
         recent = db.execute(
             f"""
@@ -150,6 +139,21 @@ def dashboard(unit):
             f"SELECT COUNT(*) FROM schedules WHERE {schedule_where} AND status != 'Completed' "
             "AND NOT EXISTS (SELECT 1 FROM inspection_sessions WHERE schedule_id = schedules.id)", schedule_params
         ).fetchone()[0]
+        room_groups = {}
+        if include_room_trends:
+            for session in db.execute(f"SELECT outlet, audit_date, items_data_id FROM inspection_sessions WHERE {session_where} AND status = 'Completed'", session_params):
+                for item in load_value(session["items_data_id"] or "[]"):
+                    if item.get("notApplicable"):
+                        continue
+                    key = (session["outlet"], item.get("location") or "Unassigned", session["audit_date"][:7])
+                    values = room_groups.setdefault(key, [0, 0])
+                    values[0] += bool(item.get("passed"))
+                    values[1] += 1
+        comparison = [dict(row) for row in db.execute(
+            f"""SELECT outlet, score, position FROM (
+                SELECT outlet, score, ROW_NUMBER() OVER (PARTITION BY outlet ORDER BY audit_date DESC, id DESC) position
+                FROM audits WHERE {audit_where}) WHERE position <= 2 ORDER BY outlet, position DESC""", audit_params
+        ).fetchall()]
         monthly_trend = [dict(row) for row in db.execute(
             f"""
             SELECT substr(audit_date, 1, 7) month, COUNT(*) audits, COALESCE(ROUND(AVG(score)), 0) average_score
@@ -181,6 +185,13 @@ def dashboard(unit):
             label = row.get(key) or "Unassigned"
             counts[label] = counts.get(label, 0) + 1
         return [{"label": label, "count": count} for label, count in sorted(counts.items())]
+    def performance(rows, key):
+        groups = {}
+        for row in rows:
+            group = groups.setdefault(row.get(key) or "Unassigned", [0, 0])
+            group[0] += 1
+            group[1] += row["status"] in closed_statuses
+        return [{"label": label, "count": total, "completed": completed, "score": round(completed * 100 / total)} for label, (total, completed) in sorted(groups.items())]
     return {
         "stats": {
             "total": completed_audits + pending_audits,
@@ -228,20 +239,24 @@ def dashboard(unit):
             "findingsByCategory": grouped(findings, "category"),
             "findingsByPriority": grouped(findings, "priority"),
             "monthlyAuditTrend": monthly_trend,
+            "roomAuditTrend": [{"label": f"{outlet} / {room} / {month}", "score": round(passed * 100 / total)} for (outlet, room, month), (passed, total) in sorted(room_groups.items())],
+            "monthlyAuditScores": [{"label": row["month"], "score": row["average_score"]} for row in monthly_trend],
+            "auditComparison": [{"label": f"{row['outlet']} · {'Current' if row['position'] == 1 else 'Previous'}", "score": row["score"]} for row in comparison],
+            "priorityTrend": grouped([{"label": datetime.fromtimestamp((row.get("created_at") or 0) / 1000).strftime("%Y-%m") + " · " + row["classification"]} for row in findings], "label"),
             "findingsTrend": grouped(
                 [{"month": datetime.fromtimestamp((row.get("created_at") or 0) / 1000).strftime("%Y-%m")} for row in findings],
                 "month",
             ),
-            "departmentPerformance": grouped(all_work_orders, "request_type"),
-            "locationPerformance": grouped(all_work_orders, "zone"),
-            "categoryPerformance": grouped(all_work_orders, "category"),
+            "departmentPerformance": performance(all_work_orders, "request_type"),
+            "locationPerformance": performance(all_work_orders, "zone"),
+            "categoryPerformance": performance(all_work_orders, "category"),
         },
     }
 
 
-def report(unit):
-    data = dashboard(unit)
-    where, params = scope(unit, "work_orders")
+def report(unit, filters=None):
+    data = dashboard(unit, filters, include_room_trends=True)
+    where, params = report_scope(unit, "work_orders", filters)
     with connect() as db:
         critical_orders = [hydrate(row) for row in db.execute(
             f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
@@ -259,7 +274,7 @@ def report(unit):
             "priorityFindings": data["stats"]["priorityIssues"],
             "nonPriorityFindings": data["stats"]["nonPriorityIssues"],
             "completedCorrectiveActions": data["stats"]["completedCorrectiveActions"],
-            "outstandingFindings": data["stats"]["outstandingIssues"],
+            "outstandingFindings": data["stats"]["outstandingFindings"],
             "overdueFindings": data["stats"]["overdueFindings"],
             "completionRate": data["stats"]["completionRate"],
         },
@@ -271,50 +286,69 @@ def report(unit):
     }
 
 
-def report_csv(unit):
-    data = report(unit)
+def report_csv(unit, filters=None):
+    data = report(unit, filters)
     brand = branding_settings()
     out = StringIO()
     writer = csv.writer(out)
-    writer.writerow([f"{brand['appTitle']} Report", unit])
-    writer.writerow([])
-    writer.writerow(["Audits", "Completed", "Pending", "Average Score", "Open Work Orders", "Total Findings", "Priority", "Non-Priority", "Completion Rate"])
+    def write_row(values):
+        writer.writerow(["'" + value if isinstance(value, str) and value.startswith(("=", "+", "-", "@")) else value for value in values])
+    write_row([f"{brand['appTitle']} Report", unit])
+    write_row([])
+    write_row(["Audits", "Completed", "Pending", "Average Score", "Open Work Orders", "Total Findings", "Priority", "Non-Priority", "Completion Rate"])
     summary = data["monthlySummary"]
-    writer.writerow([summary["audits"], summary["auditsCompleted"], summary["auditsPending"], summary["averageScore"], summary["openWorkOrders"], summary["totalFindings"], summary["priorityFindings"], summary["nonPriorityFindings"], str(summary["completionRate"]) + "%"])
-    writer.writerow([])
-    writer.writerow(["KPI"])
-    writer.writerow(["Assigned Tasks", "Completed", "Pending", "Response Rate"])
+    write_row([summary["audits"], summary["auditsCompleted"], summary["auditsPending"], summary["averageScore"], summary["openWorkOrders"], summary["totalFindings"], summary["priorityFindings"], summary["nonPriorityFindings"], str(summary["completionRate"]) + "%"])
+    write_row([])
+    write_row(["KPI"])
+    write_row(["Assigned Tasks", "Completed", "Pending", "Response Rate"])
     kpi = data["kpi"]
-    writer.writerow([kpi["assigned"], kpi["completed"], kpi["pending"], str(kpi["responseRate"]) + "%"])
-    writer.writerow([])
-    writer.writerow(["Outlet Rankings"])
-    writer.writerow(["Outlet", "Average", "Latest", "Audit Count", "Last Audit Date"])
+    write_row([kpi["assigned"], kpi["completed"], kpi["pending"], str(kpi["responseRate"]) + "%"])
+    write_row([])
+    write_row(["Outlet Rankings"])
+    write_row(["Outlet", "Average", "Latest", "Audit Count", "Last Audit Date"])
     for row in data["rankings"]:
-        writer.writerow([row["outlet"], row["average"], row["latest"], row["audit_count"], row["audit_date"]])
-    writer.writerow([])
-    writer.writerow(["Critical Issues"])
-    writer.writerow(["ID", "Reference", "Outlet", "Zone", "Category", "Priority", "Title", "Assignee", "Status"])
+        write_row([row["outlet"], row["average"], row["latest"], row["audit_count"], row["audit_date"]])
+    write_row([])
+    write_row(["Critical Issues"])
+    write_row(["ID", "Reference", "Outlet", "Zone", "Category", "Priority", "Title", "Assignee", "Status"])
     for row in data["criticalIssues"]:
-        writer.writerow([row["id"], row.get("work_order_ref", ""), row["outlet"], row["zone"], row.get("category", ""), row["priority"], row["title"], row["assignee"], row["status"]])
-    writer.writerow([])
-    writer.writerow(["Detailed Findings"])
-    writer.writerow(["Reference", "Audit", "Outlet", "Location", "Category", "Priority", "Department", "PIC", "Status", "Comment"])
-    for row in finding_items()["items"]:
-        writer.writerow([row.get("finding_ref", ""), row.get("audit_ref", ""), row.get("outlet", ""), row.get("location", ""), row.get("category", ""), row.get("priority", ""), row.get("assigned_department", ""), row.get("pic", ""), row.get("status", ""), row.get("comment", "")])
+        write_row([row["id"], row.get("work_order_ref", ""), row["outlet"], row["zone"], row.get("category", ""), row["priority"], row["title"], row["assignee"], row["status"]])
+    write_row([])
+    write_row(["Detailed Findings"])
+    write_row(["Reference", "Audit", "Outlet", "Location", "Category", "Priority", "Department", "PIC", "Status", "Comment"])
+    for row in finding_items(unit, filters)["items"]:
+        write_row([row.get("finding_ref", ""), row.get("audit_ref", ""), row.get("outlet", ""), row.get("location", ""), row.get("category", ""), row.get("priority", ""), row.get("assigned_department", ""), row.get("pic", ""), row.get("status", ""), row.get("comment", "")])
     return out.getvalue().encode("utf-8")
 
 
-def report_xls(unit):
-    data = report(unit)
-    brand = branding_settings()
-    rows = [
-        "<table>",
-        f"<tr><th colspan='2'>{html.escape(brand['appTitle'])} Report</th></tr>",
-    ]
-    for key, value in data["monthlySummary"].items():
-        rows.append(f"<tr><td>{key}</td><td>{value}</td></tr>")
-    rows.append("</table>")
-    return "\n".join(rows).encode("utf-8")
+def report_xls(unit, filters=None):
+    """Native XLSX workbook; the old function name remains for API compatibility."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font
+    workbook = Workbook()
+    summary = workbook.active
+    summary.title = "Summary"
+    summary.append([branding_settings()["appTitle"], unit])
+    for key, value in report(unit, filters)["monthlySummary"].items():
+        summary.append([key, value])
+    findings = workbook.create_sheet("Findings")
+    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("corrective_action", "Corrective Action"), ("completion_date", "Completed"), ("verified_by", "Verified By")]
+    findings.append([label for _, label in columns])
+    for row in finding_items(unit, filters)["items"]:
+        findings.append([row.get(key) or "" for key, _ in columns])
+    for sheet in workbook:
+        sheet.freeze_panes = "A2"
+        sheet.auto_filter.ref = sheet.dimensions
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
+        for column in sheet.columns:
+            sheet.column_dimensions[column[0].column_letter].width = min(60, max(16, max(len(str(cell.value or "")) for cell in column) + 2))
+            for cell in column:
+                if isinstance(cell.value, str) and cell.value.startswith(("=", "+", "-", "@")):
+                    cell.data_type = "s"
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
 
 
 def inspection_pdf(session):
