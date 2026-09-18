@@ -80,7 +80,7 @@ class Handler(BaseHTTPRequestHandler):
             row = db.execute(
                 """
                 SELECT id, name, role, email, department, active, reset_required,
-                       last_login_at, login_count, title, responsibilities, profile_photo, signature_image
+                       last_login_at, login_count, title, responsibilities, profile_photo_data_id, signature_image_data_id
                 FROM users
                 WHERE id = ? AND active = 1
                 """,
@@ -166,16 +166,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/media/"):
             try:
-                target = MediaStore(config.DATA_DIR / "media").path(parsed.path.removeprefix("/api/media/"))
+                stored = MediaStore(config.DB_PATH).read(parsed.path.removeprefix("/api/media/"))
             except ValueError:
                 self.send_error(404)
                 return
-            if not target.is_file():
+            if stored is None:
                 self.send_error(404)
                 return
-            body = target.read_bytes()
+            body, mime = stored
             self.send_response(200)
-            self.send_header("Content-Type", mimetypes.guess_type(target.name)[0])
+            self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "private, max-age=3600")
             self.send_header("X-Content-Type-Options", "nosniff")
@@ -283,7 +283,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if not self.require_auth(parsed):
             return
-        payload = MediaStore(config.DATA_DIR / "media").normalize(payload)
+        payload = MediaStore(config.DB_PATH).normalize(payload)
         if parsed.path in {"/api/audits", "/api/inspections"}:
             payload["auditor"] = self.current_user()["name"]
         if parsed.path == "/api/media":
@@ -302,7 +302,7 @@ class Handler(BaseHTTPRequestHandler):
         payload = self.read_payload()
         if payload is None or not self.require_auth(parsed):
             return
-        payload = MediaStore(config.DATA_DIR / "media").normalize(payload)
+        payload = MediaStore(config.DB_PATH).normalize(payload)
         if not dispatch("PATCH", self, parsed, payload):
             self.send_error(404)
 

@@ -1,5 +1,5 @@
 """Inspections for the audit application."""
-import json
+from relational_values import load_value, save_value, hydrate
 from datetime import datetime
 from scoring import summarize as summarize_score
 from common import audit_ref, create_notification, finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
@@ -8,7 +8,7 @@ from database import connect, first_category, first_department, first_outlet, in
 
 def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
-    settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings")}
+    settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
     summary = summarize_score(items, settings)
     audit_date = normalize_audit_date(payload.get("auditDate"))
     outlet = payload.get("outlet") or first_outlet(db)
@@ -17,7 +17,7 @@ def finalize_inspection(db, session_id, payload, now):
         "business_unit": unit, "outlet": outlet, "branch": payload.get("zone", "All Locations"),
         "audit_date": audit_date, "audit_time": payload.get("auditTime") or datetime.now().strftime("%H:%M"),
         "auditor": payload.get("auditor", "Unnamed Auditor"), "audit_type": payload.get("auditType") or "Standard",
-        "remarks": payload.get("remarks", ""), "score": summary["score"], "scoring_json": json.dumps(summary), "created_at": now,
+        "remarks": payload.get("remarks", ""), "score": summary["score"], "scoring_data_id": save_value(db, summary), "created_at": now,
     })
     reference = audit_ref(audit_id, audit_date)
     db.execute("UPDATE audits SET audit_ref = ? WHERE id = ?", (reference, audit_id))
@@ -39,13 +39,13 @@ def finalize_inspection(db, session_id, payload, now):
         location = item.get("location") or payload.get("zone", "Unassigned")
         comment = item.get("notes") or item.get("item", "Inspection finding")
         due_date = priority_due_date(db, priority, now)
-        images = json.dumps(item.get("images") or [])
+        images = save_value(db, item.get("images") or [])
         finding_id = insert_record(db, "findings", {
             "audit_id": audit_id, "audit_ref": reference, "business_unit": unit, "outlet": outlet, "location": location,
             "category": category, "priority": priority, "priority_classification": priority_row["classification"],
             "assigned_department": department, "pic": pic, "comment": comment, "status": "Assigned",
             "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
-            "required_action": item.get("requiredAction", ""), "images_json": images, "due_date": due_date,
+            "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
             "source_item_id": item_id, "created_at": now, "updated_at": now,
         })
         finding_reference = finding_ref(finding_id, audit_date)
@@ -56,7 +56,7 @@ def finalize_inspection(db, session_id, payload, now):
             "priority": priority, "title": f"{finding_reference} - {item.get('section', 'Fixed Asset')} - {item.get('item', 'Finding')}",
             "description": comment, "assignee": pic or department, "pic": pic, "status": "Assigned",
             "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
-            "required_action": item.get("requiredAction", ""), "images_json": images,
+            "required_action": item.get("requiredAction", ""), "images_data_id": images,
             "due_date": due_date, "sla_status": sla_status("Assigned", due_date),
             "source_audit_id": audit_id, "source_item_id": item_id, "source_finding_id": finding_id,
             "outlet_confirmed": 0, "created_at": now,
@@ -72,15 +72,18 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_json, created_at, updated_at, schedule_id
+            SELECT id, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
         ).fetchall()
+        rows = [dict(row) for row in rows]
+        for row in rows:
+            row["items_data_id"] = load_value(row["items_data_id"] or "[]")
     items = []
     for row in rows:
         item = dict(row)
-        session_items = json.loads(item.pop("items_json") or "[]")
+        session_items = load_value(item.pop("items_data_id") or "[]")
         item["inspection_name"] = normalized_inspection_name(item)
         item["locations"] = sorted({entry.get("location", "") for entry in session_items if entry.get("location")})
         item["categories"] = sorted({entry.get("category", "") for entry in session_items if entry.get("category")})
@@ -98,12 +101,12 @@ def inspection_session(session_id):
         audit = None
         findings = []
         if row and row["audit_id"]:
-            audit = db.execute("SELECT audit_ref, scoring_json FROM audits WHERE id = ?", (row["audit_id"],)).fetchone()
+            audit = db.execute("SELECT audit_ref, scoring_data_id FROM audits WHERE id = ?", (row["audit_id"],)).fetchone()
             findings = db.execute(
                 """
                 SELECT finding_ref, location, category, priority, priority_classification, assigned_department, pic, comment,
-                       cause, recommendation, required_action, images_json, due_date,
-                       status, corrective_action, completion_date, completion_photo,
+                       cause, recommendation, required_action, images_data_id, due_date,
+                       status, corrective_action, completion_date, completion_photo_data_id,
                        completion_remark, verified_by, verified_at, verification_remark, closed_at
                 FROM findings
                 WHERE audit_id = ?
@@ -114,12 +117,12 @@ def inspection_session(session_id):
     if not row:
         return None
     data = dict(row)
-    data["items"] = json.loads(data.pop("items_json") or "[]")
-    data["signatures"] = json.loads(data.pop("signatures_json") or "{}")
+    data["items"] = load_value(data.pop("items_data_id") or "[]")
+    data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else ""
-    data["scoring"] = json.loads(audit["scoring_json"]) if audit and audit["scoring_json"] else None
-    data["findings"] = [dict(item) for item in findings]
+    data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
+    data["findings"] = [hydrate(item) for item in findings]
     return data
 
 

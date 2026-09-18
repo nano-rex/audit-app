@@ -1,5 +1,5 @@
 """Work orders for the audit application."""
-import json
+from relational_values import save_value, hydrate_many
 import time
 from database import connect
 
@@ -15,7 +15,7 @@ def notifications(user_id):
             LIMIT 100
             """, (user_id,)
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}
 
 
 def comments(record_type="", record_id=0):
@@ -34,7 +34,7 @@ def comments(record_type="", record_id=0):
             """,
             params,
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}
 
 
 def work_order_items():
@@ -43,23 +43,23 @@ def work_order_items():
             """
             SELECT id, work_order_ref, business_unit, outlet, zone, request_type, category, priority, title,
                    description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo, verified_by, verified_at,
+                   completion_remark, completion_photo_data_id, verified_by, verified_at,
                    verification_remark, closed_at, due_date, vendor, sla_status, cost,
-                   outlet_confirmed, source_finding_id, cause, recommendation, required_action, images_json
+                   outlet_confirmed, source_finding_id, cause, recommendation, required_action, images_data_id
             FROM work_orders
             ORDER BY
                 CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
                 created_at DESC, id DESC
             """
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}
 
 
 def sync_finding_from_work_order(db, work_order_id):
     row = db.execute(
         """
         SELECT source_finding_id, status, pic, action_taken, completion_date,
-               completion_photo, completion_remark, verified_by, verified_at,
+               completion_photo_data_id, completion_remark, verified_by, verified_at,
                verification_remark, closed_at
         FROM work_orders
         WHERE id = ?
@@ -72,7 +72,7 @@ def sync_finding_from_work_order(db, work_order_id):
         """
         UPDATE findings
         SET status = ?, pic = ?, corrective_action = ?, completion_date = ?,
-            completion_photo = ?, completion_remark = ?, verified_by = ?,
+            completion_photo_data_id = ?, completion_remark = ?, verified_by = ?,
             verified_at = ?, verification_remark = ?, closed_at = ?, updated_at = ?
         WHERE id = ?
         """,
@@ -81,7 +81,7 @@ def sync_finding_from_work_order(db, work_order_id):
             row["pic"] or "",
             row["action_taken"] or "",
             row["completion_date"] or "",
-            row["completion_photo"] or json.dumps([]),
+            row["completion_photo_data_id"] or save_value(db, []),
             row["completion_remark"] or "",
             row["verified_by"] or "",
             row["verified_at"] or "",
@@ -99,12 +99,12 @@ def finding_items():
             """
             SELECT id, finding_ref, audit_id, audit_ref, business_unit, outlet, location,
                    category, priority, assigned_department, pic, comment, status,
-                   priority_classification, cause, recommendation, required_action, images_json, due_date,
-                   corrective_action, completion_date, completion_photo, completion_remark,
+                   priority_classification, cause, recommendation, required_action, images_data_id, due_date,
+                   corrective_action, completion_date, completion_photo_data_id, completion_remark,
                    verified_by, verified_at, verification_remark, closed_at, source_item_id,
                    created_at, updated_at
             FROM findings
             ORDER BY created_at DESC, id DESC
             """
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}

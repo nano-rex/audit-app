@@ -1,5 +1,5 @@
 """Routes locations for the audit application."""
-import json
+from relational_values import save_value
 import time
 from common import location_qr_code
 from database import connect, first_outlet
@@ -43,13 +43,13 @@ def post_zones(self, parsed, payload=None):
         default_outlet = first_outlet(db)
         db.execute(
             """
-            INSERT OR REPLACE INTO zones (outlet_code, name, locations_json, description, created_at)
+            INSERT OR REPLACE INTO zones (outlet_code, name, locations_data_id, description, created_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (
                 payload.get("outlet") or default_outlet,
                 payload.get("name", "Zone-1"),
-                json.dumps(payload.get("locations") or []),
+                save_value(db, payload.get("locations") or []),
                 payload.get("description", ""),
                 now,
             ),
@@ -148,13 +148,13 @@ def patch_zones(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE zones
-            SET outlet_code = ?, name = ?, locations_json = ?, description = ?
+            SET outlet_code = ?, name = ?, locations_data_id = ?, description = ?
             WHERE id = ?
             """,
             (
                 payload.get("outlet") or first_outlet(db),
                 payload.get("name", "Zone-1"),
-                json.dumps(payload.get("locations") or []),
+                save_value(db, payload.get("locations") or []),
                 payload.get("description", ""),
                 int(zone_id),
             ),

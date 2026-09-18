@@ -6,3 +6,5 @@ web/data/*.db-*
 *.pyc
 .venv/
 web/data/media/
+
+web/data/backups/

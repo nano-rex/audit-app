@@ -1,5 +1,5 @@
 """Seed data for the audit application."""
-import json
+from relational_values import load_value, save_value
 import time
 from common import hash_password
 from config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, SUPER_ROLE
@@ -126,21 +126,21 @@ def add_locations_to_default_zone(db, outlet, now=None):
     if not locations:
         return
     existing = db.execute(
-        "SELECT id, locations_json FROM zones WHERE outlet_code = ? AND lower(name) = 'zone-1'",
+        "SELECT id, locations_data_id FROM zones WHERE outlet_code = ? AND lower(name) = 'zone-1'",
         (outlet,),
     ).fetchone()
     if existing:
         db.execute(
-            "UPDATE zones SET locations_json = ? WHERE id = ?",
-            (json.dumps(locations), existing["id"]),
+            "UPDATE zones SET locations_data_id = ? WHERE id = ?",
+            (save_value(db, locations), existing["id"]),
         )
     else:
         db.execute(
             """
-            INSERT OR IGNORE INTO zones (outlet_code, name, locations_json, description, created_at)
+            INSERT OR IGNORE INTO zones (outlet_code, name, locations_data_id, description, created_at)
             VALUES (?, 'Zone-1', ?, 'Default inspection zone', ?)
             """,
-            (outlet, json.dumps(locations), now),
+            (outlet, save_value(db, locations), now),
         )
 
 
@@ -167,7 +167,7 @@ def seed_users(db):
 
 def seed_roles(db):
     now = int(time.time() * 1000)
-    full_permissions = json.dumps([tab[0] for tab in APP_TABS])
+    full_permissions = save_value(db, [tab[0] for tab in APP_TABS])
     admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("roles", "settings")]
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
@@ -179,24 +179,24 @@ def seed_roles(db):
         db.execute("UPDATE roles SET name = ?, description = 'Built-in full access role' WHERE name = 'Admin'", (SUPER_ROLE,))
     db.execute(
         """
-        INSERT OR IGNORE INTO roles (name, description, permissions_json, protected, created_at)
+        INSERT OR IGNORE INTO roles (name, description, permissions_data_id, protected, created_at)
         VALUES (?, 'Built-in full access role', ?, 1, ?)
         """,
         (SUPER_ROLE, full_permissions, now),
     )
     db.execute(
-        "UPDATE roles SET permissions_json = ?, protected = 1 WHERE name = ?",
+        "UPDATE roles SET permissions_data_id = ?, protected = 1 WHERE name = ?",
         (full_permissions, SUPER_ROLE),
     )
     for name, description, permissions in role_rows:
         db.execute(
             """
-            INSERT OR IGNORE INTO roles (name, description, permissions_json, protected, created_at)
+            INSERT OR IGNORE INTO roles (name, description, permissions_data_id, protected, created_at)
             VALUES (?, ?, ?, 0, ?)
             """,
-            (name, description, json.dumps(permissions), now),
+            (name, description, save_value(db, permissions), now),
         )
-    auditor = db.execute("SELECT permissions_json FROM roles WHERE name = 'Auditor'").fetchone()
+    auditor = db.execute("SELECT permissions_data_id FROM roles WHERE name = 'Auditor'").fetchone()
     for role_name, capabilities in {
         "Super": ["auditor", "verifier", "acknowledger"],
         "Admin": ["auditor", "verifier", "acknowledger"],
@@ -204,11 +204,11 @@ def seed_roles(db):
         "Department/PIC": ["acknowledger"],
         "Management": ["verifier", "acknowledger"],
     }.items():
-        db.execute("UPDATE roles SET inspection_permissions = ? WHERE name = ? AND inspection_permissions IS NULL", (json.dumps(capabilities), role_name))
+        db.execute("UPDATE roles SET inspection_permissions_data_id = ? WHERE name = ? AND inspection_permissions_data_id IS NULL", (save_value(db, capabilities), role_name))
     # Upgrade only the original defaults, preserving administrator-customized roles.
-    if auditor and set(json.loads(auditor["permissions_json"])) == {"today", "inspections", "equipment", "reports"}:
-        db.execute("UPDATE roles SET permissions_json = ? WHERE name = 'Auditor'",
-                   (json.dumps(["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
+    if auditor and set(load_value(auditor["permissions_data_id"])) == {"today", "inspections", "equipment", "reports"}:
+        db.execute("UPDATE roles SET permissions_data_id = ? WHERE name = 'Auditor'",
+                   (save_value(db, ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
 
 
 def seed_priority_levels(db):
@@ -242,25 +242,12 @@ def seed_settings(db):
         **{f"system.{key}": value for key, value in DEFAULT_SYSTEM_SETTINGS.items()},
     }
     for key, value in settings.items():
-        db.execute(
-            "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
-            (key, json.dumps(value)),
-        )
-    db.execute(
-        "UPDATE app_settings SET value = ? WHERE key = 'report.companyName' AND value = ?",
-        (json.dumps(DEFAULT_REPORT_SETTINGS["companyName"]), json.dumps("Audit App")),
-    )
-    db.execute(
-        "UPDATE app_settings SET value = ? WHERE key = 'report.logoText' AND value = ?",
-        (json.dumps(DEFAULT_REPORT_SETTINGS["logoText"]), json.dumps("AUDIT")),
-    )
+        if not db.execute("SELECT 1 FROM app_settings WHERE key = ?", (key,)).fetchone():
+            db.execute("INSERT INTO app_settings(key, value_data_id) VALUES (?, ?)", (key, save_value(db, value)))
     for key, previous in {
-        "appTitle": "Audit App",
-        "appSubtitle": "Facilities audit workspace",
-        "businessUnitLabel": "Facilities",
-        "loginTitle": "Audit App",
+        "companyName": "Audit App", "logoText": "AUDIT", "appTitle": "Audit App",
+        "appSubtitle": "Facilities audit workspace", "businessUnitLabel": "Facilities", "loginTitle": "Audit App",
     }.items():
-        db.execute(
-            "UPDATE app_settings SET value = ? WHERE key = ? AND value = ?",
-            (json.dumps(DEFAULT_REPORT_SETTINGS[key]), f"report.{key}", json.dumps(previous)),
-        )
+        row = db.execute("SELECT value_data_id FROM app_settings WHERE key = ?", (f"report.{key}",)).fetchone()
+        if row and load_value(row[0]) == previous:
+            db.execute("UPDATE app_settings SET value_data_id = ? WHERE key = ?", (save_value(db, DEFAULT_REPORT_SETTINGS[key]), f"report.{key}"))

@@ -1,6 +1,9 @@
 """Migrations for the audit application."""
-import json
+from relational_values import load_value, save_value, migrate_columns, install_reference_cleanup
 import time
+import config
+from media_store import MediaStore
+from storage_migration import backup_legacy_database
 from datetime import datetime
 from common import audit_ref, hash_password, inspection_progress, location_qr_code, today_date
 from config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
@@ -15,8 +18,12 @@ def ensure_column(db, table, column, definition):
 
 
 def init_db():
+    backup_legacy_database(config.DB_PATH)
+    MediaStore(config.DB_PATH).migrate_directory(config.DATA_DIR / "media")
     with connect() as db:
         db.execute("PRAGMA journal_mode=WAL")
+        db.execute("BEGIN IMMEDIATE")
+        migrate_columns(db)
         db.executescript(
             """
             CREATE TABLE IF NOT EXISTS audits (
@@ -71,11 +78,11 @@ def init_db():
                 zone TEXT NOT NULL,
                 audit_date TEXT NOT NULL,
                 auditor TEXT NOT NULL,
-                items_json TEXT NOT NULL,
+                items_data_id INTEGER REFERENCES value_sets(id),
                 progress INTEGER NOT NULL,
                 status TEXT NOT NULL,
                 audit_id INTEGER,
-                signatures_json TEXT,
+                signatures_data_id INTEGER REFERENCES value_sets(id),
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             );
@@ -97,7 +104,7 @@ def init_db():
                 action_taken TEXT,
                 completion_date TEXT,
                 completion_remark TEXT,
-                completion_photo TEXT,
+                completion_photo_data_id INTEGER REFERENCES value_sets(id),
                 verified_by TEXT,
                 verified_at TEXT,
                 verification_remark TEXT,
@@ -125,7 +132,7 @@ def init_db():
                 status TEXT NOT NULL,
                 corrective_action TEXT,
                 completion_date TEXT,
-                completion_photo TEXT,
+                completion_photo_data_id INTEGER REFERENCES value_sets(id),
                 completion_remark TEXT,
                 verified_by TEXT,
                 verified_at TEXT,
@@ -163,12 +170,12 @@ def init_db():
                 warranty_date TEXT,
                 calibration_date TEXT,
                 expiry_date TEXT,
-                photos TEXT,
+                photos_data_id INTEGER REFERENCES value_sets(id),
                 inverter_model TEXT,
                 motor_capacity TEXT,
                 source_file TEXT,
                 source_sheet TEXT,
-                inspection_criteria TEXT,
+                inspection_criteria_data_id INTEGER REFERENCES value_sets(id),
                 created_at INTEGER NOT NULL
             );
 
@@ -214,7 +221,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 outlet_code TEXT NOT NULL,
                 name TEXT NOT NULL,
-                locations_json TEXT NOT NULL,
+                locations_data_id INTEGER REFERENCES value_sets(id),
                 description TEXT,
                 created_at INTEGER NOT NULL,
                 UNIQUE(outlet_code, name)
@@ -240,7 +247,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 description TEXT,
-                permissions_json TEXT NOT NULL,
+                permissions_data_id INTEGER REFERENCES value_sets(id),
                 protected INTEGER NOT NULL DEFAULT 0,
                 created_at INTEGER NOT NULL
             );
@@ -264,7 +271,7 @@ def init_db():
 
             CREATE TABLE IF NOT EXISTS app_settings (
                 key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
+                value_data_id INTEGER REFERENCES value_sets(id)
             );
 
             CREATE TABLE IF NOT EXISTS comments (
@@ -299,16 +306,17 @@ def init_db():
             );
             """
         )
+        migrate_columns(db)
         ensure_column(db, "audits", "audit_ref", "TEXT")
-        ensure_column(db, "audits", "scoring_json", "TEXT")
+        ensure_column(db, "audits", "scoring_data_id", "INTEGER REFERENCES value_sets(id)")
         for table in ("audits", "inspection_sessions"):
             for column in ("audit_time", "remarks"):
                 ensure_column(db, table, column, "TEXT")
         ensure_column(db, "inspection_sessions", "audit_type", "TEXT")
-        ensure_column(db, "findings", "images_json", "TEXT")
+        ensure_column(db, "findings", "images_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "findings", "due_date", "TEXT")
         ensure_column(db, "findings", "priority_classification", "TEXT")
-        for column in ("cause", "recommendation", "required_action", "images_json"):
+        for column in ("cause", "recommendation", "required_action", "images_data_id"):
             ensure_column(db, "work_orders", column, "TEXT")
         ensure_column(db, "inspection_items", "finding_id", "INTEGER")
         ensure_column(db, "work_orders", "work_order_ref", "TEXT")
@@ -318,18 +326,18 @@ def init_db():
         ensure_column(db, "work_orders", "action_taken", "TEXT")
         ensure_column(db, "work_orders", "completion_date", "TEXT")
         ensure_column(db, "work_orders", "completion_remark", "TEXT")
-        ensure_column(db, "work_orders", "completion_photo", "TEXT")
+        ensure_column(db, "work_orders", "completion_photo_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "work_orders", "verified_by", "TEXT")
         ensure_column(db, "work_orders", "verified_at", "TEXT")
         ensure_column(db, "work_orders", "verification_remark", "TEXT")
         ensure_column(db, "work_orders", "closed_at", "TEXT")
-        ensure_column(db, "findings", "completion_photo", "TEXT")
+        ensure_column(db, "findings", "completion_photo_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "findings", "verified_by", "TEXT")
         ensure_column(db, "findings", "verified_at", "TEXT")
         ensure_column(db, "findings", "verification_remark", "TEXT")
         ensure_column(db, "findings", "closed_at", "TEXT")
         ensure_column(db, "inspection_sessions", "inspection_name", "TEXT")
-        ensure_column(db, "inspection_sessions", "signatures_json", "TEXT")
+        ensure_column(db, "inspection_sessions", "signatures_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "users", "department", "TEXT")
         ensure_column(db, "users", "password_hash", "TEXT")
         ensure_column(db, "users", "active", "INTEGER NOT NULL DEFAULT 1")
@@ -337,7 +345,7 @@ def init_db():
         ensure_column(db, "users", "last_login_at", "TEXT")
         ensure_column(db, "users", "login_count", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(db, "roles", "description", "TEXT")
-        ensure_column(db, "roles", "permissions_json", "TEXT")
+        ensure_column(db, "roles", "permissions_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "roles", "protected", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(db, "locations", "floor", "TEXT")
         ensure_column(db, "locations", "area", "TEXT")
@@ -365,12 +373,12 @@ def init_db():
         ensure_column(db, "equipment", "warranty_date", "TEXT")
         ensure_column(db, "equipment", "calibration_date", "TEXT")
         ensure_column(db, "equipment", "expiry_date", "TEXT")
-        ensure_column(db, "equipment", "photos", "TEXT")
+        ensure_column(db, "equipment", "photos_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "equipment", "inverter_model", "TEXT")
         ensure_column(db, "equipment", "motor_capacity", "TEXT")
         ensure_column(db, "equipment", "source_file", "TEXT")
         ensure_column(db, "equipment", "source_sheet", "TEXT")
-        ensure_column(db, "equipment", "inspection_criteria", "TEXT")
+        ensure_column(db, "equipment", "inspection_criteria_data_id", "INTEGER REFERENCES value_sets(id)")
         db.execute(
             "UPDATE inspection_sessions SET audit_date = ? WHERE audit_date IS NULL OR audit_date = '' OR audit_date = 'Today'",
             (today_date(),),
@@ -385,14 +393,14 @@ def init_db():
             db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (f"F-{year}-{int(row['id']):05d}", row["id"]))
         db.execute("UPDATE inspection_sessions SET inspection_name = outlet || '_' || audit_date || '_' || id WHERE inspection_name IS NULL OR inspection_name = ''")
         db.execute("UPDATE inspection_sessions SET inspection_name = outlet || '_' || audit_date || '_' || id WHERE inspection_name LIKE '%_Today_%'")
-        for row in db.execute("SELECT id, items_json FROM inspection_sessions").fetchall():
+        for row in db.execute("SELECT id, items_data_id FROM inspection_sessions").fetchall():
             db.execute(
                 "UPDATE inspection_sessions SET progress = ? WHERE id = ?",
-                (inspection_progress(json.loads(row["items_json"] or "[]")), row["id"]),
+                (inspection_progress(load_value(row["items_data_id"] or "[]")), row["id"]),
             )
         db.execute(
-            "UPDATE equipment SET inspection_criteria = ? WHERE inspection_criteria IS NULL OR inspection_criteria = ''",
-            (json.dumps(DEFAULT_INSPECTION_CRITERIA),),
+            "UPDATE equipment SET inspection_criteria_data_id = ? WHERE inspection_criteria_data_id IS NULL OR inspection_criteria_data_id = ''",
+            (save_value(db, DEFAULT_INSPECTION_CRITERIA),),
         )
         for row in db.execute("SELECT id, outlet_code, name FROM locations WHERE qr_code IS NULL OR qr_code = ''").fetchall():
             db.execute("UPDATE locations SET qr_code = ? WHERE id = ?", (location_qr_code(row["outlet_code"], row["name"]), row["id"]))
@@ -427,10 +435,10 @@ def init_db():
         ):
             db.execute(statement)
         ensure_column(db, "comments", "system_generated", "INTEGER NOT NULL DEFAULT 0")
-        ensure_column(db, "users", "profile_photo", "TEXT NOT NULL DEFAULT '{}'")
-        ensure_column(db, "users", "permission_overrides", "TEXT")
-        ensure_column(db, "roles", "inspection_permissions", "TEXT")
-        ensure_column(db, "users", "signature_image", "TEXT NOT NULL DEFAULT '{}'")
+        ensure_column(db, "users", "profile_photo_data_id", "INTEGER REFERENCES value_sets(id)")
+        ensure_column(db, "users", "permission_overrides_data_id", "INTEGER REFERENCES value_sets(id)")
+        ensure_column(db, "roles", "inspection_permissions_data_id", "INTEGER REFERENCES value_sets(id)")
+        ensure_column(db, "users", "signature_image_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "inspection_sessions", "owner_user_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "schedule_id", "INTEGER")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")
@@ -462,3 +470,5 @@ def init_db():
             "UPDATE users SET password_hash = ? WHERE password_hash IS NULL OR password_hash = ''",
             (hash_password(DEFAULT_PASSWORD),),
         )
+
+        install_reference_cleanup(db)

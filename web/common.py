@@ -1,4 +1,5 @@
 """Common for the audit application."""
+from relational_values import load_value
 import json
 import re
 import time
@@ -79,13 +80,13 @@ def workflow_dates(payload):
 
 
 def read_setting(db, key, fallback=None):
-    row = db.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    row = db.execute("SELECT value_data_id FROM app_settings WHERE key = ?", (key,)).fetchone()
     if not row:
         return fallback
     try:
-        return json.loads(row["value"])
+        return load_value(row["value_data_id"])
     except json.JSONDecodeError:
-        return row["value"]
+        return row["value_data_id"]
 
 
 def calculate_due_date(created_at, due_days):
@@ -138,18 +139,10 @@ def parse_image_list(value):
     if isinstance(value, list):
         return value
     try:
-        images = json.loads(value)
+        images = load_value(value)
         return images if isinstance(images, list) else [images]
     except (TypeError, json.JSONDecodeError):
         return [value]
-
-
-def json_text(value, fallback=None):
-    if value is None:
-        return json.dumps(fallback if fallback is not None else [])
-    if isinstance(value, str):
-        return value
-    return json.dumps(value)
 
 
 def rating(score):

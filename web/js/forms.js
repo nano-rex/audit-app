@@ -706,3 +706,21 @@ wireForm("captain-form", "/api/captain-logins", (form) => ({
   outlet: formValue(form, "outlet", ""),
   captainName: formValue(form, "captainName", "Unnamed Captain"),
 }));
+
+
+document.querySelector("[data-report-logo-upload]")?.addEventListener("change", async (event) => {
+  const form = document.getElementById("system-settings-form");
+  const save = form.querySelector('button[type="submit"]');
+  save.disabled = true;
+  try {
+    const [image] = await readFilesAsStoredImages(event.target.files);
+    if (image) form.elements.logoUrl.value = image.url;
+    setText("[data-report-logo-message]", "Logo uploaded. Save Settings to apply it.");
+  } catch (error) {
+    setText("[data-report-logo-message]", error.message);
+  } finally { save.disabled = false; }
+});
+document.querySelector("[data-remove-report-logo]")?.addEventListener("click", () => {
+  document.getElementById("system-settings-form").elements.logoUrl.value = "";
+  setText("[data-report-logo-message]", "Logo removed. Save Settings to apply it.");
+});

@@ -59,5 +59,14 @@ The Android version uses local SQLite through `ottotree_audit.db`.
 
 The web version uses a local Python API backed by SQLite at `web/data/ottotree_audit_web.db`.
 
-Evidence and signatures are stored privately in `web/data/media/`. Back up this directory together
-with the SQLite database. Set `AUDIT_DATA_DIR` to use another data directory.
+All persistent web records and image bytes are stored in `web/data/ottotree_audit_web.db`.
+Images use SQLite BLOBs; checklist answers, permissions, settings, and image metadata use typed
+relational rows linked to their owning records. JSON is used for HTTP messages and exports, not
+as database document columns. Set `AUDIT_DATA_DIR` to use another data directory.
+
+On the first startup of an older database, a SQLite backup is created in `web/data/backups/`,
+legacy media files are copied into BLOBs, and JSON columns are migrated and removed. Stop the
+old server before starting the new release. Old media files are retained for rollback but are
+no longer read by the app. Use SQLite’s backup API for live WAL databases; a complete SQLite
+backup includes all images. Rolling back code requires restoring the matching pre-migration
+database and legacy media files.

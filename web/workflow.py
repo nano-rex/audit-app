@@ -1,5 +1,6 @@
 """Server-side work-order transitions, validation, and verification identity."""
 import json
+from relational_values import load_value
 from datetime import date
 
 from common import today_date
@@ -26,7 +27,7 @@ FIELDS = {
     "requestType": "request_type", "category": "category", "priority": "priority",
     "title": "title", "description": "description", "assignee": "assignee", "pic": "pic",
     "status": "status", "actionTaken": "action_taken", "completionDate": "completion_date",
-    "completionRemark": "completion_remark", "completionPhoto": "completion_photo",
+    "completionRemark": "completion_remark", "completionPhoto": "completion_photo_data_id",
     "verifiedBy": "verified_by", "verifiedAt": "verified_at", "verificationRemark": "verification_remark",
     "closedAt": "closed_at", "dueDate": "due_date", "vendor": "vendor", "cost": "cost",
 }
@@ -51,6 +52,8 @@ def assigned_to(user, record):
 def validate_update(payload, existing, user):
     existing = dict(existing) if existing else None
     merged = {key: existing[column] for key, column in FIELDS.items()} if existing else {}
+    if existing:
+        merged["completionPhoto"] = load_value(existing["completion_photo_data_id"]) or []
     merged.update(payload)
     status = merged.get("status", "Assigned")
     if status not in TRANSITIONS:

@@ -15,6 +15,7 @@ import unittest
 SPEC = importlib.util.spec_from_file_location("audit_server", Path(__file__).resolve().parents[1] / "web/server.py")
 app = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(app)
+from relational_values import save_value, load_value
 
 
 class QuietHandler(app.Handler):
@@ -239,7 +240,7 @@ class ServerTests(unittest.TestCase):
             findings = db.execute("SELECT * FROM findings WHERE audit_id = ?", (session["audit_id"],)).fetchall()
             self.assertEqual(len(findings), 1)
             self.assertEqual((findings[0]["pic"], findings[0]["cause"]), ("Tester", "Loose screw"))
-            self.assertEqual(json.loads(findings[0]["images_json"])[0]["url"], image["url"])
+            self.assertEqual(load_value(findings[0]["images_data_id"])[0]["url"], image["url"])
             orders = db.execute("SELECT * FROM work_orders WHERE source_finding_id = ?", (findings[0]["id"],)).fetchall()
             self.assertEqual(len(orders), 1)
 
@@ -298,8 +299,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(sum(row["count"] for row in empty), 0)
         with app.connect() as db:
             for score, snapshot, status in ((95, {"rating": "Good"}, "Completed"), (80, {}, "Completed"), (65, {}, "Completed"), (40, {}, "Completed"), (100, {}, "Draft")):
-                cursor = db.execute("INSERT INTO audits(business_unit,outlet,branch,audit_date,auditor,audit_type,score,created_at,scoring_json) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test','Standard',?,0,?)", (score, json.dumps(snapshot)))
-                db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,items_json,progress,status,audit_id,created_at,updated_at) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test','[]',100,?,?,0,0)", (status, cursor.lastrowid))
+                cursor = db.execute("INSERT INTO audits(business_unit,outlet,branch,audit_date,auditor,audit_type,score,created_at,scoring_data_id) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test','Standard',?,0,?)", (score, save_value(db, snapshot)))
+                db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,items_data_id,progress,status,audit_id,created_at,updated_at) VALUES ('Mini Studio','MST','Test','2026-01-01','Distribution test',?,100,?,?,0,0)", (save_value(db, []), status, cursor.lastrowid))
         data = app.report("Mini Studio")
         counts = {row["label"]: row["count"] for row in data["charts"]["performanceDistribution"]}
         self.assertEqual(counts, {"Excellent": 0, "Good": 2, "Below Expectation": 1, "Critical": 1})

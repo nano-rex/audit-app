@@ -4,6 +4,7 @@ import unittest
 
 from test_server import app
 from database import insert_record
+from relational_values import save_value
 import config
 
 
@@ -36,12 +37,12 @@ class DashboardTests(unittest.TestCase):
                 audit_id = insert_record(db, "audits", common | {"branch": "Area", "audit_date": date, "audit_type": "Routine", "score": score})
                 audit_ids.append(audit_id)
                 if completed:
-                    insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": date, "items_json": "[]", "progress": 100, "status": "Completed", "audit_id": audit_id, "updated_at": 0})
+                    insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": date, "items_data_id": save_value(db, []), "progress": 100, "status": "Completed", "audit_id": audit_id, "updated_at": 0})
             for linked in (True, False):
                 schedule_id = insert_record(db, "schedules", common | {"zone": "Area", "scheduled_date": "2026-03-01", "status": "Pending"})
                 if linked:
-                    insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": "2026-03-01", "items_json": "[]", "progress": 0, "status": "Draft", "schedule_id": schedule_id, "updated_at": 0})
-            insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": "2026-03-01", "items_json": "[]", "progress": 0, "status": "Draft", "updated_at": 0})
+                    insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": "2026-03-01", "items_data_id": save_value(db, []), "progress": 0, "status": "Draft", "schedule_id": schedule_id, "updated_at": 0})
+            insert_record(db, "inspection_sessions", common | {"zone": "Area", "audit_date": "2026-03-01", "items_data_id": save_value(db, []), "progress": 0, "status": "Draft", "updated_at": 0})
             insert_record(db, "priority_levels", {"name": "Urgent Custom", "classification": "Priority", "due_days": 1, "active": 1, "created_at": 0})
             for index, (priority, classification, status) in enumerate((("Urgent Custom", None, "Assigned"), ("Urgent Custom", "Non-Priority", "Completed"), ("High", "Priority", "In Progress"))):
                 insert_record(db, "findings", {"audit_id": audit_ids[0], "business_unit": "Mini Studio", "outlet": "A", "location": "Area", "category": "Safety", "assigned_department": "TECH", "priority": priority, "priority_classification": classification, "status": status, "created_at": index, "updated_at": 0})
@@ -49,7 +50,7 @@ class DashboardTests(unittest.TestCase):
                 insert_record(db, "work_orders", {"business_unit": "Mini Studio", "outlet": "A", "zone": "Area", "request_type": "TECH", "priority": "High", "title": "Fix", "assignee": "Tester", "status": status, "created_at": 0})
             # Other business-unit records must not affect any metric or grouping.
             insert_record(db, "findings", {"audit_id": audit_ids[0], "business_unit": "Loudspeaker", "outlet": "Other", "location": "Other", "priority": "High", "status": "Assigned", "created_at": 0, "updated_at": 0})
-            insert_record(db, "inspection_sessions", common | {"business_unit": "Loudspeaker", "zone": "Area", "audit_date": "2026-03-01", "items_json": "[]", "progress": 0, "status": "Draft", "updated_at": 0})
+            insert_record(db, "inspection_sessions", common | {"business_unit": "Loudspeaker", "zone": "Area", "audit_date": "2026-03-01", "items_data_id": save_value(db, []), "progress": 0, "status": "Draft", "updated_at": 0})
         data = app.dashboard("Mini Studio")
         expected = {"total": 5, "auditsCompleted": 2, "auditsPending": 3, "priorityIssues": 2, "nonPriorityIssues": 1, "outstandingFindings": 2, "completedCorrectiveActions": 3, "overallAuditScore": 60}
         for key, value in expected.items():

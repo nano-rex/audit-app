@@ -409,12 +409,12 @@ Status legend:
 
 - [~] Android mobile app
 - [~] Web admin portal
-- [~] SQLite database
-- [~] User accounts storage
-- [~] Audit records storage
-- [~] Photo file storage
-- [~] Marked photo storage
-- [~] Findings/work orders storage
+- [x] SQLite database
+- [x] User accounts storage
+- [x] Audit records storage
+- [x] Photo file storage
+- [x] Marked photo storage
+- [x] Findings/work orders storage
 - [~] Comments as separate timeline
 - [~] Corrective action/work order records
 - [~] Audit scores

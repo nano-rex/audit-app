@@ -1,5 +1,5 @@
 """Notifications addressed to inspection participants using effective permissions."""
-import json
+from relational_values import load_value
 import time
 
 from config import SUPER_ROLE
@@ -11,17 +11,17 @@ def notify_inspection(db, session_id, actor, payload, previous=None, changed=Fal
     now = int(time.time() * 1000)
     recipients = set()
     if changed and session["progress"] > 0:
-        roles = {row["name"]: set(json.loads(row["inspection_permissions"] or "[]")) for row in db.execute("SELECT name, inspection_permissions FROM roles")}
-        for user in db.execute("SELECT id, role, permission_overrides FROM users WHERE active = 1"):
+        roles = {row["name"]: set(load_value(row["inspection_permissions_data_id"] or "[]")) for row in db.execute("SELECT name, inspection_permissions_data_id FROM roles")}
+        for user in db.execute("SELECT id, role, permission_overrides_data_id FROM users WHERE active = 1"):
             if user["id"] == actor["id"]:
                 continue
-            overrides = json.loads(user["permission_overrides"]) if user["permission_overrides"] is not None else None
+            overrides = load_value(user["permission_overrides_data_id"]) if user["permission_overrides_data_id"] is not None else None
             caps = set(INSPECTION_PERMISSIONS) if user["role"] == SUPER_ROLE else set(overrides.get("inspectionPermissions", [])) if overrides is not None else roles.get(user["role"], set())
             if caps.intersection({"verifier", "acknowledger"}):
                 recipients.add(user["id"])
         db.executemany("INSERT INTO notifications(title,message,channel,status,related_type,related_id,created_at,recipient_user_id) VALUES (?,?,'In-App','Unread','inspection',?,?,?)",
                        [("Audit progress updated", f"{actor['name']} saved {session['inspection_name']}: {session['progress']}% complete.", session_id, now, recipient) for recipient in recipients])
-    prior = json.loads(previous["signatures_json"] or "{}") if previous else {}
+    prior = load_value(previous["signatures_data_id"] or "{}") if previous else {}
     verified = (payload.get("signatures") or {}).get("verifiedBy")
     owner_id = session["owner_user_id"]
     if not owner_id and session["auditor"]:

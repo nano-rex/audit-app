@@ -17,7 +17,9 @@ reviewability and testing; it does not by itself increase request throughput.
 | `web/workflow.py` | Work-order state transitions, completion evidence, verification identity |
 | `web/inspection_notifications.py` | Notifications addressed to effective verifier/acknowledger permissions and audit creators |
 | `web/inspections.py`, `web/scoring.py` | Audit finalization, linked findings, score snapshots |
-| `web/media_store.py` | Image validation and private content-addressed storage |
+| `web/media_store.py` | Image validation and content-addressed SQLite BLOBs |
+| `web/relational_values.py` | Typed relational child rows for structured attributes; no JSON columns |
+| `web/storage_migration.py` | Verified SQLite backup before destructive schema conversion |
 | `web/reports.py`, `web/pdf_report.py` | Report data, exports, paginated PDF rendering |
 | `web/response_cache.py` | Bounded response cache and pre-encoded JSON |
 | `web/common.py` | Shared date, identifier, password, and workflow helpers |
@@ -62,6 +64,13 @@ sizes and has the same limits as the earlier benchmark.
 
 ## Rollback
 
-Revert the code commit and reinstall the previous dependency set if necessary. Additive database
-columns can remain. Restore database and media together from a matching backup when rolling back
-data: older code does not understand the new private image references.
+The SQLite-only storage migration removes legacy JSON columns. Stop the old server before
+upgrading. Startup first creates a verified SQLite backup under the data directory's `backups/`
+folder, imports legacy media files, then converts nested data to `value_sets` / `value_nodes`.
+Each attribute has its own typed SQL row; domain tables hold integer foreign keys. Image
+references store BLOB identifiers, and `/api/media/...` streams database bytes without redirects.
+Cleanup triggers remove replaced value sets after their last domain reference disappears.
+
+For rollback, restore the matching pre-migration database and retained media folder together
+with the previous code. Do not run older code against the converted schema. New backups need
+only SQLite's backup API, which includes all images and structured records.

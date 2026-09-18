@@ -1,5 +1,5 @@
 """Reports for the audit application."""
-import json
+from relational_values import load_value, hydrate
 from io import StringIO
 import csv
 import html
@@ -22,10 +22,10 @@ def dashboard(unit):
     finding_where, finding_params = scope(unit, "findings")
     session_where, session_params = scope(unit, "inspection_sessions")
     with connect() as db:
-        settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings WHERE key LIKE 'scoring.%'")}
+        settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings WHERE key LIKE 'scoring.%'")}
         distribution = dict.fromkeys(("Excellent", "Good", "Below Expectation", "Critical"), 0)
-        for audit in db.execute(f"SELECT score, scoring_json FROM audits WHERE {audit_where}", audit_params):
-            snapshot = json.loads(audit["scoring_json"] or "{}")
+        for audit in db.execute(f"SELECT score, scoring_data_id FROM audits WHERE {audit_where}", audit_params):
+            snapshot = load_value(audit["scoring_data_id"] or "{}")
             band = snapshot.get("rating") or rating_for_score(audit["score"], settings)
             if band not in distribution:
                 band = rating_for_score(audit["score"], settings)
@@ -96,7 +96,7 @@ def dashboard(unit):
             f"""
             SELECT id, work_order_ref, outlet, zone, request_type, category, priority, title,
                    description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo, verified_by, verified_at,
+                   completion_remark, completion_photo_data_id, verified_by, verified_at,
                    verification_remark, closed_at, due_date, vendor, sla_status, cost,
                    outlet_confirmed, created_at
             FROM work_orders
@@ -114,8 +114,8 @@ def dashboard(unit):
                    last_checked, replacement_flag, notes, name, description, type,
                    operational_status, code, model, serial_number, brand, location,
                    installation_date, temporary_relocation, warranty_date, calibration_date,
-                   expiry_date, photos, inverter_model, motor_capacity, source_file,
-                   source_sheet, inspection_criteria
+                   expiry_date, photos_data_id, inverter_model, motor_capacity, source_file,
+                   source_sheet, inspection_criteria_data_id
             FROM equipment
             WHERE {equipment_where}
             ORDER BY
@@ -214,8 +214,8 @@ def dashboard(unit):
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
         },
-        "workOrders": [dict(row) for row in work_orders],
-        "equipment": [dict(row) for row in equipment_rows],
+        "workOrders": [hydrate(row) for row in work_orders],
+        "equipment": [hydrate(row) for row in equipment_rows],
         "charts": {
             "auditScores": [{"label": row["outlet"], "score": row["average"]} for row in outlets],
             "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],
@@ -243,7 +243,7 @@ def report(unit):
     data = dashboard(unit)
     where, params = scope(unit, "work_orders")
     with connect() as db:
-        critical_orders = [dict(row) for row in db.execute(
+        critical_orders = [hydrate(row) for row in db.execute(
             f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
             "AND status NOT IN ('Completed', 'Verified', 'Closed') ORDER BY created_at DESC, id DESC", params
         ).fetchall()]
@@ -320,6 +320,6 @@ def report_xls(unit):
 def inspection_pdf(session):
     from pdf_report import build_report
     with connect() as db:
-        settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings")}
+        settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
     summary = session.get("scoring") or summarize_score(session.get("items", []), settings)
-    return build_report(session, branding_settings(), summary, MediaStore(config.DATA_DIR / "media"))
+    return build_report(session, branding_settings(), summary, MediaStore(config.DB_PATH))

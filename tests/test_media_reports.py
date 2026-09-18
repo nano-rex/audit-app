@@ -24,20 +24,22 @@ def photo_data_url():
 class EvidenceReportTests(unittest.TestCase):
     def test_storage_validates_and_preserves_original_and_marked_images(self):
         with tempfile.TemporaryDirectory() as directory:
-            media = MediaStore(directory)
+            media = MediaStore(Path(directory) / "audit.db")
             raw = photo_data_url()
             result = media.normalize({"dataUrl": raw, "markedDataUrl": raw, "name": "photo.png", "marks": [1]})
             self.assertNotIn("dataUrl", result)
             self.assertNotIn("markedDataUrl", result)
             self.assertEqual(result["marks"], [1])
             self.assertEqual(media.image_bytes(result), media.image_bytes(result, True))
-            self.assertEqual(len(list(Path(directory).iterdir())), 1)
+            with media.connect() as db:
+                self.assertEqual(db.execute("SELECT COUNT(*) FROM media_images").fetchone()[0], 1)
+                self.assertEqual(db.execute("SELECT typeof(content) FROM media_images").fetchone()[0], "blob")
             self.assertEqual(media.normalize(result), result)
             for value in ("data:image/png;base64,AAAA", "https://example.com/photo.png"):
                 with self.assertRaises(ValueError):
                     media.store(value)
             with self.assertRaises(ValueError):
-                media.path("../../secret")
+                media.read("../../secret")
 
     def test_score_excludes_na_and_applies_category_weights(self):
         items = [{"category": "Safety", "passed": True}, {"category": "Other", "passed": False},
@@ -50,7 +52,7 @@ class EvidenceReportTests(unittest.TestCase):
 
     def test_pdf_contains_final_checklist_row_images_and_signatures(self):
         with tempfile.TemporaryDirectory() as directory:
-            media = MediaStore(directory)
+            media = MediaStore(Path(directory) / "audit.db")
             image = media.normalize({"dataUrl": photo_data_url(), "name": "Auditor"})
             items = [{"section": "Safety", "item": f"Checklist row {i}", "passed": True} for i in range(100)]
             items[0]["images"] = [image]

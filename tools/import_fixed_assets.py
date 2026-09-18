@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import importlib.util
-import json
 import re
 import sqlite3
-import sys
 import time
 from pathlib import Path
 
@@ -110,14 +108,16 @@ def ensure_schema(db_path):
     spec = importlib.util.spec_from_file_location("audit_server", server_path)
     server = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(server)
-    server.DB_PATH = Path(db_path)
-    server.DATA_DIR = Path(db_path).parent
+    server.configure_data_directory(Path(db_path).parent)
+    import config
+    config.DB_PATH = Path(db_path)
     server.init_db()
 
 
 def connect(db_path):
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    from database import DatabaseConnection
+    conn = sqlite3.connect(db_path, factory=DatabaseConnection)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -139,13 +139,14 @@ def sync_default_zone(db, outlet, now):
         "SELECT id FROM zones WHERE outlet_code = ? AND lower(name) = 'zone-1'",
         (outlet,),
     ).fetchone()
-    locations_json = json.dumps(locations)
+    from relational_values import save_value
+    locations_json = save_value(db, locations)
     if existing:
-        db.execute("UPDATE zones SET locations_json = ? WHERE id = ?", (locations_json, existing["id"]))
+        db.execute("UPDATE zones SET locations_data_id = ? WHERE id = ?", (locations_json, existing["id"]))
     else:
         db.execute(
             """
-            INSERT INTO zones (outlet_code, name, locations_json, description, created_at)
+            INSERT INTO zones (outlet_code, name, locations_data_id, description, created_at)
             VALUES (?, 'Zone-1', ?, 'Default zone containing all locations', ?)
             """,
             (outlet, locations_json, now),
@@ -189,11 +190,24 @@ def fixed_asset_files(source):
     raise SystemExit(f"Fixed asset source does not exist: {source}")
 
 
+def import_photos(media, workbook, value):
+    if not value:
+        return []
+    photo = (workbook.parent / value).resolve()
+    if not photo.is_file():
+        raise ValueError(f"Photo file must exist beside the workbook: {value}")
+    identifier, mime = media.put(photo.read_bytes())
+    return [{"id": identifier, "url": "/api/media/" + identifier, "name": photo.name, "type": mime}]
+
+
 def import_assets(folder, db_path, limit=0):
     files = fixed_asset_files(folder)
     if not files:
         raise SystemExit(f"No .xlsx files found in {folder}")
     ensure_schema(db_path)
+    from relational_values import save_value
+    from media_store import MediaStore
+    media = MediaStore(db_path)
     count = 0
     created = 0
     updated = 0
@@ -217,8 +231,8 @@ def import_assets(folder, db_path, limit=0):
                      health_status, last_checked, replacement_flag, notes, name, description,
                      type, operational_status, code, model, serial_number, brand, location,
                      installation_date, temporary_relocation, warranty_date, calibration_date,
-                     expiry_date, photos, inverter_model, motor_capacity, source_file, source_sheet,
-                     inspection_criteria, created_at)
+                     expiry_date, photos_data_id, inverter_model, motor_capacity, source_file, source_sheet,
+                     inspection_criteria_data_id, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now') * 1000)
                     ON CONFLICT(code) DO UPDATE SET
                         asset_id = excluded.code,
@@ -243,7 +257,7 @@ def import_assets(folder, db_path, limit=0):
                         warranty_date = excluded.warranty_date,
                         calibration_date = excluded.calibration_date,
                         expiry_date = excluded.expiry_date,
-                        photos = excluded.photos,
+                        photos_data_id = excluded.photos_data_id,
                         inverter_model = excluded.inverter_model,
                         motor_capacity = excluded.motor_capacity,
                         source_file = excluded.source_file,
@@ -274,12 +288,12 @@ def import_assets(folder, db_path, limit=0):
                         item.get("warranty_date") or "",
                         item.get("calibration_date") or "",
                         item.get("expiry_date") or "",
-                        json.dumps([item.get("photos")]) if item.get("photos") else json.dumps([]),
+                        save_value(db, import_photos(media, path, item.get("photos"))),
                         item.get("inverter_model") or "",
                         item.get("motor_capacity") or "",
                         item.get("source_file") or "",
                         item.get("source_sheet") or "",
-                        json.dumps(DEFAULT_CRITERIA),
+                        save_value(db, DEFAULT_CRITERIA),
                     ),
                 )
                 count += 1

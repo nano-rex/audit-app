@@ -1,27 +1,37 @@
 """Database for the audit application."""
 import sqlite3
 import config
+from relational_values import ACTIVE_CONNECTION
 from config import EQUIPMENT_CACHE, EQUIPMENT_CACHE_LOCK
 
 
 class DatabaseConnection(sqlite3.Connection):
     """Commit/rollback and release the connection at the end of each operation."""
 
+    def __enter__(self):
+        self._active_token = ACTIVE_CONNECTION.set(self)
+        return super().__enter__()
+
     def __exit__(self, *args):
         try:
             changed = self.total_changes > 0
+            if changed and args[0] is None and self.execute("SELECT 1 FROM sqlite_master WHERE name = 'pending_value_cleanup'").fetchone():
+                from relational_values import collect_pending_values
+                collect_pending_values(self)
             result = super().__exit__(*args)
             if changed:
                 with EQUIPMENT_CACHE_LOCK:
                     EQUIPMENT_CACHE.clear()
             return result
         finally:
+            ACTIVE_CONNECTION.reset(self._active_token)
             self.close()
 
 
 def connect():
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(config.DB_PATH, timeout=15, factory=DatabaseConnection)
+    conn.database_path = config.DB_PATH
     conn.row_factory = sqlite3.Row
     return conn
 

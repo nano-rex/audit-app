@@ -1,7 +1,7 @@
 """Routes assets for the audit application."""
-import json
+from relational_values import save_value
 import time
-from common import json_text
+from relational_values import data_value
 from config import DEFAULT_INSPECTION_CRITERIA
 from database import connect, first_outlet
 
@@ -17,8 +17,8 @@ def post_equipment(self, parsed, payload=None):
              health_status, last_checked, replacement_flag, notes, name, description,
              type, operational_status, code, model, serial_number, brand, location,
              installation_date, temporary_relocation, warranty_date, calibration_date,
-             expiry_date, photos, inverter_model, motor_capacity, source_file, source_sheet,
-             inspection_criteria, created_at)
+             expiry_date, photos_data_id, inverter_model, motor_capacity, source_file, source_sheet,
+             inspection_criteria_data_id, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -46,12 +46,12 @@ def post_equipment(self, parsed, payload=None):
                 payload.get("warrantyDate", ""),
                 payload.get("calibrationDate", ""),
                 payload.get("expiryDate", ""),
-                json_text(payload.get("photos"), []),
+                data_value(db, payload.get("photos"), []),
                 payload.get("inverterModel", ""),
                 payload.get("motorCapacity", ""),
                 payload.get("sourceFile", ""),
                 payload.get("sourceSheet", ""),
-                json.dumps(payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
+                save_value(db, payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
                 now,
             ),
         )
@@ -72,8 +72,8 @@ def patch_equipment(self, parsed, payload=None):
                 notes = ?, name = ?, description = ?, type = ?, operational_status = ?,
                 code = ?, model = ?, serial_number = ?, brand = ?, location = ?,
                 installation_date = ?, temporary_relocation = ?, warranty_date = ?,
-                calibration_date = ?, expiry_date = ?, photos = ?, inverter_model = ?,
-                motor_capacity = ?, source_file = ?, source_sheet = ?, inspection_criteria = ?
+                calibration_date = ?, expiry_date = ?, photos_data_id = ?, inverter_model = ?,
+                motor_capacity = ?, source_file = ?, source_sheet = ?, inspection_criteria_data_id = ?
             WHERE id = ?
             """,
             (
@@ -101,12 +101,12 @@ def patch_equipment(self, parsed, payload=None):
                 payload.get("warrantyDate", ""),
                 payload.get("calibrationDate", ""),
                 payload.get("expiryDate", ""),
-                json_text(payload.get("photos"), []),
+                data_value(db, payload.get("photos"), []),
                 payload.get("inverterModel", ""),
                 payload.get("motorCapacity", ""),
                 payload.get("sourceFile", ""),
                 payload.get("sourceSheet", ""),
-                json.dumps(payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
+                save_value(db, payload.get("inspectionCriteria") or DEFAULT_INSPECTION_CRITERIA),
                 int(item_id),
             ),
         )

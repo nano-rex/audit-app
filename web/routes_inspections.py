@@ -1,7 +1,7 @@
 """Routes inspections for the audit application."""
+from relational_values import load_value, save_value
 from permissions import authorize_inspection_update
 from inspection_notifications import notify_inspection
-import json
 import time
 from common import audit_ref, finding_ref, inspection_name, inspection_progress, normalize_audit_date, work_order_ref
 from database import connect, first_category, first_department, first_outlet, insert_record
@@ -112,7 +112,7 @@ def post_inspections(self, parsed, payload=None):
                     """
                     INSERT INTO work_orders
                     (business_unit, outlet, zone, request_type, category, priority, title, description,
-                     assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo,
+                     assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo_data_id,
                      verified_by, verified_at, verification_remark, closed_at, outlet_confirmed,
                      source_audit_id, source_item_id, source_finding_id, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 'Assigned', '', '', '', ?, '', '', '', '', 0, ?, ?, ?, ?)
@@ -127,7 +127,7 @@ def post_inspections(self, parsed, payload=None):
                         item.get("item", "Inspection issue"),
                         item.get("notes", "") or "Created from low inspection score",
                         "Technical Support",
-                        json.dumps([]),
+                        save_value(db, []),
                         audit_id,
                         cursor.lastrowid,
                         finding_id,
@@ -156,8 +156,8 @@ def post_inspection_sessions(self, parsed, payload=None):
         cursor = db.execute(
             """
             INSERT INTO inspection_sessions
-            (business_unit, outlet, zone, audit_date, auditor, items_json,
-             progress, status, signatures_json, created_at, updated_at)
+            (business_unit, outlet, zone, audit_date, auditor, items_data_id,
+             progress, status, signatures_data_id, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
@@ -166,10 +166,10 @@ def post_inspection_sessions(self, parsed, payload=None):
                 payload.get("zone", "Unassigned"),
                 normalize_audit_date(payload.get("auditDate")),
                 payload.get("auditor", "Unnamed Inspector"),
-                json.dumps(items),
+                save_value(db, items),
                 progress,
                 status,
-                json.dumps(payload.get("signatures") or {}),
+                save_value(db, payload.get("signatures") or {}),
                 now,
                 now,
             ),
@@ -236,7 +236,7 @@ def start_schedule(self, parsed, payload=None):
             session_id = insert_record(db, "inspection_sessions", {
                 "business_unit": schedule["business_unit"], "outlet": schedule["outlet"], "zone": schedule["zone"],
                 "audit_date": normalize_audit_date(schedule["scheduled_date"]), "auditor": user["name"],
-                "items_json": "[]", "signatures_json": "{}", "progress": 0, "status": "Draft",
+                "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
                 "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
             })
             name = inspection_name({"id": session_id, "outlet": schedule["outlet"], "audit_date": normalize_audit_date(schedule["scheduled_date"])})
@@ -277,15 +277,17 @@ def patch_inspection_sessions(self, parsed, payload=None):
         if not existing:
             self.json({"error": "Inspection not found"}, 404)
             return
+        existing = dict(existing)
+        existing["signatures_data_id"] = load_value(existing["signatures_data_id"] or "{}")
         payload, changed = authorize_inspection_update(user, payload, existing)
         if existing["status"] == "Completed":
             if changed or payload.get("complete") is False:
                 self.json({"error": "Completed inspection items cannot be changed"}, 409)
                 return
-            if payload.get("signatures", {}) == json.loads(existing["signatures_json"] or "{}"):
+            if payload.get("signatures", {}) == load_value(existing["signatures_data_id"] or "{}"):
                 self.json({"error": "Inspection is already completed"}, 409)
                 return
-            db.execute("UPDATE inspection_sessions SET signatures_json = ?, updated_at = ? WHERE id = ?", (json.dumps(payload["signatures"]), now, int(session_id)))
+            db.execute("UPDATE inspection_sessions SET signatures_data_id = ?, updated_at = ? WHERE id = ?", (save_value(db, payload["signatures"]), now, int(session_id)))
             notify_inspection(db, int(session_id), user, payload, existing)
             db.commit()
             self.json({"ok": True, "id": int(session_id), "status": "Completed", "auditId": existing["audit_id"]})
@@ -305,7 +307,7 @@ def patch_inspection_sessions(self, parsed, payload=None):
             """
             UPDATE inspection_sessions
             SET inspection_name = ?, business_unit = ?, outlet = ?, zone = ?, audit_date = ?, auditor = ?,
-                items_json = ?, progress = ?, status = ?, signatures_json = ?, updated_at = ?
+                items_data_id = ?, progress = ?, status = ?, signatures_data_id = ?, updated_at = ?
             WHERE id = ?
             """,
             (
@@ -315,10 +317,10 @@ def patch_inspection_sessions(self, parsed, payload=None):
                 payload.get("zone", "Unassigned"),
                 normalize_audit_date(payload.get("auditDate")),
                 payload.get("auditor", "Unnamed Inspector"),
-                json.dumps(items),
+                save_value(db, items),
                 progress,
                 "Completed" if complete else "Draft",
-                json.dumps(payload.get("signatures") or {}),
+                save_value(db, payload.get("signatures") or {}),
                 now,
                 int(session_id),
             ),

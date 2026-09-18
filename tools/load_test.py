@@ -47,9 +47,22 @@ def main():
             for number in range(2500):
                 record = template | {"asset_id": f"LOAD-{number}", "code": f"LOAD-{number}", "qr_code": f"LOAD-{number}", "name": f"Test asset {number}"}
                 db.execute(sql, [record[key] for key in columns])
-            evidence = json.dumps([{"item": "Test asset", "passed": True, "images": [{"dataUrl": "data:image/jpeg;base64," + "A" * 16384}]}])
+            evidence_items = [{"item": "Test asset", "passed": True, "images": [{"dataUrl": "data:image/jpeg;base64," + "A" * 16384}]}]
+            if args.baseline:
+                evidence_column, evidence = "items_json", json.dumps(evidence_items)
+            else:
+                from relational_values import save_value
+                from media_store import MediaStore
+                from PIL import Image
+                from io import BytesIO
+                import config
+                image_bytes = BytesIO()
+                Image.effect_noise((128, 128), 80).convert("RGB").save(image_bytes, "PNG")
+                identifier, mime = MediaStore(config.DB_PATH).put(image_bytes.getvalue())
+                evidence_items[0]["images"] = [{"url": "/api/media/" + identifier, "type": mime}]
+                evidence_column, evidence = "items_data_id", save_value(db, evidence_items)
             for number in range(300):
-                db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,items_json,progress,status,created_at,updated_at) VALUES ('Ottotree','STP','Test','2026-09-14','Load test',?,100,'Draft',?,?)", (evidence, number, number))
+                db.execute(f"INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,{evidence_column},progress,status,created_at,updated_at) VALUES ('Ottotree','STP','Test','2026-09-14','Load test',?,100,'Draft',?,?)", (evidence, number, number))
         # Older sqlite3 context managers do not close the connection.
         db.close()
         server_class = app.AuditHTTPServer if hasattr(app, "AuditHTTPServer") else app.ThreadingHTTPServer
@@ -101,7 +114,7 @@ def main():
             else:
                 saved = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE auditor != 'Load test' AND auditor LIKE 'Load %'").fetchone()[0]
         db.close()
-        output = {"baseline": args.baseline, "users": args.users, "assets_added": 2500, "drafts_seeded": 300, "evidence_bytes_per_draft": 16384, "seconds": round(elapsed, 2), "flow": summary([value for value, _ in results]), "requests": len(samples), "errors": [record for record in samples if record[2] != 200], "drafts_saved": saved, "endpoints": {path: summary([row[1] for row in samples if row[0] == path]) | {"mean_bytes": round(statistics.mean(row[3] for row in samples if row[0] == path))} for path in sorted({row[0] for row in samples})}}
+        output = {"baseline": args.baseline, "users": args.users, "assets_added": 2500, "drafts_seeded": 300, "evidence_bytes_per_draft": 16384 if args.baseline else len(image_bytes.getvalue()), "seconds": round(elapsed, 2), "flow": summary([value for value, _ in results]), "requests": len(samples), "errors": [record for record in samples if record[2] != 200], "drafts_saved": saved, "endpoints": {path: summary([row[1] for row in samples if row[0] == path]) | {"mean_bytes": round(statistics.mean(row[3] for row in samples if row[0] == path))} for path in sorted({row[0] for row in samples})}}
         output["error_count"] = len(output["errors"])
         output["errors"] = output["errors"][:10]
         output["server_errors"] = dict(Counter(server_errors))

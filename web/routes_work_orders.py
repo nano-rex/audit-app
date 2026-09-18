@@ -1,6 +1,7 @@
 """Routes work orders for the audit application."""
+from relational_values import data_value
 import time
-from common import create_notification, json_text, priority_due_date, sla_status, work_order_ref
+from common import create_notification, priority_due_date, sla_status, work_order_ref
 from database import connect, first_category, first_department, first_outlet
 from work_orders import sync_finding_from_work_order
 from workflow import WorkflowError, validate_update
@@ -22,7 +23,7 @@ def post_work_orders(self, parsed, payload=None):
             """
             INSERT INTO work_orders
             (business_unit, outlet, zone, request_type, category, priority, title, description,
-             assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo,
+             assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo_data_id,
              verified_by, verified_at, verification_remark, closed_at, due_date, vendor, sla_status,
              cost, outlet_confirmed, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
@@ -42,7 +43,7 @@ def post_work_orders(self, parsed, payload=None):
                 payload.get("actionTaken", ""),
                 payload.get("completionDate", ""),
                 payload.get("completionRemark", ""),
-                json_text(payload.get("completionPhoto"), []),
+                data_value(db, payload.get("completionPhoto"), []),
                 payload.get("verifiedBy", ""),
                 verified_at,
                 payload.get("verificationRemark", ""),
@@ -139,7 +140,7 @@ def patch_work_orders(self, parsed, payload=None):
             UPDATE work_orders
             SET business_unit = ?, outlet = ?, zone = ?, request_type = ?, category = ?,
                 priority = ?, title = ?, description = ?, assignee = ?, pic = ?, status = ?,
-                action_taken = ?, completion_date = ?, completion_remark = ?, completion_photo = ?,
+                action_taken = ?, completion_date = ?, completion_remark = ?, completion_photo_data_id = ?,
                 verified_by = ?, verified_at = ?, verification_remark = ?, closed_at = ?,
                 due_date = ?, vendor = ?, sla_status = ?, cost = ?
             WHERE id = ?
@@ -159,7 +160,7 @@ def patch_work_orders(self, parsed, payload=None):
                 payload.get("actionTaken", ""),
                 payload.get("completionDate", ""),
                 payload.get("completionRemark", ""),
-                json_text(payload.get("completionPhoto"), []),
+                data_value(db, payload.get("completionPhoto"), []),
                 payload.get("verifiedBy", ""),
                 verified_at,
                 payload.get("verificationRemark", ""),
@@ -190,10 +191,10 @@ def patch_work_orders(self, parsed, payload=None):
 def save_finding_details(db, work_order_id, payload):
     """Retain evidence and diagnostic fields when updating a work order."""
     fields = {"cause": "cause", "recommendation": "recommendation",
-              "requiredAction": "required_action", "images": "images_json"}
+              "requiredAction": "required_action", "images": "images_data_id"}
     for key, column in fields.items():
         if key in payload:
-            value = json_text(payload[key], []) if key == "images" else payload[key]
+            value = data_value(db, payload[key], []) if key == "images" else payload[key]
             db.execute(f"UPDATE work_orders SET {column} = ? WHERE id = ?", (value, work_order_id))
             db.execute(f"UPDATE findings SET {column} = ? WHERE id = "
                        "(SELECT source_finding_id FROM work_orders WHERE id = ?)", (value, work_order_id))

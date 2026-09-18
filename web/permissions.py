@@ -1,5 +1,5 @@
 """Role inheritance and explicit per-user permission overrides."""
-import json
+from relational_values import load_value
 from datetime import datetime, timezone
 
 from config import APP_TABS, SUPER_ROLE
@@ -30,10 +30,10 @@ def resolve_permissions(db, role_name, overrides=None):
     if overrides is not None:
         value = validate_overrides(overrides)
         return value["permissions"], value["inspectionPermissions"]
-    role = db.execute("SELECT permissions_json, inspection_permissions FROM roles WHERE name = ?", (role_name,)).fetchone()
+    role = db.execute("SELECT permissions_data_id, inspection_permissions_data_id FROM roles WHERE name = ?", (role_name,)).fetchone()
     if not role:
         return [], []
-    return json.loads(role["permissions_json"] or "[]"), json.loads(role["inspection_permissions"] or "[]")
+    return load_value(role["permissions_data_id"] or "[]"), load_value(role["inspection_permissions_data_id"] or "[]")
 
 
 def authorize_inspection_update(user, payload, existing=None):
@@ -50,8 +50,8 @@ def authorize_inspection_update(user, payload, existing=None):
         fields = {"businessUnit": "business_unit", "outlet": "outlet", "zone": "zone", "auditDate": "audit_date",
                   "auditor": "auditor", "auditTime": "audit_time", "auditType": "audit_type", "remarks": "remarks"}
         merged = {key: existing[column] for key, column in fields.items()}
-        merged["items"] = json.loads(existing["items_json"] or "[]")
-        previous_signatures = json.loads(existing["signatures_json"] or "{}")
+        merged["items"] = load_value(existing["items_data_id"] or "[]")
+        previous_signatures = load_value(existing["signatures_data_id"] or "{}")
         merged["signatures"] = previous_signatures
         changed = any(key in payload and payload[key] != value for key, value in merged.items() if key != "signatures")
         if "auditor" not in capabilities and (changed or payload.get("complete") and existing["status"] != "Completed"):

@@ -45,7 +45,10 @@
             <label>Login Title<input name="loginTitle"></label>
             <label>Company Name<input name="companyName"></label>
             <label>Department Header<input name="departmentHeader"></label>
-            <label>Logo URL<input name="logoUrl" placeholder="Optional report logo"></label>
+            <label>Report Logo<input type="file" accept="image/png,image/jpeg,image/webp" data-report-logo-upload></label>
+            <input type="hidden" name="logoUrl">
+            <button type="button" class="outline" data-remove-report-logo>Remove Logo</button>
+            <p data-report-logo-message role="status"></p>
             <label>Notification Channels<input name="channels" placeholder="In-App, Email, WhatsApp, Push"></label>
             <label>Future Integrations<textarea name="integrations" placeholder="CMMS, vendor portal, AI summary, AI defect detection"></textarea></label>
             <button class="primary" type="submit">Save Settings</button>

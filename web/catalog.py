@@ -1,5 +1,5 @@
 """Catalog for the audit application."""
-import json
+from relational_values import load_value, hydrate_many
 from config import APP_TABS
 from database import connect
 from response_cache import cached_response
@@ -14,13 +14,13 @@ def setup_records():
             "SELECT id, code, location, description FROM outlets ORDER BY code"
         ).fetchall()]
         zones = [dict(row) for row in db.execute(
-            "SELECT id, outlet_code, name, locations_json, description FROM zones ORDER BY outlet_code, name"
+            "SELECT id, outlet_code, name, locations_data_id, description FROM zones ORDER BY outlet_code, name"
         ).fetchall()]
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active FROM categories ORDER BY sequence, name"
         ).fetchall()]
         roles = [dict(row) for row in db.execute(
-            "SELECT id, name, description, permissions_json, inspection_permissions, protected FROM roles ORDER BY protected DESC, name"
+            "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles ORDER BY protected DESC, name"
         ).fetchall()]
         priorities = [dict(row) for row in db.execute(
             "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
@@ -28,12 +28,12 @@ def setup_records():
         audit_types = [dict(row) for row in db.execute(
             "SELECT id, name, description, active FROM audit_types ORDER BY name"
         ).fetchall()]
-        settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings ORDER BY key").fetchall()}
+        settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings ORDER BY key").fetchall()}
     for zone in zones:
-        zone["locations"] = json.loads(zone.pop("locations_json") or "[]")
+        zone["locations"] = load_value(zone.pop("locations_data_id") or "[]")
     for role in roles:
-        role["inspectionPermissions"] = json.loads(role.pop("inspection_permissions") or "[]")
-        role["permissions"] = json.loads(role.pop("permissions_json") or "[]")
+        role["inspectionPermissions"] = load_value(role.pop("inspection_permissions_data_id") or "[]")
+        role["permissions"] = load_value(role.pop("permissions_data_id") or "[]")
     return {
         "departments": departments,
         "outlets": outlets,
@@ -50,13 +50,13 @@ def setup_records():
 def role_items():
     with connect() as db:
         rows = db.execute(
-            "SELECT id, name, description, permissions_json, inspection_permissions, protected FROM roles ORDER BY protected DESC, name"
+            "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles ORDER BY protected DESC, name"
         ).fetchall()
     items = []
     for row in rows:
         item = dict(row)
-        item["permissions"] = json.loads(item.pop("permissions_json") or "[]")
-        item["inspectionPermissions"] = json.loads(item.pop("inspection_permissions") or "[]")
+        item["permissions"] = load_value(item.pop("permissions_data_id") or "[]")
+        item["inspectionPermissions"] = load_value(item.pop("inspection_permissions_data_id") or "[]")
         items.append(item)
     return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
 
@@ -66,15 +66,15 @@ def users():
         rows = db.execute(
             """
             SELECT id, name, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities, permission_overrides
+                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id
             FROM users
             ORDER BY role, name
             """
         ).fetchall()
     items = [dict(row) for row in rows]
     for item in items:
-        raw = item.pop("permission_overrides")
-        item["permissionOverrides"] = json.loads(raw) if raw is not None else None
+        raw = item.pop("permission_overrides_data_id")
+        item["permissionOverrides"] = load_value(raw) if raw is not None else None
     return {"items": items}
 
 
@@ -95,7 +95,7 @@ def locations(outlet):
             """,
             (outlet,),
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}
 
 
 def zones(outlet=""):
@@ -103,7 +103,7 @@ def zones(outlet=""):
         if outlet:
             rows = db.execute(
                 """
-                SELECT id, outlet_code, name, locations_json, description
+                SELECT id, outlet_code, name, locations_data_id, description
                 FROM zones
                 WHERE outlet_code = ?
                 ORDER BY name
@@ -113,7 +113,7 @@ def zones(outlet=""):
         else:
             rows = db.execute(
                 """
-                SELECT id, outlet_code, name, locations_json, description
+                SELECT id, outlet_code, name, locations_data_id, description
                 FROM zones
                 ORDER BY outlet_code, name
                 """
@@ -121,7 +121,7 @@ def zones(outlet=""):
     items = []
     for row in rows:
         item = dict(row)
-        item["locations"] = json.loads(item.pop("locations_json") or "[]")
+        item["locations"] = load_value(item.pop("locations_data_id") or "[]")
         items.append(item)
     return {"items": items}
 
@@ -143,12 +143,12 @@ def query_equipment_items(outlet=None):
                    last_checked, replacement_flag, notes, name, description, type,
                    operational_status, code, model, serial_number, brand, location,
                    installation_date, temporary_relocation, warranty_date, calibration_date,
-                   expiry_date, photos, inverter_model, motor_capacity, source_file,
-                   source_sheet, inspection_criteria
+                   expiry_date, photos_data_id, inverter_model, motor_capacity, source_file,
+                   source_sheet, inspection_criteria_data_id
             FROM equipment
             {where}
             ORDER BY COALESCE(name, asset_id), id
             """,
             params,
         ).fetchall()
-    return {"items": [dict(row) for row in rows]}
+    return {"items": hydrate_many(rows)}

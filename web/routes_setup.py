@@ -1,6 +1,8 @@
 """Routes setup for the audit application."""
-import json
+from relational_values import save_value
 import time
+import config
+from media_store import MediaStore
 from accounts import is_super_user
 from database import connect
 
@@ -85,7 +87,9 @@ def post_settings(self, parsed, payload=None):
             self.json({"ok": False, "error": "Super access required"}, status=403)
             return
         for key, value in (payload.get("settings") or {}).items():
-            db.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)", (key, json.dumps(value)))
+            if key == "report.logoUrl" and value:
+                MediaStore(config.DB_PATH).normalize({"url": value})
+            db.execute("INSERT OR REPLACE INTO app_settings (key, value_data_id) VALUES (?, ?)", (key, save_value(db, value)))
     self.json({"ok": True})
 
 

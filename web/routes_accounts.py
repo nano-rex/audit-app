@@ -1,4 +1,5 @@
 """Routes accounts for the audit application."""
+from relational_values import load_value, save_value
 import json
 import sqlite3
 import time
@@ -50,7 +51,7 @@ def post_auth_login(self, parsed, payload=None):
         refreshed = db.execute(
             """
             SELECT id, name, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities, profile_photo, signature_image
+                   last_login_at, login_count, title, responsibilities, profile_photo_data_id, signature_image_data_id
             FROM users
             WHERE id = ?
             """,
@@ -107,16 +108,16 @@ def patch_account(self, parsed, payload=None):
         if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user["id"])).fetchone():
             self.json({"error": "That email address belongs to another account"}, 409)
             return
-        photo = payload.get("profilePhoto", json.loads(existing["profile_photo"] or "{}")) or {}
+        photo = payload.get("profilePhoto", load_value(existing["profile_photo_data_id"] or "{}")) or {}
         if not isinstance(photo, dict) or photo and not photo.get("url", "").startswith("/api/media/"):
             self.json({"error": "Upload a profile picture first"}, 400)
             return
-        signature = payload.get("signatureImage", json.loads(existing["signature_image"] or "{}")) or {}
+        signature = payload.get("signatureImage", load_value(existing["signature_image_data_id"] or "{}")) or {}
         if not isinstance(signature, dict) or signature and not signature.get("url", "").startswith("/api/media/"):
             self.json({"error": "Upload a signature image first"}, 400)
             return
-        db.execute("UPDATE users SET name = ?, email = ?, department = ?, role = ?, profile_photo = ?, signature_image = ? WHERE id = ?",
-                   (name, email, department, role, json.dumps(photo), json.dumps(signature), user["id"]))
+        db.execute("UPDATE users SET name = ?, email = ?, department = ?, role = ?, profile_photo_data_id = ?, signature_image_data_id = ? WHERE id = ?",
+                   (name, email, department, role, save_value(db, photo), save_value(db, signature), user["id"]))
         refreshed = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     self.json({"ok": True, "user": public_user(refreshed)})
 
@@ -205,7 +206,7 @@ def post_users(self, parsed, payload=None):
             ),
         )
         overrides = validate_overrides(payload.get("permissionOverrides"))
-        db.execute("UPDATE users SET permission_overrides = ? WHERE id = ?", (json.dumps(overrides) if overrides is not None else None, cursor.lastrowid))
+        db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides) if overrides is not None else None, cursor.lastrowid))
     self.json({"ok": True})
 
 
@@ -221,14 +222,14 @@ def post_roles(self, parsed, payload=None):
             return
         db.execute(
             """
-            INSERT INTO roles (name, description, permissions_json, inspection_permissions, protected, created_at)
+            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at)
             VALUES (?, ?, ?, ?, 0, ?)
             """,
             (
                 name,
                 payload.get("description", ""),
-                json.dumps(validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
-                json.dumps(validate_list(payload.get("inspectionPermissions", []), INSPECTION_PERMISSIONS)),
+                save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
+                save_value(db, validate_list(payload.get("inspectionPermissions", []), INSPECTION_PERMISSIONS)),
                 now,
             ),
         )
@@ -281,7 +282,7 @@ def patch_users(self, parsed, payload=None):
             return
         if "permissionOverrides" in payload:
             overrides = validate_overrides(payload["permissionOverrides"])
-            db.execute("UPDATE users SET permission_overrides = ? WHERE id = ?", (json.dumps(overrides) if overrides is not None else None, int(user_id)))
+            db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides) if overrides is not None else None, int(user_id)))
     self.json({"ok": True})
     return
 
@@ -295,7 +296,7 @@ def patch_roles(self, parsed, payload=None):
         self.json({"ok": False, "error": "Super access required"}, status=403)
         return
     with connect() as db:
-        role = db.execute("SELECT name, protected, inspection_permissions FROM roles WHERE id = ?", (int(role_id),)).fetchone()
+        role = db.execute("SELECT name, protected, inspection_permissions_data_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
@@ -309,14 +310,14 @@ def patch_roles(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE roles
-            SET name = ?, description = ?, permissions_json = ?, inspection_permissions = ?
+            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?
             WHERE id = ?
             """,
             (
                 name,
                 payload.get("description", ""),
-                json.dumps(validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
-                json.dumps(validate_list(payload.get("inspectionPermissions", json.loads(role["inspection_permissions"] or "[]")), INSPECTION_PERMISSIONS)),
+                save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
+                save_value(db, validate_list(payload.get("inspectionPermissions", load_value(role["inspection_permissions_data_id"] or "[]")), INSPECTION_PERMISSIONS)),
                 int(role_id),
             ),
         )

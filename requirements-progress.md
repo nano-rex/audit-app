@@ -87,3 +87,24 @@ eight summary cards and six charts, populated by the existing cached dashboard e
 Validation: 25 Python tests and 9 frontend regression tests, including empty datasets,
 custom priorities, cross-unit exclusion, schedule/draft deduplication, chart scaling, and
 zero scores. Section 5 remains unchanged after the requested scope correction.
+
+
+## SQLite-only persistence
+
+Images now live in `media_images.content` BLOBs inside the application database. Authenticated
+image endpoints stream those bytes directly; no redirect or external media path is involved.
+Former JSON columns are replaced with integer foreign keys to normalized `value_sets` and
+`value_nodes`: each key, list position, scalar type, and scalar value is a relational row.
+This includes checklist snapshots, scoring, settings, role/user permissions, profile images,
+signatures, asset criteria, zone membership, and evidence metadata. API JSON and user-requested
+JSON exports remain transport/output formats only.
+
+Startup takes a verified SQLite backup before converting an older database and imports legacy
+media files without deleting the originals. Replaced attributes are cleaned up after their last
+record reference disappears. A restore test confirms one SQLite backup includes the image bytes.
+The working database was also checked through a test-copy migration before conversion.
+
+The 100-user storage run completed 400 requests in 8.29 seconds with no failures and all 100
+drafts saved (p95 four-request flow 7.65 seconds). This fixture uses 2,500 assets, 300 drafts,
+and valid shared PNG evidence stored as a BLOB. It does not simulate large simultaneous uploads
+or PDF generation, and is not a production capacity guarantee.
