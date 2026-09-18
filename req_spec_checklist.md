@@ -3,9 +3,12 @@
 Source: `/home/user/Downloads/codex/req_spec.md`
 
 Status legend:
-- `[x]` Complete enough for current prototype
-- `[~]` Partially implemented
-- `[ ]` Not implemented yet
+- `[x]` Implemented and verified for the stated scope
+- `[~]` Partially implemented or verification still incomplete
+- `[ ]` Not implemented; deferred integrations are explicitly labeled
+
+Update each item's status when its implementation and verification are complete.
+Verification evidence and remaining limitations are recorded in `requirements-progress.md`.
 
 ## 1. App Objective
 
