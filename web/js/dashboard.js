@@ -1,12 +1,7 @@
 async function loadDashboard() {
   const response = await authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`);
   const data = await response.json();
-  setText('[data-today="scheduled"]', data.today.scheduled.length);
-  setText('[data-today="uploads"]', data.today.pendingUploads);
-  setText('[data-today="followups"]', data.today.followUps);
-  setText('[data-today="dueSoon"]', data.today.dueSoon || 0);
-  setText('[data-today="overdue"]', data.today.overdue || 0);
-  setText('[data-today="tasks"]', data.today.scheduled.length + data.today.pendingUploads + data.today.followUps + (data.today.dueSoon || 0) + (data.today.overdue || 0));
+  renderMainDashboard(data);
 
   setHtml("[data-outlets]", data.outlets.map((outlet) => `
     <article>
@@ -253,20 +248,39 @@ function renderReportCharts(charts) {
     ["locationPerformance", "Work Orders by Location"],
     ["categoryPerformance", "Work Orders by Category"],
   ];
-  setHtml("[data-report-charts]", chartMap.map(([key, label]) => {
-    const source = charts[key] || [];
-    const entries = Array.isArray(source)
-      ? source.map((row) => [row.label || row.month || row.outlet || "Unassigned", row.count ?? row.average ?? row.score ?? 0])
-      : Object.entries(source);
-    return `
-      <article class="panel mini-chart">
-        <h2>${escapeHtml(label)}</h2>
-        <div class="bars">${entries.length ? entries.map(([name, value]) => `
-          <label>${escapeHtml(name)}<span style="--value:${Math.min(100, Number(value) || 0)}">${escapeHtml(value)}</span></label>
-        `).join("") : `<p class="muted">No data</p>`}</div>
-      </article>
-    `;
-  }).join(""));
+  setHtml("[data-report-charts]", chartMap.map(([key, label]) => auditChart(label, charts[key] || [])).join(""));
+}
+
+function auditChart(title, source, score = false) {
+  const entries = (Array.isArray(source) ? source : Object.entries(source).map(([label, count]) => ({ label, count })))
+    .map((row) => ({ label: row.label || row.month || row.outlet || "Unassigned",
+      value: Math.max(0, Number(row.count ?? row.audits ?? row.average ?? row.score ?? 0) || 0) }));
+  const maximum = score ? 100 : Math.max(1, ...entries.map((row) => row.value));
+  const hasData = entries.length && (score || entries.some((row) => row.value > 0));
+  return `<article class="panel mini-chart"><h2>${escapeHtml(title)}</h2>
+    <p class="muted">${score ? "Average completed audit score · 0–100" : "Number of records"}</p>
+    ${hasData ? `<ol class="audit-chart">${entries.map((row) => `<li>
+      <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score ? "/100" : ""}</strong></div>
+      <div class="audit-chart-track" aria-hidden="true"><span style="width:${Math.min(100, row.value * 100 / maximum)}%"></span></div>
+    </li>`).join("")}</ol>` : '<p class="muted">No data yet</p>'}</article>`;
+}
+
+function renderMainDashboard(data) {
+  const stats = data.stats || {};
+  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "completedCorrectiveActions"]) {
+    setText(`[data-dashboard="${key}"]`, stats[key] ?? 0);
+  }
+  setText('[data-dashboard="overallAuditScore"]', stats.overallAuditScore == null ? "No completed audits" : `${stats.overallAuditScore}/100`);
+  const charts = data.charts || {};
+  const definitions = [
+    ["auditScores", "Audit Scores by Outlet", true],
+    ["priorityVsNonPriority", "Priority vs Non-Priority"],
+    ["findingsByDepartment", "Issues by Department"],
+    ["findingsByArea", "Issues by Area"],
+    ["findingsByCategory", "Issues by Description Category"],
+    ["monthlyAuditTrend", "Monthly Completed Audit Trend"],
+  ];
+  setHtml("[data-dashboard-charts]", definitions.map(([key, label, score]) => auditChart(label, charts[key] || [], score)).join(""));
 }
 
 function renderPerformanceDistribution(rows) {

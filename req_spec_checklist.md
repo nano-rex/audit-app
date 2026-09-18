@@ -54,20 +54,20 @@ Status legend:
 
 ## 4. Main Dashboard
 
-- [~] Total audits
-- [~] Audits completed
-- [~] Audits pending
-- [~] Priority issues
-- [~] Non-priority issues
-- [~] Outstanding issues
-- [~] Completed corrective actions
-- [~] Overall audit score
-- [~] Audit score bar chart
-- [~] Priority vs non-priority chart
-- [~] Issues by department chart
-- [~] Issues by area chart
-- [~] Issues by description category chart
-- [~] Monthly audit trend chart
+- [x] Total audits
+- [x] Audits completed
+- [x] Audits pending
+- [x] Priority issues
+- [x] Non-priority issues
+- [x] Outstanding issues
+- [x] Completed corrective actions
+- [x] Overall audit score
+- [x] Audit score bar chart
+- [x] Priority vs non-priority chart
+- [x] Issues by department chart
+- [x] Issues by area chart
+- [x] Issues by description category chart
+- [x] Monthly audit trend chart
 
 ## 5. Create New Audit
 

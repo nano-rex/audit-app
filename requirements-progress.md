@@ -63,3 +63,27 @@ Validation: 23 Python HTTP/database/report tests and 8 Node frontend regression 
 along with static Python checks and the synthetic 100-user run documented in `backend-architecture.md`.
 Pagination currently limits browser rendering; the APIs still return complete filtered lists.
 The remaining broader core checklist and offline Android work are not certified complete by this increment.
+
+
+## Section 4 — Main Dashboard (2026-09-18)
+
+All fourteen section 4 requirements are implemented on the landing Dashboard (formerly To-do):
+eight summary cards and six charts, populated by the existing cached dashboard endpoint.
+
+- Total audits = completed inspection-backed audits + saved drafts + unstarted schedules.
+  A schedule with an inspection is counted through that inspection only.
+- Overall score and outlet score bars use completed audits only. An empty set displays
+  “No completed audits”; an actual score of zero remains zero.
+- Priority and non-priority counts use the saved finding classification, falling back to
+  configured priority classification for older records. Issue grouping charts count findings.
+- Outstanding issues are findings not Completed, Verified, or Closed. Completed corrective
+  actions count work orders in those three statuses; linked findings are not counted again.
+- All counts use the selected business-unit scope. The dashboard is all-time; monthly trend
+  bars show completed audit counts by audit month. Count bars scale relative to the largest
+  count, while score bars use a fixed 0–100 scale. Values remain visible as text.
+- Latest outlet scores exclude unfinished/unlinked audit rows. The Reports charts also now
+  read the monthly `audits` count correctly and use the shared chart renderer.
+
+Validation: 25 Python tests and 9 frontend regression tests, including empty datasets,
+custom priorities, cross-unit exclusion, schedule/draft deduplication, chart scaling, and
+zero scores. Section 5 remains unchanged after the requested scope correction.

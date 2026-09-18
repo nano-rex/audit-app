@@ -11,7 +11,7 @@ const brandingDefaults = {
 let branding = { ...brandingDefaults };
 let currentUnit = branding.businessUnitLabel;
 const allTabs = [
-  { id: "today", label: "To-do" },
+  { id: "today", label: "Dashboard" },
   { id: "inspections", label: "Inspections" },
   { id: "findings", label: "History & Findings" },
   { id: "work-orders", label: "Work Orders" },

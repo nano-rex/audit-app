@@ -19,6 +19,8 @@ def dashboard(unit):
     schedule_where, schedule_params = scope(unit, "schedules")
     work_order_where, work_order_params = scope(unit, "work_orders")
     equipment_where, equipment_params = scope(unit, "equipment")
+    finding_where, finding_params = scope(unit, "findings")
+    session_where, session_params = scope(unit, "inspection_sessions")
     with connect() as db:
         settings = {row["key"]: json.loads(row["value"]) for row in db.execute("SELECT key, value FROM app_settings WHERE key LIKE 'scoring.%'")}
         distribution = dict.fromkeys(("Excellent", "Good", "Below Expectation", "Critical"), 0)
@@ -46,10 +48,12 @@ def dashboard(unit):
                    (SELECT score FROM audits latest
                     WHERE latest.business_unit = audits.business_unit
                       AND latest.outlet = audits.outlet
+                      AND latest.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed')
                     ORDER BY created_at DESC, id DESC LIMIT 1) latest,
                    (SELECT audit_date FROM audits latest
                     WHERE latest.business_unit = audits.business_unit
                       AND latest.outlet = audits.outlet
+                      AND latest.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed')
                     ORDER BY created_at DESC, id DESC LIMIT 1) audit_date
             FROM audits
             WHERE {audit_where}
@@ -130,12 +134,22 @@ def dashboard(unit):
             work_order_params,
         ).fetchall()]
         findings = [dict(row) for row in db.execute(
-            """
-            SELECT outlet, location, category, priority, assigned_department, pic, status, created_at
-            FROM findings
-            ORDER BY created_at DESC
-            """
+            f"""
+            SELECT findings.outlet, findings.location, findings.category, findings.priority,
+                   findings.assigned_department, findings.pic, findings.status, findings.created_at,
+                   COALESCE(NULLIF(findings.priority_classification, ''), priority_levels.classification,
+                            CASE WHEN findings.priority IN ('High', 'Priority') THEN 'Priority' ELSE 'Non-Priority' END) classification
+            FROM findings LEFT JOIN priority_levels ON priority_levels.name = findings.priority
+            WHERE {finding_where}
+            """, finding_params
         ).fetchall()]
+        draft_audits = db.execute(
+            f"SELECT COUNT(*) FROM inspection_sessions WHERE {session_where} AND status != 'Completed'", session_params
+        ).fetchone()[0]
+        unstarted_audits = db.execute(
+            f"SELECT COUNT(*) FROM schedules WHERE {schedule_where} AND status != 'Completed' "
+            "AND NOT EXISTS (SELECT 1 FROM inspection_sessions WHERE schedule_id = schedules.id)", schedule_params
+        ).fetchone()[0]
         monthly_trend = [dict(row) for row in db.execute(
             f"""
             SELECT substr(audit_date, 1, 7) month, COUNT(*) audits, COALESCE(ROUND(AVG(score)), 0) average_score
@@ -153,13 +167,12 @@ def dashboard(unit):
     completed = kpi["completed"] or 0
     response_rate = round((completed * 100 / assigned) if assigned else 0)
     completed_audits = int(stats["total"] or 0)
-    with connect() as db:
-        pending_audits = db.execute("SELECT COUNT(*) FROM inspection_sessions WHERE status != 'Completed'").fetchone()[0]
+    pending_audits = draft_audits + unstarted_audits
     closed_statuses = {"Completed", "Verified", "Closed"}
     open_work_orders = [row for row in all_work_orders if row["status"] not in closed_statuses]
     completed_work_orders = [row for row in all_work_orders if row["status"] in closed_statuses]
-    priority_findings = [row for row in findings if row["priority"] in ("High", "Priority")]
-    non_priority_findings = [row for row in findings if row["priority"] not in ("High", "Priority")]
+    priority_findings = [row for row in findings if row["classification"] == "Priority"]
+    non_priority_findings = [row for row in findings if row["classification"] != "Priority"]
     overdue_orders = [row for row in all_work_orders if sla_status(row["status"], row.get("due_date")) == "Overdue"]
     due_soon_orders = [row for row in all_work_orders if sla_status(row["status"], row.get("due_date")) == "Due Soon"]
     def grouped(rows, key):
@@ -170,7 +183,9 @@ def dashboard(unit):
         return [{"label": label, "count": count} for label, count in sorted(counts.items())]
     return {
         "stats": {
-            "total": stats["total"] or 0,
+            "total": completed_audits + pending_audits,
+            "overallAuditScore": stats["average"] if completed_audits else None,
+            "outstandingFindings": sum(row["status"] not in closed_statuses for row in findings),
             "average": stats["average"] or 0,
             "excellent": stats["excellent"] or 0,
             "below60": stats["below60"] or 0,
@@ -202,6 +217,7 @@ def dashboard(unit):
         "workOrders": [dict(row) for row in work_orders],
         "equipment": [dict(row) for row in equipment_rows],
         "charts": {
+            "auditScores": [{"label": row["outlet"], "score": row["average"]} for row in outlets],
             "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],
             "priorityVsNonPriority": [
                 {"label": "Priority", "count": len(priority_findings)},

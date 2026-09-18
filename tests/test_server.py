@@ -303,7 +303,8 @@ class ServerTests(unittest.TestCase):
         data = app.report("Mini Studio")
         counts = {row["label"]: row["count"] for row in data["charts"]["performanceDistribution"]}
         self.assertEqual(counts, {"Excellent": 0, "Good": 2, "Below Expectation": 1, "Critical": 1})
-        self.assertEqual(sum(counts.values()), data["monthlySummary"]["audits"])
+        self.assertEqual(sum(counts.values()), data["monthlySummary"]["auditsCompleted"])
+        self.assertEqual(data["monthlySummary"]["audits"], data["monthlySummary"]["auditsCompleted"] + data["monthlySummary"]["auditsPending"])
 
     def test_z_permissions_inheritance_signatures_and_targeted_notifications(self):
         from test_media_reports import photo_data_url

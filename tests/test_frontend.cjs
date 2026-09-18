@@ -189,3 +189,32 @@ test("pagination handles navigation, filtering, page sizes, and record deletion"
     assert.match(result.controls, /Showing 0–0 of 0/);
   }
 });
+
+test("dashboard renders actual counts, scaled charts, monthly audits, and empty states", () => {
+  const rendered = {};
+  const context = vm.createContext({
+    setText: (selector, value) => { rendered[selector] = value; },
+    setHtml: (selector, value) => { rendered[selector] = value; },
+    escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
+  });
+  vm.runInContext(source("dashboard.js"), context);
+  context.renderMainDashboard({ stats: { total: 8, auditsCompleted: 5, auditsPending: 3, overallAuditScore: 72 }, charts: {
+    monthlyAuditTrend: [{ month: "2026-01", audits: 120 }, { month: "2026-02", audits: 60 }],
+    auditScores: [{ label: "<Outlet>", score: 0 }],
+  } });
+  assert.equal(rendered['[data-dashboard="total"]'], 8);
+  assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "72/100");
+  const charts = rendered["[data-dashboard-charts]"];
+  assert.equal((charts.match(/<article /g) || []).length, 6);
+  assert.match(charts, /2026-01<\/span><strong>120<\/strong>/);
+  assert.match(charts, /width:50%/);
+  assert.match(charts, /&lt;Outlet&gt;/);
+  assert.match(charts, /0\/100/);
+  assert.match(charts, /width:0%/);
+  context.renderMainDashboard({ stats: { overallAuditScore: null }, charts: {} });
+  assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "No completed audits");
+  assert.equal((rendered["[data-dashboard-charts]"].match(/No data yet/g) || []).length, 6);
+  const html = fs.readFileSync(path.join(__dirname, "../web/html/tabs/today.html"), "utf8");
+  assert.equal((html.match(/data-dashboard="/g) || []).length, 8);
+  assert.match(html, /data-dashboard-charts/);
+});

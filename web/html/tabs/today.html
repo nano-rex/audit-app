@@ -1,8 +1,8 @@
     <section id="today" class="tab-panel active">
       <section class="today-hero">
         <div>
-          <span>Field Workspace</span>
-          <h2><span data-unit-text></span> <span data-today-heading>inspections for today</span></h2>
+          <span>Main Dashboard</span>
+          <h2><span data-unit-text></span> audit dashboard</h2>
         </div>
         <div class="quick-actions">
           <!--<button class="primary" data-jump-tab="inspections">Start Inspection</button>-->
@@ -11,14 +11,18 @@
         </div>
       </section>
 
-      <section class="stats">
-        <article><span>Scheduled Visits</span><strong data-today="scheduled">0</strong></article>
-        <article><span>Pending Uploads</span><strong data-today="uploads">0</strong></article>
-        <article><span>Follow-up Needed</span><strong class="warn" data-today="followups">0</strong></article>
-        <article><span>Due Soon</span><strong class="warn" data-today="dueSoon">0</strong></article>
-        <article><span>Overdue</span><strong class="warn" data-today="overdue">0</strong></article>
-        <article><span>Open Tasks</span><strong data-today="tasks">0</strong></article>
+      <p>All-time audit overview. Pending includes drafts and scheduled work that has not started; each audit is counted once.</p>
+      <section class="stats" aria-label="Audit overview">
+        <article><span>Total Audits</span><strong data-dashboard="total">—</strong></article>
+        <article><span>Audits Completed</span><strong data-dashboard="auditsCompleted">—</strong></article>
+        <article><span>Audits Pending</span><strong data-dashboard="auditsPending">—</strong></article>
+        <article><span>Priority Issues</span><strong data-dashboard="priorityIssues">—</strong></article>
+        <article><span>Non-Priority Issues</span><strong data-dashboard="nonPriorityIssues">—</strong></article>
+        <article><span>Outstanding Issues</span><strong data-dashboard="outstandingFindings">—</strong><small>Findings awaiting corrective action</small></article>
+        <article><span>Completed Corrective Actions</span><strong data-dashboard="completedCorrectiveActions">—</strong><small>Completed, verified, or closed work orders</small></article>
+        <article><span>Overall Audit Score</span><strong data-dashboard="overallAuditScore">—</strong><small>Average of completed audits</small></article>
       </section>
+      <section class="chart-grid" data-dashboard-charts aria-label="Audit charts"></section>
 
       <section class="work-grid">
         <article class="panel">
