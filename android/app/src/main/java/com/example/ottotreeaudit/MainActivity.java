@@ -51,7 +51,9 @@ public class MainActivity extends Activity {
     private final List<Button> tabButtons = new ArrayList<Button>();
     private AuditDatabase database;
     private int activeTab = 0;
-    private String activeUnit = "Ottotree";
+    private String activeUnit = "";
+    private TextView brandTitle;
+    private TextView brandSubtitle;
     private String currentRole = "admin";
     private String selectedLocationOutlet = "";
     private String equipmentSearch = "";
@@ -76,10 +78,11 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         database = new AuditDatabase(this);
+        activeUnit = database.primaryUnit();
         database.seedSchedulesIfEmpty();
         database.seedEquipmentIfEmpty();
         database.seedAdminIfEmpty();
-        database.normalizeLoudspeakerOutlets();
+        database.normalizeLegacyOutletCodes();
         database.removeSampleAudits();
         buildShell();
         showTab(0);
@@ -108,8 +111,10 @@ public class MainActivity extends Activity {
 
         LinearLayout brand = new LinearLayout(this);
         brand.setOrientation(LinearLayout.VERTICAL);
-        brand.addView(label("Ottotree Audit", 22, GREEN, true));
-        brand.addView(label("Loudspeaker & Mini Studio operations", 12, MUTED, false));
+        brandTitle = label(database.getSetting("brand.name", "Audit App"), 22, GREEN, true);
+        brandSubtitle = label(database.getSetting("brand.subtitle", "Inspection and operations"), 12, MUTED, false);
+        brand.addView(brandTitle);
+        brand.addView(brandSubtitle);
         actions.addView(brand, new LinearLayout.LayoutParams(dp(210), -2));
 
         tabBar = new LinearLayout(this);
@@ -648,10 +653,12 @@ public class MainActivity extends Activity {
     }
 
     private void showDashboard() {
-        LinearLayout units = panel("Ottotree Coverage");
+        final String primaryUnit = database.primaryUnit();
+        final String secondaryUnit = database.secondaryUnit();
+        LinearLayout units = panel(database.getSetting("brand.name", "Audit App") + " Coverage");
         content.addView(units, margin(-1, -2, 0, 0, 0, dp(16)));
-        row(units, businessUnitCard("Loudspeaker", "Retail speaker display and outlet readiness", activeUnit.equals("Loudspeaker")),
-                businessUnitCard("Mini Studio", "Headphone display and studio checklist", activeUnit.equals("Mini Studio")));
+        row(units, businessUnitCard(secondaryUnit, "Retail operations and outlet readiness", activeUnit.equals(secondaryUnit)),
+                businessUnitCard(primaryUnit, "Site operations and inspection checklist", activeUnit.equals(primaryUnit)));
 
         LinearLayout metrics = new LinearLayout(this);
         metrics.setOrientation(LinearLayout.VERTICAL);
@@ -812,6 +819,66 @@ public class MainActivity extends Activity {
             }
         });
         panel.addView(apply, margin(-1, dp(42), 0, dp(12), 0, 0));
+
+        LinearLayout branding = panel("Organization and audit areas");
+        content.addView(branding, margin(-1, -2, 0, dp(14), 0, 0));
+        branding.addView(label("These names are stored in this device's SQLite database.", 13, MUTED, false));
+        Button editBranding = action("Edit organization settings", GREEN);
+        branding.addView(editBranding, margin(-1, dp(42), 0, dp(12), 0, 0));
+        editBranding.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { showBrandSettingsDialog(); }
+        });
+    }
+
+    private void showBrandSettingsDialog() {
+        final LinearLayout form = new LinearLayout(this);
+        form.setPadding(dp(20), dp(12), dp(20), dp(4));
+        form.setOrientation(LinearLayout.VERTICAL);
+        final EditText appName = new EditText(this);
+        appName.setSingleLine(true);
+        appName.setHint("Organization / app name");
+        appName.setText(database.getSetting("brand.name", "Audit App"));
+        final EditText subtitle = new EditText(this);
+        subtitle.setSingleLine(true);
+        subtitle.setHint("Subtitle");
+        subtitle.setText(database.getSetting("brand.subtitle", "Inspection and operations"));
+        final EditText primaryUnit = new EditText(this);
+        primaryUnit.setSingleLine(true);
+        primaryUnit.setHint("Primary audit area");
+        primaryUnit.setText(database.primaryUnit());
+        final EditText secondaryUnit = new EditText(this);
+        secondaryUnit.setSingleLine(true);
+        secondaryUnit.setHint("Secondary audit area");
+        secondaryUnit.setText(database.secondaryUnit());
+        form.addView(appName);
+        form.addView(subtitle);
+        form.addView(primaryUnit);
+        form.addView(secondaryUnit);
+        new AlertDialog.Builder(this)
+                .setTitle("Organization settings")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface dialog, int which) {
+                        String name = appName.getText().toString().trim();
+                        String sub = subtitle.getText().toString().trim();
+                        String first = primaryUnit.getText().toString().trim();
+                        String second = secondaryUnit.getText().toString().trim();
+                        if (name.isEmpty() || sub.isEmpty() || first.isEmpty() || second.isEmpty() || first.equalsIgnoreCase(second)) {
+                            toast("Enter all settings and use two different audit area names");
+                            return;
+                        }
+                        String previousPrimary = database.primaryUnit();
+                        String previousSecondary = database.secondaryUnit();
+                        database.saveBrandSettings(name, sub, first, second);
+                        brandTitle.setText(name);
+                        brandSubtitle.setText(sub);
+                        if (activeUnit.equals(previousPrimary)) activeUnit = first;
+                        else if (activeUnit.equals(previousSecondary)) activeUnit = second;
+                        toast("Organization settings saved");
+                        showTab(8);
+                    }
+                }).show();
     }
 
     private void showUserDialog() {
@@ -877,7 +944,7 @@ public class MainActivity extends Activity {
     }
 
     private void showNewAuditDialog() {
-        final LinearLayout box = dialogBase("New Audit - Ottotree");
+        final LinearLayout box = dialogBase("New Audit - " + database.getSetting("brand.name", "Audit App"));
         box.addView(formLabel("Outlet"));
         final Spinner outlet = spinner(outletOptions(activeUnit, true));
         box.addView(outlet);
@@ -907,10 +974,10 @@ public class MainActivity extends Activity {
         box.addView(guide, margin(-1, -2, 0, dp(12), 0, dp(12)));
 
         LinearLayout question = card();
-        TextView qTitle = label("OTTOTREE CHECKLIST", 12, TEXT, true);
+        TextView qTitle = label("AUDIT CHECKLIST", 12, TEXT, true);
         question.addView(qTitle);
         question.addView(label("Combined Store Readiness", 13, TEXT, true));
-        question.addView(label("Complete the Mini Studio and Loudspeaker checks together.", 13, MUTED, false));
+        question.addView(label("Complete the " + database.primaryUnit() + " and " + database.secondaryUnit() + " checks together.", 13, MUTED, false));
         box.addView(question);
         box.addView(formLabel("Total Score"));
         final EditText scoreInput = input("0 - 100", false);
@@ -1655,7 +1722,7 @@ public class MainActivity extends Activity {
                         "Master data is the shared setup used across inspections, scheduled visits, work orders, equipment records, reports, and captain access.\n\n" +
                         "Type: Choose what kind of setup record you are adding.\n" +
                         "Name: Enter the short name users will recognize, such as an outlet code, zone name, category, role, or PIN label.\n" +
-                        "Parent / Group: Show where the record belongs, such as Ottotree, an outlet, or a workflow.\n" +
+                        "Parent / Group: Show where the record belongs, such as the organization, an outlet, or a workflow.\n" +
                         "Detail: Add a short explanation so users know when this record should be used.\n\n" +
                         "Outlet: Store or branch codes used for visits, inspections, work orders, and equipment.\n" +
                         "Zone: Areas inside an outlet, such as entrance, display zone, counter, server room, or storage area.\n" +

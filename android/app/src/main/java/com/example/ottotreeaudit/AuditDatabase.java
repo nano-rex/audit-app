@@ -11,8 +11,8 @@ import java.util.List;
 
 final class AuditDatabase extends SQLiteOpenHelper {
     private static final String DB_NAME = "ottotree_audit.db";
-    private static final int DB_VERSION = 12;
-    private static final String[] LOUDSPEAKER_OUTLETS = {"STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS"};
+    private static final int DB_VERSION = 13;
+    private static final String[] SECONDARY_OUTLETS = {"STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS"};
 
     AuditDatabase(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
@@ -129,6 +129,10 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "title TEXT," +
                 "responsibilities TEXT," +
                 "created_at INTEGER NOT NULL)");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS app_settings (" +
+                "setting_key TEXT PRIMARY KEY," +
+                "setting_value TEXT NOT NULL)");
     }
 
     @Override
@@ -136,6 +140,12 @@ final class AuditDatabase extends SQLiteOpenHelper {
         // Preserve offline audits and configuration across app upgrades.
         // The current schema change is additive; new tables are created if absent.
         createSchema(db);
+        seedBrandSettings(db);
+        if (oldVersion < 13) {
+            // Existing installs used these labels before brand settings existed.
+            saveSetting(db, "business_unit.primary", "Mini Studio");
+            saveSetting(db, "business_unit.secondary", "Loudspeaker");
+        }
     }
 
     long saveAudit(String businessUnit, String outlet, String auditDate, String auditor, String auditType, int score) {
@@ -271,9 +281,9 @@ final class AuditDatabase extends SQLiteOpenHelper {
         Cursor c = db.rawQuery("SELECT COUNT(*) FROM schedules", null);
         try {
             if (c.moveToFirst() && c.getInt(0) == 0) {
-                seedSchedule(db, "Mini Studio", "MST", "Server Room", "2026-09-01", "Ah Fai", "Room checklist before peak hours");
-                seedSchedule(db, "Mini Studio", "MQS", "Entrance", "2026-09-02", "Ah Fan", "Photo evidence follow-up");
-                seedSchedule(db, "Loudspeaker", "STP", "Display Zone", "2026-09-01", "Gavin", "Speaker display readiness");
+                seedSchedule(db, setting(db, "business_unit.primary", "Audit Area 1"), "MST", "Server Room", "2026-09-01", "Ah Fai", "Room checklist before peak hours");
+                seedSchedule(db, setting(db, "business_unit.primary", "Audit Area 1"), "MQS", "Entrance", "2026-09-02", "Ah Fan", "Photo evidence follow-up");
+                seedSchedule(db, setting(db, "business_unit.secondary", "Audit Area 2"), "STP", "Display Zone", "2026-09-01", "Gavin", "Display readiness");
             }
         } finally {
             c.close();
@@ -322,7 +332,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
         }
     }
 
-    void normalizeLoudspeakerOutlets() {
+    void normalizeLegacyOutletCodes() {
         SQLiteDatabase db = getWritableDatabase();
         String[][] legacyMap = {{"MAM", "STP"}, {"MQS", "SBA"}, {"MDP", "TPG"}, {"MST", "AQP"}};
         String[] tables = {"audits", "schedules", "work_orders", "equipment"};
@@ -687,22 +697,93 @@ final class AuditDatabase extends SQLiteOpenHelper {
     }
 
     private void seed(SQLiteDatabase db) {
-        seedSchedule(db, "Mini Studio", "MST", "Server Room", "2026-09-01", "Ah Fai", "Room checklist before peak hours");
-        seedSchedule(db, "Mini Studio", "MQS", "Entrance", "2026-09-02", "Ah Fan", "Photo evidence follow-up");
-        seedSchedule(db, "Loudspeaker", "STP", "Display Zone", "2026-09-01", "Gavin", "Speaker display readiness");
+        seedBrandSettings(db);
+        seedSchedule(db, setting(db, "business_unit.primary", "Audit Area 1"), "MST", "Server Room", "2026-09-01", "Ah Fai", "Room checklist before peak hours");
+        seedSchedule(db, setting(db, "business_unit.primary", "Audit Area 1"), "MQS", "Entrance", "2026-09-02", "Ah Fan", "Photo evidence follow-up");
+        seedSchedule(db, setting(db, "business_unit.secondary", "Audit Area 2"), "STP", "Display Zone", "2026-09-01", "Gavin", "Display readiness");
         seedEquipment(db);
         seedAdmin(db);
         seedLocations(db);
         seedUsers(db);
     }
 
+    private void seedBrandSettings(SQLiteDatabase db) {
+        seedSetting(db, "brand.name", "Audit App");
+        seedSetting(db, "brand.subtitle", "Inspection and operations");
+        seedSetting(db, "business_unit.primary", "Audit Area 1");
+        seedSetting(db, "business_unit.secondary", "Audit Area 2");
+    }
+
+    private void seedSetting(SQLiteDatabase db, String key, String value) {
+        ContentValues values = new ContentValues();
+        values.put("setting_key", key);
+        values.put("setting_value", value);
+        db.insertWithOnConflict("app_settings", null, values, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    String getSetting(String key, String fallback) {
+        return setting(getReadableDatabase(), key, fallback);
+    }
+
+    private String setting(SQLiteDatabase db, String key, String fallback) {
+        Cursor c = db.rawQuery("SELECT setting_value FROM app_settings WHERE setting_key = ?", new String[] {key});
+        try {
+            return c.moveToFirst() ? c.getString(0) : fallback;
+        } finally {
+            c.close();
+        }
+    }
+
+    void saveBrandSettings(String appName, String subtitle, String primaryUnit, String secondaryUnit) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            String oldPrimary = setting(db, "business_unit.primary", "Audit Area 1");
+            String oldSecondary = setting(db, "business_unit.secondary", "Audit Area 2");
+            renameBusinessUnit(db, oldPrimary, "__audit_primary_migration__");
+            renameBusinessUnit(db, oldSecondary, "__audit_secondary_migration__");
+            renameBusinessUnit(db, "__audit_primary_migration__", primaryUnit);
+            renameBusinessUnit(db, "__audit_secondary_migration__", secondaryUnit);
+            saveSetting(db, "brand.name", appName);
+            saveSetting(db, "brand.subtitle", subtitle);
+            saveSetting(db, "business_unit.primary", primaryUnit);
+            saveSetting(db, "business_unit.secondary", secondaryUnit);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    private void renameBusinessUnit(SQLiteDatabase db, String oldName, String newName) {
+        if (oldName.equals(newName)) return;
+        String[] tables = {"audits", "schedules", "work_orders", "equipment"};
+        ContentValues values = new ContentValues();
+        values.put("business_unit", newName);
+        for (String table : tables) {
+            db.update(table, values, "business_unit = ?", new String[] {oldName});
+        }
+        ContentValues admin = new ContentValues();
+        admin.put("parent", newName);
+        db.update("admin_records", admin, "record_type = 'Outlet' AND parent = ?", new String[] {oldName});
+    }
+
+    private void saveSetting(SQLiteDatabase db, String key, String value) {
+        ContentValues values = new ContentValues();
+        values.put("setting_key", key);
+        values.put("setting_value", value);
+        db.insertWithOnConflict("app_settings", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    String primaryUnit() { return getSetting("business_unit.primary", "Business Unit 1"); }
+    String secondaryUnit() { return getSetting("business_unit.secondary", "Business Unit 2"); }
+
     private void seedAdmin(SQLiteDatabase db) {
         seedAdminRow(db, "Outlet", "MAM", "LONG", "Active outlet");
         seedAdminRow(db, "Outlet", "MQS", "LONG", "Active outlet");
         seedAdminRow(db, "Outlet", "MDP", "LONG", "Active outlet");
         seedAdminRow(db, "Outlet", "MST", "LONG", "Active outlet");
-        for (String outlet : LOUDSPEAKER_OUTLETS) {
-            seedAdminRow(db, "Outlet", outlet, "Loudspeaker", "Active Loudspeaker outlet");
+        for (String outlet : SECONDARY_OUTLETS) {
+            seedAdminRow(db, "Outlet", outlet, setting(db, "business_unit.secondary", "Audit Area 2"), "Active outlet");
         }
         seedAdminRow(db, "Zone", "Server Room", "All outlets", "Servers, UPS, network hardware");
         seedAdminRow(db, "Zone", "Entrance", "All outlets", "Front entrance and display area");
@@ -730,10 +811,12 @@ final class AuditDatabase extends SQLiteOpenHelper {
     }
 
     private void seedEquipment(SQLiteDatabase db) {
-        seedEquipmentRow(db, "EQ-MST-UPS-001", "QR-MST-UPS-001", "Mini Studio", "MST", "Server Room", "UPS", "Monitor", "2026-08-20", true, "Battery age needs budget review");
-        seedEquipmentRow(db, "EQ-MQS-CCTV-002", "QR-MQS-CCTV-002", "Mini Studio", "MQS", "Entrance", "CCTV", "Normal", "2026-08-18", false, "Camera view clear");
-        seedEquipmentRow(db, "EQ-STP-SPK-001", "QR-STP-SPK-001", "Loudspeaker", "STP", "Display Zone", "Speaker Display", "Normal", "2026-08-22", false, "Demo unit working");
-        seedEquipmentRow(db, "EQ-MDP-SRV-001", "QR-MDP-SRV-001", "Mini Studio", "MDP", "Server Room", "Server", "Replace", "2026-08-15", true, "Old hard disk health warning");
+        String primary = setting(db, "business_unit.primary", "Audit Area 1");
+        String secondary = setting(db, "business_unit.secondary", "Audit Area 2");
+        seedEquipmentRow(db, "EQ-MST-UPS-001", "QR-MST-UPS-001", primary, "MST", "Server Room", "UPS", "Monitor", "2026-08-20", true, "Battery age needs budget review");
+        seedEquipmentRow(db, "EQ-MQS-CCTV-002", "QR-MQS-CCTV-002", primary, "MQS", "Entrance", "CCTV", "Normal", "2026-08-18", false, "Camera view clear");
+        seedEquipmentRow(db, "EQ-STP-SPK-001", "QR-STP-SPK-001", secondary, "STP", "Display Zone", "Speaker Display", "Normal", "2026-08-22", false, "Demo unit working");
+        seedEquipmentRow(db, "EQ-MDP-SRV-001", "QR-MDP-SRV-001", primary, "MDP", "Server Room", "Server", "Replace", "2026-08-15", true, "Old hard disk health warning");
     }
 
     private void seedLocations(SQLiteDatabase db) {
@@ -755,10 +838,10 @@ final class AuditDatabase extends SQLiteOpenHelper {
     }
 
     private void seedUsers(SQLiteDatabase db) {
-        seedUserRow(db, "Admin User", "Admin", "admin@ottotree.local", "SSD", "Admin", "Daily operations, inspections, work orders, and setup");
-        seedUserRow(db, "Executive Admin", "Executive Admin", "executive.admin@ottotree.local", "FMS", "Executive Admin", "Full workflow oversight, setup, reports, and users");
-        seedUserRow(db, "Manager User", "Manager", "manager@ottotree.local", "AVC", "Manager", "Reports, departments, outlets, and user oversight");
-        seedUserRow(db, "Director User", "Director", "director@ottotree.local", "MD", "Director", "Reports, departments, outlets, and user oversight");
+        seedUserRow(db, "Admin User", "Admin", "admin@example.local", "SSD", "Admin", "Daily operations, inspections, work orders, and setup");
+        seedUserRow(db, "Executive Admin", "Executive Admin", "executive.admin@example.local", "FMS", "Executive Admin", "Full workflow oversight, setup, reports, and users");
+        seedUserRow(db, "Manager User", "Manager", "manager@example.local", "AVC", "Manager", "Reports, departments, outlets, and user oversight");
+        seedUserRow(db, "Director User", "Director", "director@example.local", "MD", "Director", "Reports, departments, outlets, and user oversight");
     }
 
     private void seedUserRow(SQLiteDatabase db, String name, String role, String email, String department, String title, String responsibilities) {
@@ -847,30 +930,32 @@ final class AuditDatabase extends SQLiteOpenHelper {
 
     List<ChecklistItem> getChecklist(String businessUnit) {
         List<ChecklistItem> rows = new ArrayList<ChecklistItem>();
-        if (!"Loudspeaker".equals(businessUnit)) {
+        String primary = primaryUnit();
+        String secondary = secondaryUnit();
+        if (primary.equals(businessUnit)) {
             rows.add(new ChecklistItem("Main Entrance", "Big headphone display is present and in good condition"));
             rows.add(new ChecklistItem("Studio Area", "Demo headphones are clean, working, and correctly placed"));
             rows.add(new ChecklistItem("Counter", "F&B counter cabinet and cashier drawer area are clean"));
             rows.add(new ChecklistItem("Safety", "Emergency exit and walkway are clear and usable"));
         }
-        if (!"Mini Studio".equals(businessUnit)) {
-            rows.add(new ChecklistItem("Loudspeaker Display", "Main speaker display is present, clean, and powered"));
-            rows.add(new ChecklistItem("Loudspeaker Display", "Price tags and product cards are accurate"));
-            rows.add(new ChecklistItem("Loudspeaker Demo", "Demo audio source and cables are working"));
-            rows.add(new ChecklistItem("Loudspeaker Safety", "Power socket, cable routing, and fixture are safe"));
+        if (secondary.equals(businessUnit)) {
+            rows.add(new ChecklistItem(secondary + " Display", "Main display is present, clean, and powered"));
+            rows.add(new ChecklistItem(secondary + " Display", "Price tags and product cards are accurate"));
+            rows.add(new ChecklistItem(secondary + " Demo", "Demo source and cables are working"));
+            rows.add(new ChecklistItem(secondary + " Safety", "Power socket, cable routing, and fixture are safe"));
         }
         return rows;
     }
 
     private String scopeWhere(String tableName, String businessUnit) {
-        if ("Mini Studio".equals(businessUnit) || "Loudspeaker".equals(businessUnit)) {
+        if (primaryUnit().equals(businessUnit) || secondaryUnit().equals(businessUnit)) {
             return tableName + ".business_unit = ?";
         }
         return "1 = 1";
     }
 
     private String[] scopeArgs(String businessUnit) {
-        if ("Mini Studio".equals(businessUnit) || "Loudspeaker".equals(businessUnit)) {
+        if (primaryUnit().equals(businessUnit) || secondaryUnit().equals(businessUnit)) {
             return new String[] { businessUnit };
         }
         return new String[0];
