@@ -11,6 +11,7 @@ document.querySelectorAll("[data-open]").forEach((button) => {
 
 document.addEventListener("click", async (event) => {
   try {
+  if (!event.target.closest(".nav-row")) closeNavigationMenu();
   const findingLink = event.target.closest("[data-view-inspection-findings]");
   const allFindings = event.target.closest("[data-all-inspection-findings]");
   if (findingLink || allFindings) {
@@ -38,6 +39,12 @@ document.addEventListener("click", async (event) => {
     const open = menu.hidden;
     menu.hidden = !open;
     menuButton.setAttribute("aria-expanded", String(open));
+    return;
+  }
+
+  const moveTab = event.target.closest("[data-menu-move]");
+  if (moveTab) {
+    await moveNavigationTab(moveTab.dataset.menuMove, Number(moveTab.dataset.direction));
     return;
   }
 
@@ -269,20 +276,6 @@ document.addEventListener("click", async (event) => {
   }
 });
 
-document.querySelector("[data-menu-tabs]")?.addEventListener("change", (event) => {
-  const toggle = event.target.closest("[data-navbar-tab-toggle]");
-  if (!toggle) return;
-  const tabId = toggle.dataset.navbarTabToggle;
-  if (toggle.checked) {
-    if (!navbarTabs.includes(tabId)) navbarTabs.push(tabId);
-  } else {
-    navbarTabs = navbarTabs.filter((id) => id !== tabId);
-  }
-  if (!navbarTabs.length) {
-    navbarTabs = [...defaultNavbarTabs];
-  }
-  applyNavbarTabs();
-});
 
 document.getElementById("inspection-history-search")?.addEventListener("input", (event) => {
   inspectionHistorySearch = event.target.value;

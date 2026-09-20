@@ -39,7 +39,6 @@ const setupOptions = {
   settings: {},
   tabs: allTabs,
 };
-let navbarTabs = [...defaultNavbarTabs];
 let selectedLocationOutlet = "";
 let selectedZoneOutlet = "";
 let equipmentCache = [];

@@ -12,8 +12,10 @@ def public_user(row):
     with connect() as db:
         record = db.execute("SELECT permission_overrides_data_id FROM users WHERE id = ?", (row["id"],)).fetchone()
         overrides = load_value(record["permission_overrides_data_id"]) if record and record["permission_overrides_data_id"] is not None else None
+        navigation_order = [item[0] for item in db.execute("SELECT page_id FROM user_navigation WHERE user_id = ? ORDER BY position", (row["id"],))]
         permissions, inspection_permissions_data_id = resolve_permissions(db, row["role"], overrides)
     return {
+        "navigationOrder": navigation_order,
         "id": row["id"],
         "name": row["name"],
         "role": row["role"],

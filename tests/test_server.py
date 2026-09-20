@@ -171,6 +171,25 @@ class ServerTests(unittest.TestCase):
         self.assertGreater(first["items"][-1]["id"], second["items"][0]["id"])
         self.assertEqual(self.request(path + "?offset=invalid")[0], 400)
 
+    def test_navigation_order_is_persistent_and_account_scoped(self):
+        path = "/api/account/navigation"
+        order = ["account", "reports", "today", "notifications"]
+        self.assertEqual(self.request(path, "PATCH", {"order": order}, token=None)[0], 401)
+        self.assertEqual(self.request(path, "PATCH", {"order": order})[0], 200)
+        _, _, body = self.request("/api/auth/me")
+        self.assertEqual(json.loads(body)["user"]["navigationOrder"], order)
+        _, _, body = self.request("/api/auth/me", token="limited")
+        self.assertEqual(json.loads(body)["user"]["navigationOrder"], [])
+        for invalid in (["today", "today"], ["unknown"], ["roles"], "today", [1], [{}]):
+            self.assertEqual(self.request(path, "PATCH", {"order": invalid})[0], 400)
+        with app.connect() as db:
+            stored = [row[0] for row in db.execute("SELECT page_id FROM user_navigation WHERE user_id = ? ORDER BY position", (self.user_id,))]
+        self.assertEqual(stored, order)
+        self.assertEqual(self.request(path, "PATCH", {"order": ["notifications", "account"], "userId": self.user_id}, token="limited")[0], 200)
+        _, _, body = self.request("/api/auth/me")
+        self.assertEqual(json.loads(body)["user"]["navigationOrder"], order)
+        self.assertEqual(self.request(path, "PATCH", {"order": []})[0], 200)
+
     def test_static_allowlist(self):
         for path in ("/data/ottotree_audit_web.db", "/server.py", "/README.md", "/js/../server.py", "/js/%2e%2e/server.py"):
             self.assertEqual(self.request(path, token=None)[0], 404, path)

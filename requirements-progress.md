@@ -214,3 +214,22 @@ All application Python modules now live in `web/backend/`, imported through the
 `tests/` and maintenance scripts in `tools/`; their imports were updated too.
 The static asset root and existing SQLite database path remain under `web/`.
 The reorganization does not migrate, copy, or reset application data.
+
+
+## Responsive account navigation
+
+- The menu always lists every page permitted for the current account; Departments and
+  Roles retain their existing location under Users. Up/Down buttons reorder the pages.
+- The navbar shows a prefix of that order based on measured available width and button
+  widths. Viewports up to 480px show at most two tabs; larger screens show as many as fit.
+  Resize/orientation changes recalculate the visible tabs. Every page remains accessible
+  from the menu, including the active page if it is outside the visible prefix.
+- Order is saved in relational SQLite `user_navigation` rows, scoped to the authenticated
+  user. Login/profile responses restore it across devices. New or newly permitted pages
+  are appended, and saved ordering never grants permission to a restricted page.
+- Failed saves restore the previous order and show an error. Keyboard focus is retained
+  after moving a page, and Escape/outside clicks close the menu.
+
+Validation: 38 Python tests and 11 frontend checks passed, including account isolation,
+invalid/duplicate page rejection, permission filtering, width-based tab limits, and
+failed-save rollback. No real browser/device acceptance test was available.

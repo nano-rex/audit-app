@@ -362,6 +362,8 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 30. Recommended App Menu
 
+- [x] Reorderable permitted-page menu, responsive navbar, and per-account saved order
+
 - [~] Home/To-do
 - [~] New audit/guided inspection equivalent
 - [~] My audits/inspection history

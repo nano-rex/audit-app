@@ -36,6 +36,7 @@ function showTab(tabId) {
     pendingInspectionSchedule = null;
     applyInspectionSchedule(row).catch(showLoadError);
   }
+  layoutNavbar();
   loadTabData(tabId);
 }
 
@@ -48,29 +49,120 @@ function showOutletSubtab(tabId) {
   });
 }
 
+let navigationSaving = false;
+
+function orderedAppTabs() {
+  const available = allowedAppTabs();
+  const order = currentUser?.navigationOrder?.length ? currentUser.navigationOrder : defaultNavbarTabs;
+  const ids = [...new Set([...order, ...available.map((tab) => tab.id)])];
+  return ids.map((id) => available.find((tab) => tab.id === id)).filter(Boolean);
+}
+
+function navbarVisibleCount(widths, availableWidth, viewportWidth, gap = 8) {
+  const limit = viewportWidth <= 480 ? 2 : widths.length;
+  let used = 0, count = 0;
+  for (const width of widths.slice(0, limit)) {
+    const next = used + (count ? gap : 0) + width;
+    if (next > availableWidth && count) break;
+    used = next;
+    count++;
+  }
+  return count;
+}
+
+function layoutNavbar() {
+  const nav = document.querySelector(".tabs");
+  if (!nav || !nav.clientWidth) return;
+  const buttons = orderedAppTabs().map((tab) => nav.querySelector(`[data-tab="${tab.id}"]`)).filter(Boolean);
+  nav.querySelectorAll("[data-tab]").forEach((button) => { button.hidden = true; });
+  for (const button of buttons) {
+    nav.appendChild(button);
+    button.hidden = false;
+  }
+  const gap = Number.parseFloat(getComputedStyle(nav).columnGap) || 0;
+  const count = navbarVisibleCount(buttons.map((button) => button.getBoundingClientRect().width), nav.clientWidth, window.innerWidth, gap);
+  buttons.forEach((button, index) => { button.hidden = index >= count; });
+}
+
 function renderTabMenu() {
   const container = document.querySelector("[data-menu-tabs]");
   if (!container) return;
-  container.innerHTML = allowedAppTabs().map((tab) => `
+  const tabs = orderedAppTabs();
+  container.innerHTML = tabs.map((tab, index) => `
     <div class="menu-tab-row">
       <button type="button" class="outline" data-menu-open-tab="${tab.id}">${escapeHtml(tab.label)}</button>
-      <label>
-        <input type="checkbox" data-navbar-tab-toggle="${tab.id}" ${navbarTabs.includes(tab.id) ? "checked" : ""}>
-        Navbar
-      </label>
+      <div class="menu-tab-moves">
+        <button type="button" class="outline" data-menu-move="${tab.id}" data-direction="-1" aria-label="Move ${escapeAttr(tab.label)} up" ${navigationSaving || index === 0 ? "disabled" : ""}>↑</button>
+        <button type="button" class="outline" data-menu-move="${tab.id}" data-direction="1" aria-label="Move ${escapeAttr(tab.label)} down" ${navigationSaving || index === tabs.length - 1 ? "disabled" : ""}>↓</button>
+      </div>
     </div>
   `).join("");
+}
+
+async function moveNavigationTab(id, direction) {
+  if (navigationSaving || !currentUser || ![-1, 1].includes(direction)) return;
+  const order = orderedAppTabs().map((tab) => tab.id);
+  const index = order.indexOf(id), target = index + direction;
+  if (index < 0 || target < 0 || target >= order.length) return;
+  [order[index], order[target]] = [order[target], order[index]];
+  const owner = currentUser.id;
+  const previous = currentUser.navigationOrder;
+  const hiddenPages = (previous || []).filter((page) => !order.includes(page));
+  currentUser.navigationOrder = [...order, ...hiddenPages];
+  navigationSaving = true;
+  applyNavbarTabs();
+  setText("[data-navigation-status]", "Saving order…");
+  try {
+    const data = await requestJson("/api/account/navigation", "PATCH", { order: currentUser.navigationOrder });
+    if (currentUser?.id !== owner) return;
+    currentUser.navigationOrder = data.navigationOrder;
+    setText("[data-navigation-status]", "Order saved to your account.");
+  } catch (error) {
+    if (currentUser?.id !== owner) return;
+    currentUser.navigationOrder = previous;
+    setText("[data-navigation-status]", `Order not saved: ${error.message}`);
+  } finally {
+    navigationSaving = false;
+    applyNavbarTabs();
+    if (currentUser?.id === owner) {
+      const same = document.querySelector(`[data-menu-move="${id}"][data-direction="${direction}"]`);
+      const focus = same && !same.disabled ? same : document.querySelector(`[data-menu-open-tab="${id}"]`);
+      focus?.focus();
+    }
+  }
 }
 
 function applyNavbarTabs() {
   const allowedIds = new Set(allowedAppTabs().map((tab) => tab.id));
   document.querySelectorAll("[data-tab]").forEach((tab) => {
-    tab.hidden = !allowedIds.has(tab.dataset.tab) || !navbarTabs.includes(tab.dataset.tab);
+    tab.hidden = !allowedIds.has(tab.dataset.tab);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.hidden = !allowedIds.has(panel.id);
   });
   renderTabMenu();
+  layoutNavbar();
+}
+
+function closeNavigationMenu() {
+  const menu = document.getElementById("tab-menu");
+  if (menu) menu.hidden = true;
+  document.querySelector("[data-menu-toggle]")?.setAttribute("aria-expanded", "false");
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !document.getElementById("tab-menu")?.hidden) {
+      closeNavigationMenu();
+      document.querySelector("[data-menu-toggle]")?.focus();
+    }
+  });
+  window.addEventListener("resize", layoutNavbar);
+  if (typeof ResizeObserver !== "undefined") {
+    const nav = document.querySelector(".tabs");
+    if (nav) new ResizeObserver(layoutNavbar).observe(nav);
+  }
+  document.fonts?.ready.then(layoutNavbar);
 }
 
 function allowedAppTabs() {

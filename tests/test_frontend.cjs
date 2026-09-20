@@ -218,3 +218,42 @@ test("dashboard renders actual counts, scaled charts, monthly audits, and empty 
   assert.equal((html.match(/data-dashboard="/g) || []).length, 8);
   assert.match(html, /data-dashboard-charts/);
 });
+
+
+test("navigation follows account order and fits the available navbar width", () => {
+  const context = vm.createContext({
+    currentUser: { id: 1, permissions: ["today", "inspections", "reports"], navigationOrder: ["reports", "today"] },
+    allTabs: ["today", "inspections", "reports", "account", "notifications"].map((id) => ({ id, label: id })),
+    defaultNavbarTabs: ["today", "inspections"],
+    document: { querySelectorAll: () => [] },
+  });
+  vm.runInContext(source("navigation.js"), context);
+  assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["reports","today","inspections","account","notifications"]');
+  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 400, 390), 2);
+  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 320, 900), 3);
+  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 600, 1400), 4);
+  assert.equal(context.navbarVisibleCount([90, 100], 70, 280), 1);
+  context.currentUser = { id: 2, permissions: ["today"], navigationOrder: ["inspections", "account"] };
+  assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["account","today","notifications"]');
+});
+
+test("navigation reordering saves the account and rolls back failed saves", async () => {
+  let saved, message;
+  const context = vm.createContext({
+    currentUser: { id: 7, permissions: ["today", "reports"], navigationOrder: ["today", "reports"] },
+    allTabs: ["today", "reports"].map((id) => ({ id, label: id })),
+    defaultNavbarTabs: ["today"],
+    document: { querySelectorAll: () => [], querySelector: () => null },
+    setText: (_, value) => { message = value; },
+    requestJson: async (path, method, payload) => { saved = { path, method, payload }; return { navigationOrder: payload.order }; },
+  });
+  vm.runInContext(source("navigation.js"), context);
+  await context.moveNavigationTab("reports", -1);
+  assert.equal(saved.path, "/api/account/navigation");
+  assert.equal(JSON.stringify(saved.payload.order), '["reports","today"]');
+  assert.match(message, /saved/);
+  context.requestJson = async () => { throw new Error("Offline"); };
+  await context.moveNavigationTab("reports", 1);
+  assert.equal(JSON.stringify(context.currentUser.navigationOrder), '["reports","today"]');
+  assert.match(message, /not saved: Offline/);
+});

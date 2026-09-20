@@ -482,6 +482,7 @@ def init_db():
         )
 
         db.execute("CREATE INDEX IF NOT EXISTS idx_login_activity_user_time ON user_login_activity(user_id, logged_at DESC, id DESC)")
+        db.execute("CREATE TABLE IF NOT EXISTS user_navigation(user_id INTEGER NOT NULL REFERENCES users(id), page_id TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY(user_id,page_id), UNIQUE(user_id,position))")
         db.execute("CREATE TABLE IF NOT EXISTS auth_sessions(token_hash TEXT PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), expires_at REAL NOT NULL)")
         db.execute("DELETE FROM auth_sessions WHERE expires_at < ?", (time.time(),))
         db.execute("CREATE TABLE IF NOT EXISTS password_reset_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id), requested_at INTEGER NOT NULL, resolved_at INTEGER)")

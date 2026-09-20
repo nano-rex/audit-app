@@ -373,6 +373,7 @@ def delete_users(self, parsed, payload=None):
             protect_last_super(db, int(record_id))
         if db.execute("SELECT 1 FROM user_login_activity WHERE user_id = ? LIMIT 1", (int(record_id),)).fetchone() or db.execute("SELECT 1 FROM inspection_sessions WHERE owner_user_id = ? LIMIT 1", (int(record_id),)).fetchone():
             raise WorkflowError("This account has login or audit history. Deactivate it to retain that history.")
+        db.execute("DELETE FROM user_navigation WHERE user_id = ?", (int(record_id),))
         db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(record_id),))
         db.execute("DELETE FROM password_reset_requests WHERE user_id = ?", (int(record_id),))
         db.execute("DELETE FROM notifications WHERE recipient_user_id = ?", (int(record_id),))
@@ -413,3 +414,16 @@ def delete_roles(self, parsed, payload=None):
 def protect_last_super(db, user_id):
     if not db.execute("SELECT 1 FROM users WHERE role = ? AND active = 1 AND id != ?", (SUPER_ROLE, user_id)).fetchone():
         raise WorkflowError("Keep at least one active Super user")
+
+
+def patch_navigation(self, parsed, payload=None):
+    order = payload.get("order")
+    pages = ({tab[0] for tab in APP_TABS} | {"account"}) - {"departments", "roles"}
+    if not isinstance(order, list) or len(order) > len(pages) or any(not isinstance(page, str) or page not in pages for page in order) or len(set(order)) != len(order):
+        raise ValueError("Choose each available page at most once")
+    user_id = self.current_user()["id"]
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM user_navigation WHERE user_id = ?", (user_id,))
+        db.executemany("INSERT INTO user_navigation(user_id,page_id,position) VALUES (?,?,?)", [(user_id, page, position) for position, page in enumerate(order)])
+    self.json({"ok": True, "navigationOrder": order})
