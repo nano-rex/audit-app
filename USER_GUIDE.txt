@@ -1,0 +1,114 @@
+OTTOTREE AUDIT — WEB USER GUIDE
+================================
+
+This guide describes the normal web workflow from account setup through audit
+closure and reporting. The pages available to you depend on your role and the
+permissions assigned to your account.
+
+1. SIGN IN AND SET UP YOUR ACCOUNT
+----------------------------------
+1. Open the Audit App website and sign in with the account provided by your
+   administrator.
+2. Open Account to update your name, email, profile picture, and signature.
+   Change your password there if needed. Your signed-in account is recorded as
+   the auditor; you do not need to type your name into an inspection.
+3. If you cannot sign in, use Forgot Password to send a reset request. An
+   administrator must review the request and reset the password.
+
+2. COMPLETE FIRST-TIME ADMIN SETUP
+----------------------------------
+An administrator should configure these records before staff begin auditing:
+
+1. In Users, create accounts and assign each person's role and department.
+   Configure role permissions and inspection capabilities as required.
+2. In Outlets, add each outlet, then add its locations, floors, areas, and
+   zones. Set display order where needed.
+3. In Fixed Assets, add the equipment and assign it to the correct outlet and
+   location. Configure the inspection criteria for each asset.
+4. In Settings, configure audit types, finding categories, and priority levels.
+   Each priority level has a classification and a due-day target.
+5. In Settings, review audit scoring, pass mark, rating bands, and category
+   weights. Configure the company name, facilities header, and report logo if
+   these should appear on reports.
+
+3. SCHEDULE AN AUDIT
+--------------------
+1. Open Inspections and choose Schedule Work, or use Schedule Visit from Today.
+2. Select the outlet and location, set the date and auditor, and add any
+   scheduling remarks. Save the schedule.
+3. For an audit that is ready to start immediately, use + New Audit. Enter the
+   outlet, audit date and time, audit type, and remarks. The signed-in account
+   is recorded as the auditor. The app creates a scheduled draft and reserves
+   an audit reference.
+
+4. START OR RESUME THE GUIDED INSPECTION
+----------------------------------------
+1. Open Inspections. Guided Inspection initially shows Scheduled Work.
+2. Select the scheduled work item. The app creates or resumes its inspection
+   and displays the inspection reference and details.
+3. Work through each listed location and fixed-asset criterion.
+4. Mark each criterion as passed or N/A when appropriate. For a failed
+   criterion, leave it unchecked and enter the required remark.
+5. Add a photo for each applicable asset. You can add multiple photos, remove
+   a photo, or open Mark to annotate it before saving the mark.
+6. When a criterion is failed, the Record Audit Finding dialog opens. Select
+   its category, priority, department, and PIC as appropriate; add the cause,
+   recommendation, required action, remarks, and evidence. Choose Save Finding
+   to Draft to keep these details with the inspection. The finding and linked
+   work order are created when the inspection is completed.
+7. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
+   Work and select it again to resume.
+8. When every applicable criterion is resolved and has evidence, the button
+   changes to Complete Inspection. Select it to submit. The app validates the
+   checklist, calculates the configured score, saves the audit and its findings,
+   and updates the dashboard.
+
+5. ADD SIGNATURES AND REVIEW HISTORY
+------------------------------------
+1. In the inspection, use Audited By, Verified By, or Acknowledged By to add
+   the signatures your workflow requires. Select Save Signatures. Your identity
+   and timestamp are recorded with the signature.
+2. Open History & Findings to browse completed inspections and their findings.
+   Use search and filters to narrow the list.
+3. Open an inspection and use Export PDF to download its report. The PDF
+   includes the audit summary, checklist, findings, available photos, and
+   signatures.
+
+6. HANDLE CORRECTIVE ACTIONS
+----------------------------
+1. Open Work Orders to review assigned findings and other work orders. A
+   Department/PIC account sees only records assigned to that PIC or department.
+2. Open a work order to review the issue, evidence, due date, priority, and
+   assignment. Add comments to its timeline as work progresses.
+3. The assigned PIC records the action taken, completion date, completion
+   remark, and completion photo before setting the work to Completed.
+4. A permitted verifier reviews the evidence. The verifier can set Verified
+   with a verification remark, or return the work to In Progress with a remark
+   explaining what still needs attention.
+5. After verification, close the work order. Closed records are retained for
+   audit history.
+6. The Notifications page shows relevant progress, assignment, verification,
+   due-soon, and overdue notices.
+
+7. CLOSE AN AUDIT AND REVIEW REPORTS
+-----------------------------------
+1. A verifier can close a completed audit from its history record after all
+   required signatures are present and every linked finding/work order is
+   closed. A closed audit is read-only.
+2. Open Reports to review scores, findings, overdue work, outlet comparisons,
+   and charts. Use the date and outlet filters to narrow the report.
+3. Use Export PDF on an inspection for its detailed audit report. Use the
+   Reports page export actions for CSV, Excel, or JSON report data.
+
+IMPORTANT NOTES
+---------------
+- Save Progress frequently when working in the field.
+- A failed criterion needs a remark. Applicable inspection items need photo
+  evidence before the inspection can be completed.
+- Priority due dates come from the priority-level setup. The app sends in-app
+  assignment and due-date reminders while the server is running.
+- The web application stores its persistent records and image bytes in SQLite.
+- The Android app currently keeps its own offline local data. Synchronization
+  between Android and the web application is not available yet.
+- AI detection, CMMS, WhatsApp, email, and push integrations are future work
+  and are not part of this workflow.
