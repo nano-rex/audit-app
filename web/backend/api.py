@@ -194,10 +194,10 @@ class Handler(BaseHTTPRequestHandler):
             self.json(schedule_items())
             return
         if parsed.path == "/api/work-orders":
-            self.json(work_order_items())
+            self.json(work_order_items(self.current_user()))
             return
         if parsed.path == "/api/findings":
-            self.json(finding_items())
+            self.json(finding_items(user=self.current_user()))
             return
         if parsed.path == "/api/equipment":
             outlet = parse_qs(parsed.query).get("outlet", [None])[0]

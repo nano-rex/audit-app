@@ -60,7 +60,10 @@ def build_report(session, brand, summary, media):
         images([{"url": logo, "name": "Company logo"}], "Logo")
     findings = session.get("findings") or []
     completed = sum(row.get("status") in {"Completed", "Verified", "Closed"} for row in findings)
-    priority = sum(row.get("priority_classification") == "Priority" or row.get("priority") in {"High", "Priority"} for row in findings)
+    priority = sum(
+        (row.get("priority_classification") or ("Priority" if row.get("priority") in {"High", "Priority"} else "Non-Priority")) == "Priority"
+        for row in findings
+    )
     rows = [
         ["Score", f"{summary['score']}/100 — {summary['rating']}"],
         ["Pass mark", f"{summary['passMark']} — {'Met' if summary['meetsPassMark'] else 'Not met'}"],

@@ -494,6 +494,48 @@ class ServerTests(unittest.TestCase):
         app.SESSION_TOKENS["unassigned-pic"] = {"user_id": cursor.lastrowid, "expires_at": time.time() + 3600}
         self.assertEqual(self.request(f"/api/work-orders/{record_id}", "PATCH", {"status": "In Progress"}, token="unassigned-pic")[0], 403)
 
+    def test_department_pic_lists_only_assigned_findings_and_work_orders(self):
+        with app.connect() as db:
+            user_id = db.execute(
+                "INSERT INTO users(name, role, email, department, active, created_at) VALUES ('Assigned PIC', 'Department/PIC', 'assigned-pic@test', 'Facilities', 1, 0)"
+            ).lastrowid
+            audit_id = db.execute(
+                "INSERT INTO audits(business_unit, outlet, branch, audit_date, auditor, audit_type, score, created_at) VALUES ('Ottotree', 'STP', 'Room', '2026-09-20', 'Auditor', 'Standard', 0, 0)"
+            ).lastrowid
+            for reference, pic, department in (
+                ("F-PIC-MATCH", "Assigned PIC", "Other"),
+                ("F-DEPARTMENT", "", "Facilities"),
+                ("F-OTHER-PIC", "Another PIC", "Facilities"),
+            ):
+                db.execute(
+                    "INSERT INTO findings(finding_ref, audit_id, audit_ref, business_unit, outlet, location, category, priority, assigned_department, pic, comment, status, created_at, updated_at) VALUES (?, ?, 'AUD-TEST', 'Ottotree', 'STP', 'Room', 'Safety', 'High', ?, ?, 'Issue', 'Assigned', 0, 0)",
+                    (reference, audit_id, department, pic),
+                )
+        app.SESSION_TOKENS["assigned-pic"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        for title, department, pic in (
+            ("PIC assignment", "Other", "Assigned PIC"),
+            ("Department assignment", "Facilities", ""),
+            ("Other PIC assignment", "Facilities", "Another PIC"),
+        ):
+            status, _, body = self.request(
+                "/api/work-orders", "POST",
+                {"title": title, "requestType": department, "assignee": department, "pic": pic},
+            )
+            self.assertEqual(status, 200, body)
+        _, _, body = self.request("/api/findings", token="assigned-pic")
+        finding_refs = {row["finding_ref"] for row in json.loads(body)["items"]}
+        self.assertEqual(finding_refs, {"F-PIC-MATCH", "F-DEPARTMENT"})
+        _, _, body = self.request("/api/work-orders", token="assigned-pic")
+        titles = {row["title"] for row in json.loads(body)["items"]}
+        self.assertTrue({"PIC assignment", "Department assignment"}.issubset(titles))
+        self.assertNotIn("Other PIC assignment", titles)
+        with app.connect() as db:
+            db.execute("DELETE FROM work_orders WHERE title IN ('PIC assignment', 'Department assignment', 'Other PIC assignment')")
+            db.execute("DELETE FROM findings WHERE finding_ref IN ('F-PIC-MATCH', 'F-DEPARTMENT', 'F-OTHER-PIC')")
+            db.execute("DELETE FROM audits WHERE id = ?", (audit_id,))
+            db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        app.SESSION_TOKENS.pop("assigned-pic", None)
+
     def test_z_report_distribution_uses_completed_audits_and_saved_ratings(self):
         empty = app.report("Mini Studio")["charts"]["performanceDistribution"]
         self.assertEqual(sum(row["count"] for row in empty), 0)

@@ -133,84 +133,84 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 10. Priority / Non-Priority
 
-- [~] Priority levels in work orders
-- [~] Configurable priority wording
-- [~] Priority vs non-priority classification
-- [~] Due days by priority
+- [x] Priority levels in work orders
+- [x] Configurable priority wording
+- [x] Priority vs non-priority classification
+- [x] Due days by priority
 
 ## 11. Assign To Department
 
-- [~] Department setup
-- [~] Assign issue/work order to department
-- [~] Add PIC under department
-- [~] Assign findings to specific PIC
-- [~] Department/PIC can view assigned findings
+- [x] Department setup
+- [x] Assign issue/work order to department
+- [x] Add PIC under department
+- [x] Assign findings to specific PIC
+- [x] Department/PIC can view assigned findings
 
 ## 12. Comment / Remarks
 
-- [~] Free-text remarks on scheduled work
-- [~] Free-text notes on failed criteria
-- [~] Work order description/comments
-- [~] Separate cause/recommendation/required action fields
+- [x] Free-text remarks on scheduled work
+- [x] Free-text notes on failed criteria
+- [x] Work order description/comments
+- [x] Separate cause/recommendation/required action fields
 
 ## 13. Audit Finding Record
 
-- [~] Finding ID, e.g. `F-2026-00125`
-- [~] Audit reference number
-- [~] Date
-- [~] Time
-- [~] Auditor
-- [~] Location
-- [~] Room/area/location
-- [~] Photo filename reference
-- [~] Stored original photo
-- [~] Stored marked photo
-- [~] Description category
-- [~] Priority
-- [~] Assigned department
-- [~] PIC
-- [~] Comment
-- [~] Status
-- [~] Corrective action/work order equivalent
-- [~] Completion date
-- [~] Completion photo
-- [~] Completion remark
-- [~] Verification status/details
+- [x] Finding ID, e.g. `F-2026-00125`
+- [x] Audit reference number
+- [x] Date
+- [x] Time
+- [x] Auditor
+- [x] Location
+- [x] Room/area/location
+- [x] Photo filename reference
+- [x] Stored original photo
+- [x] Stored marked photo
+- [x] Description category
+- [x] Priority
+- [x] Assigned department
+- [x] PIC
+- [x] Comment
+- [x] Status
+- [x] Corrective action/work order equivalent
+- [x] Completion date
+- [x] Completion photo
+- [x] Completion remark
+- [x] Verification status/details
 
 ## 14. Submit Function
 
-- [~] Validate completed inspections
-- [~] Generate finding ID
-- [~] Save finding/work order
-- [~] Store photo file
-- [~] Store marked photo
-- [~] Record auditor
-- [~] Record date
-- [~] Record time
-- [~] Assign to department
-- [~] Update dashboard
-- [~] Calculate audit score
+- [x] Validate completed inspections
+- [x] Generate finding ID
+- [x] Save finding/work order
+- [x] Store photo file
+- [x] Store marked photo
+- [x] Record auditor
+- [x] Record date
+- [x] Record time
+- [x] Assign to department
+- [x] Update dashboard
+- [x] Calculate audit score
 
 ## 15. Audit Status
 
-- [~] Assigned
-- [~] In Progress
-- [~] Pending
-- [~] Completed
-- [~] Verified
-- [~] Open
-- [~] Closed
-- [~] Status transitions/rules
+- [x] Assigned
+- [x] In Progress
+- [x] Pending
+- [x] Completed
+- [x] Verified
+- [x] Open
+- [x] Closed
+- [x] Status transitions/rules
 
 ## 16. Corrective Action
 
-- [~] Work order records
-- [~] Action taken field
-- [~] Person in charge field
-- [~] Completion date
-- [~] Completion remark
-- [~] Completion photo
-- [~] Auditor/facilities manager verification workflow
+- [x] Work order records
+- [x] Action taken field
+- [x] Person in charge field
+- [x] Completion date
+- [x] Completion remark
+- [x] Completion photo
+- [x] Auditor/facilities manager verification workflow
 
 ## 17. Audit Scoring System
 
@@ -225,26 +225,26 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 18. Reporting
 
-- [~] PDF audit report generation
-- [~] Professional report layout
-- [~] Company logo
-- [~] Company name
-- [~] Facilities department header
-- [~] Location
-- [~] Audit date
-- [~] Auditor
-- [~] Audit reference number
+- [x] PDF audit report generation
+- [x] Professional report layout
+- [x] Company logo
+- [x] Company name
+- [x] Facilities department header
+- [x] Location
+- [x] Audit date
+- [x] Auditor
+- [x] Audit reference number
 
 ## 19. Report Content
 
-- [~] Audit summary
-- [~] Overall audit score
-- [~] Rating text
-- [~] Total findings
-- [~] Priority findings count
-- [~] Non-priority findings count
-- [~] Completed count
-- [~] Outstanding count
+- [x] Audit summary
+- [x] Overall audit score
+- [x] Rating text
+- [x] Total findings
+- [x] Priority findings count
+- [x] Non-priority findings count
+- [x] Completed count
+- [x] Outstanding count
 
 ## 20. Bar Chart / Graph
 

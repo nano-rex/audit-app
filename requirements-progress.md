@@ -233,3 +233,31 @@ The reorganization does not migrate, copy, or reset application data.
 Validation: 38 Python tests and 11 frontend checks passed, including account isolation,
 invalid/duplicate page rejection, permission filtering, width-based tab limits, and
 failed-save rollback. No real browser/device acceptance test was available.
+
+
+## Requirements sections 10–20 — priorities, findings, workflow, and reports (2026-09-20)
+
+- Priority setup controls the displayed priority wording, Priority/Non-Priority classification,
+  and due days. Finding and work-order filters use configured priority names, and report
+  classification now honors the configured class even when a custom label is `High`.
+- Department/PIC users now receive only work orders assigned to their PIC identity or
+  department, and findings assigned to their PIC identity or department. Existing update
+  authorization remains enforced. A regression test covers both assignment paths and confirms
+  records assigned to another PIC stay hidden.
+- Scheduled remarks, failed-criterion notes, work-order comments, and separate cause,
+  recommendation, and required-action fields persist with findings and corrective actions.
+  Completed audits generate linked finding and work-order references, persist original and
+  marked evidence, and retain audit date/time, auditor, location, department, PIC, and status.
+- Corrective actions require action taken, PIC, completion date, remark, and completion photo.
+  Status transitions enforce verification permission, verifier identity and remarks, rejection
+  back to work, and closure rules; linked findings stay synchronized.
+- PDF reports include branding/logo, audit metadata, score/rating, checklist totals, priority
+  and non-priority finding counts, completed/outstanding actions, checklist and finding rows,
+  photos, corrective details, and signatures. Configured classifications are reflected in the
+  PDF summary. Dashboard and report charts use saved audit/finding/work-order data.
+
+Validation: all 39 Python tests pass, including Department/PIC list scoping, work-order
+transitions, finding linkage, scoring, report filtering/exports, and PDF pagination/content;
+Python static checks and `git diff --check` pass. Frontend regression checks could not run
+because Node.js is not installed in this workspace. Sections 10–20 are checked complete in
+`req_spec_checklist.md` for the implemented web scope.

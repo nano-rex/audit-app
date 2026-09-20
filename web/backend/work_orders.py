@@ -40,20 +40,32 @@ def comments(record_type="", record_id=0):
     return {"items": hydrate_many(rows)}
 
 
-def work_order_items():
+def work_order_items(user=None):
+    where = ""
+    params = ()
+    if user and user.get("role") == "Department/PIC":
+        name = str(user.get("name") or "").strip().casefold()
+        email = str(user.get("email") or "").strip().casefold()
+        department = str(user.get("department") or "").strip().casefold()
+        where = "WHERE CASE WHEN TRIM(COALESCE(pic, '')) != '' " \
+                "THEN LOWER(TRIM(pic)) IN (?, ?) " \
+                "ELSE LOWER(TRIM(COALESCE(assignee, ''))) IN (?, ?) " \
+                "OR LOWER(TRIM(COALESCE(request_type, ''))) = ? END"
+        params = (name, email, name, email, department)
     with connect() as db:
         rows = db.execute(
-            """
+            f"""
             SELECT id, work_order_ref, business_unit, outlet, zone, request_type, category, priority, title,
                    description, assignee, pic, status, action_taken, completion_date,
                    completion_remark, completion_photo_data_id, verified_by, verified_at,
                    verification_remark, closed_at, due_date, vendor, sla_status, cost,
                    outlet_confirmed, source_finding_id, cause, recommendation, required_action, images_data_id
             FROM work_orders
+            {where}
             ORDER BY
                 CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
                 created_at DESC, id DESC
-            """
+            """, params
         ).fetchall()
     return {"items": hydrate_many(rows)}
 
@@ -96,8 +108,16 @@ def sync_finding_from_work_order(db, work_order_id):
     )
 
 
-def finding_items(unit="Ottotree", filters=None):
+def finding_items(unit="Ottotree", filters=None, user=None):
     where, params = report_scope(unit, "findings", filters)
+    if user and user.get("role") == "Department/PIC":
+        name = str(user.get("name") or "").strip().casefold()
+        email = str(user.get("email") or "").strip().casefold()
+        department = str(user.get("department") or "").strip().casefold()
+        where += " AND CASE WHEN TRIM(COALESCE(findings.pic, '')) != '' " \
+                 "THEN LOWER(TRIM(findings.pic)) IN (?, ?) " \
+                 "ELSE LOWER(TRIM(COALESCE(findings.assigned_department, ''))) = ? END"
+        params = (*params, name, email, department)
     with connect() as db:
         rows = db.execute(
             f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor

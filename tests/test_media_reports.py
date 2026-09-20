@@ -15,9 +15,9 @@ from backend.pdf_report import build_report
 from backend.scoring import summarize
 
 
-def photo_data_url():
+def photo_data_url(color="green"):
     output = BytesIO()
-    Image.new("RGB", (40, 30), "green").save(output, "PNG")
+    Image.new("RGB", (40, 30), color).save(output, "PNG")
     return "data:image/png;base64," + base64.b64encode(output.getvalue()).decode()
 
 
@@ -54,17 +54,34 @@ class EvidenceReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             media = MediaStore(Path(directory) / "audit.db")
             image = media.normalize({"dataUrl": photo_data_url(), "name": "Auditor"})
+            logo = media.normalize({"dataUrl": photo_data_url("blue"), "name": "logo.png"})
             items = [{"section": "Safety", "item": f"Checklist row {i}", "passed": True} for i in range(100)]
             items[0]["images"] = [image]
             items[-1]["item"] = "FINAL-CHECKLIST-ENTRY"
-            report = build_report({"id": 1, "audit_ref": "AUD-TEST", "items": items,
-                                   "signatures": {"auditedBy": image}}, {"companyName": "Test"}, summarize(items, {}), media)
+            findings = [
+                {"finding_ref": "F-TEST-1", "priority": "High", "priority_classification": "Non-Priority", "status": "Assigned"},
+                {"finding_ref": "F-TEST-2", "priority": "Routine", "priority_classification": "Priority", "status": "Completed"},
+            ]
+            report = build_report({"id": 1, "audit_ref": "AUD-TEST", "inspection_name": "Inspection 1",
+                                   "outlet": "MST", "zone": "Room 1", "audit_date": "2026-09-20",
+                                   "auditor": "Auditor One", "items": items, "findings": findings,
+                                   "signatures": {"auditedBy": image}},
+                                  {"companyName": "Test Company", "departmentHeader": "Facilities Department", "logoUrl": logo["url"]},
+                                  summarize(items, {}), media)
             reader = PdfReader(BytesIO(report))
             self.assertGreater(len(reader.pages), 1)
             text = "\n".join(page.extract_text() for page in reader.pages)
             self.assertIn("FINAL-CHECKLIST-ENTRY", text)
             self.assertIn("Audited by: Auditor", text)
-            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 2)
+            self.assertIn("Test Company", text)
+            self.assertIn("Facilities Department", text)
+            self.assertIn("AUD-TEST", text)
+            self.assertIn("MST", text)
+            self.assertIn("2026-09-20", text)
+            self.assertIn("Auditor One", text)
+            self.assertIn("2 total / 1 priority / 1 non-priority", text)
+            self.assertIn("1 completed / 1 outstanding", text)
+            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 3)
 
 
 if __name__ == "__main__":
