@@ -44,7 +44,7 @@ the dependencies in `requirements.txt`.
 
 ## Verification
 
-From the repository root, using Python 3.11+ and Node.js 22:
+From the repository root, using Python 3.9+ and Node.js 22:
 
 ```sh
 .venv/bin/python -m pip install -r requirements-dev.txt

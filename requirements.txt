@@ -1,3 +1,4 @@
-Pillow==12.3.0
+# Pillow 12 requires Python 3.10+; keep 3.9 deployments on the compatible 11.x line.
+Pillow==11.3.0
 reportlab==5.0.1
 openpyxl==3.1.5

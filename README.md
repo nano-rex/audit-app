@@ -40,6 +40,7 @@ android/build/ottotree-audit-debug.apk
 ## Web
 
 Application Python modules are grouped in `web/backend/`, with `web/server.py` as the entry point.
+The web backend supports Python 3.9 and newer.
 
 Run the local SQLite-backed web server:
 

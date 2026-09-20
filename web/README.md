@@ -20,7 +20,7 @@ Run:
 python3 server.py
 ```
 
-Python 3.10 or later is required. Optional settings: `AUDIT_DATA_DIR` overrides the database directory, `AUDIT_WORKERS` sets the active request limit (default 8), and `AUDIT_SECURE_COOKIES=1` marks login cookies for HTTPS-only use. The app stays bound to `127.0.0.1`.
+Python 3.9 or later is required. Optional settings: `AUDIT_DATA_DIR` overrides the database directory, `AUDIT_WORKERS` sets the active request limit (default 8), and `AUDIT_SECURE_COOKIES=1` marks login cookies for HTTPS-only use. The app stays bound to `127.0.0.1`.
 
 Then open:
 

@@ -1,3 +1,4 @@
 -r requirements.txt
+# Both development dependencies support Python 3.9.
 pypdf==6.18.1
 pyflakes==3.4.0
