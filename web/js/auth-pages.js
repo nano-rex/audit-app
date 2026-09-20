@@ -16,8 +16,19 @@ async function pagePostJson(url, payload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Request failed");
+  const contentType = response.headers.get("content-type") || "";
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    const endpoint = new URL(url, location.href).pathname;
+    if (contentType.includes("text/html") || /^\s*<!doctype html|^\s*<html/i.test(body)) {
+      throw new Error(`${endpoint} returned an HTML page (HTTP ${response.status}) instead of JSON. Configure the host to forward /api/* to the Python app.`);
+    }
+    throw new Error(`${endpoint} returned an invalid response (HTTP ${response.status}, ${contentType || "unknown content type"}).`);
+  }
+  if (!response.ok) throw new Error(data.error || `${url} failed (HTTP ${response.status})`);
   return data;
 }
 
