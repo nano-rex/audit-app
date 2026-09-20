@@ -205,3 +205,12 @@ New coverage includes last-Super protection, session revocation across reactivat
 partial user updates, history retention, duplicate master data, cross-outlet rejection,
 rename propagation, rollback, and paginated login activity with authorization checks.
 No device/browser acceptance test was performed. Offline Android remains incomplete.
+
+
+## Backend folder organization
+
+All application Python modules now live in `web/backend/`, imported through the
+`backend` package. `web/server.py` remains the entry point. Regression tests stay in
+`tests/` and maintenance scripts in `tools/`; their imports were updated too.
+The static asset root and existing SQLite database path remain under `web/`.
+The reorganization does not migrate, copy, or reset application data.

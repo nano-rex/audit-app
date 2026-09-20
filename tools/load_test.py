@@ -51,11 +51,11 @@ def main():
             if args.baseline:
                 evidence_column, evidence = "items_json", json.dumps(evidence_items)
             else:
-                from relational_values import save_value
-                from media_store import MediaStore
+                from backend.relational_values import save_value
+                from backend.media_store import MediaStore
                 from PIL import Image
                 from io import BytesIO
-                import config
+                from backend import config
                 image_bytes = BytesIO()
                 Image.effect_noise((128, 128), 80).convert("RGB").save(image_bytes, "PNG")
                 identifier, mime = MediaStore(config.DB_PATH).put(image_bytes.getvalue())

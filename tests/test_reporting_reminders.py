@@ -6,11 +6,11 @@ import unittest
 
 from openpyxl import load_workbook
 from test_server import app
-import config
-from database import insert_record
-from relational_values import save_value
-from reminders import deliver_due_reminders
-from reports import report, report_csv, report_xls
+from backend import config
+from backend.database import insert_record
+from backend.relational_values import save_value
+from backend.reminders import deliver_due_reminders
+from backend.reports import report, report_csv, report_xls
 
 
 class ReportingReminderTests(unittest.TestCase):

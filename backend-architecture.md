@@ -3,26 +3,34 @@
 The backend is one Python application with explicit module boundaries. Splitting it improves
 reviewability and testing; it does not by itself increase request throughput.
 
+All application Python modules live in `web/backend/`; `web/server.py` is the entry point.
+Python regression tests remain in `tests/` and maintenance commands in `tools/`.
+The web root remains `web/`, and the default database remains
+`web/data/ottotree_audit_web.db`. Moving modules does not move or recreate existing data.
+
 | Module | Responsibility |
 | --- | --- |
 | `web/server.py` | Startup, data-directory configuration, compatibility exports for maintenance tools |
-| `web/config.py` | Paths, defaults, shared runtime state |
-| `web/database.py` | Connection lifetime, transactions, shared database lookups |
-| `web/migrations.py`, `web/seed_data.py` | Schema upgrades and seed records |
-| `web/api.py`, `web/http_support.py` | HTTP boundary, access checks, reads, static responses, bounded workers |
-| `web/routes.py` | Explicit method/path registry for mutations |
-| `web/routes_*.py` | Account, asset, inspection, location, setup, and work-order mutations |
-| `web/accounts.py`, `web/catalog.py`, `web/work_orders.py` | Account projection, catalog queries, finding/work-order queries |
-| `web/permissions.py` | Role inheritance, per-user overrides, inspection action/signature permissions |
-| `web/workflow.py` | Work-order state transitions, completion evidence, verification identity |
-| `web/inspection_notifications.py` | Notifications addressed to effective verifier/acknowledger permissions and audit creators |
-| `web/inspections.py`, `web/scoring.py` | Audit finalization, linked findings, score snapshots |
-| `web/media_store.py` | Image validation and content-addressed SQLite BLOBs |
-| `web/relational_values.py` | Typed relational child rows for structured attributes; no JSON columns |
-| `web/storage_migration.py` | Verified SQLite backup before destructive schema conversion |
-| `web/reports.py`, `web/pdf_report.py` | Report data, exports, paginated PDF rendering |
-| `web/response_cache.py` | Bounded response cache and pre-encoded JSON |
-| `web/common.py` | Shared date, identifier, password, and workflow helpers |
+| `web/backend/config.py` | Paths, defaults, shared runtime state |
+| `web/backend/database.py` | Connection lifetime, transactions, shared database lookups |
+| `web/backend/migrations.py`, `web/backend/seed_data.py` | Schema upgrades and seed records |
+| `web/backend/api.py`, `web/backend/http_support.py` | HTTP boundary, access checks, reads, static responses, bounded workers |
+| `web/backend/routes.py` | Explicit method/path registry for mutations |
+| `web/backend/routes_*.py` | Account, asset, inspection, location, setup, and work-order mutations |
+| `web/backend/accounts.py`, `web/backend/catalog.py`, `web/backend/work_orders.py` | Account projection, catalog queries, finding/work-order queries |
+| `web/backend/permissions.py` | Role inheritance, per-user overrides, inspection action/signature permissions |
+| `web/backend/workflow.py` | Work-order state transitions, completion evidence, verification identity |
+| `web/backend/inspection_notifications.py` | Notifications addressed to effective verifier/acknowledger permissions and audit creators |
+| `web/backend/inspections.py`, `web/backend/scoring.py` | Audit finalization, linked findings, score snapshots |
+| `web/backend/media_store.py` | Image validation and content-addressed SQLite BLOBs |
+| `web/backend/relational_values.py` | Typed relational child rows for structured attributes; no JSON columns |
+| `web/backend/storage_migration.py` | Verified SQLite backup before destructive schema conversion |
+| `web/backend/reports.py`, `web/backend/pdf_report.py` | Report data, exports, paginated PDF rendering |
+| `web/backend/response_cache.py` | Bounded response cache and pre-encoded JSON |
+| `web/backend/location_integrity.py` | Hierarchy validation, membership updates, and audit-history retention |
+| `web/backend/audit_closure.py` | Final audit closure and immutable completion records |
+| `web/backend/reminders.py` | Targeted assignment notifications and daily due reminders |
+| `web/backend/common.py` | Shared date, identifier, password, and workflow helpers |
 
 Route handlers own transactions and call domain functions. Domain functions receive an existing
 database connection when they must participate in the same atomic operation. Keep HTTP response

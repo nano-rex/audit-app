@@ -8,10 +8,10 @@ import unittest
 
 from test_server import app
 from test_media_reports import photo_data_url
-from media_store import MediaStore
-from relational_values import FIELDS, hydrate, load_value, migrate_columns, save_value
-from storage_migration import backup_legacy_database
-import config
+from backend.media_store import MediaStore
+from backend.relational_values import FIELDS, hydrate, load_value, migrate_columns, save_value
+from backend.storage_migration import backup_legacy_database
+from backend import config
 
 
 class RelationalStorageTests(unittest.TestCase):

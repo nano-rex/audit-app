@@ -3,9 +3,9 @@ import tempfile
 import unittest
 
 from test_server import app
-from database import insert_record
-from relational_values import save_value
-import config
+from backend.database import insert_record
+from backend.relational_values import save_value
+from backend import config
 
 
 class DashboardTests(unittest.TestCase):

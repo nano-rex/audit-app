@@ -10,9 +10,9 @@ from PIL import Image
 from pypdf import PdfReader
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "web"))
-from media_store import MediaStore
-from pdf_report import build_report
-from scoring import summarize
+from backend.media_store import MediaStore
+from backend.pdf_report import build_report
+from backend.scoring import summarize
 
 
 def photo_data_url():

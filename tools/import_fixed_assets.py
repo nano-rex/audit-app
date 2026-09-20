@@ -109,14 +109,14 @@ def ensure_schema(db_path):
     server = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(server)
     server.configure_data_directory(Path(db_path).parent)
-    import config
+    from backend import config
     config.DB_PATH = Path(db_path)
     server.init_db()
 
 
 def connect(db_path):
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    from database import DatabaseConnection
+    from backend.database import DatabaseConnection
     conn = sqlite3.connect(db_path, factory=DatabaseConnection)
     conn.row_factory = sqlite3.Row
     return conn
@@ -139,7 +139,7 @@ def sync_default_zone(db, outlet, now):
         "SELECT id FROM zones WHERE outlet_code = ? AND lower(name) = 'zone-1'",
         (outlet,),
     ).fetchone()
-    from relational_values import save_value
+    from backend.relational_values import save_value
     locations_json = save_value(db, locations)
     if existing:
         db.execute("UPDATE zones SET locations_data_id = ? WHERE id = ?", (locations_json, existing["id"]))
@@ -205,8 +205,8 @@ def import_assets(folder, db_path, limit=0):
     if not files:
         raise SystemExit(f"No .xlsx files found in {folder}")
     ensure_schema(db_path)
-    from relational_values import save_value
-    from media_store import MediaStore
+    from backend.relational_values import save_value
+    from backend.media_store import MediaStore
     media = MediaStore(db_path)
     count = 0
     created = 0

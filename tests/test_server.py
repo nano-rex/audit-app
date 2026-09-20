@@ -15,7 +15,7 @@ import unittest
 SPEC = importlib.util.spec_from_file_location("audit_server", Path(__file__).resolve().parents[1] / "web/server.py")
 app = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(app)
-from relational_values import save_value, load_value
+from backend.relational_values import save_value, load_value
 
 
 class QuietHandler(app.Handler):
@@ -328,7 +328,7 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request("/api/settings", "POST", {"settings": original})[0], 200)
 
     def test_recovery_requests_and_durable_sessions(self):
-        from session_store import SessionStore
+        from backend.session_store import SessionStore
         with app.connect() as db:
             user_id = db.execute("INSERT INTO users(name, role, email, password_hash, active, created_at) VALUES ('Recovery User', 'Auditor', 'recovery@example.com', ?, 1, 0)", (app.hash_password("TestPassword123"),)).lastrowid
         for email in ("recovery@example.com", "nobody@example.com", "recovery@example.com"):

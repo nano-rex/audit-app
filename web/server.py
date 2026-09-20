@@ -6,16 +6,16 @@ import sys
 import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import config
-from api import Handler
-from reminders import reminder_loop
-from http_support import AuditHTTPServer
-from database import connect
-from migrations import init_db
-from common import hash_password, verify_password, inspection_progress
-from response_cache import cached_response
-from catalog import setup_records
-from reports import report, dashboard
+from backend import config
+from backend.api import Handler
+from backend.reminders import reminder_loop
+from backend.http_support import AuditHTTPServer
+from backend.database import connect
+from backend.migrations import init_db
+from backend.common import hash_password, verify_password, inspection_progress
+from backend.response_cache import cached_response
+from backend.catalog import setup_records
+from backend.reports import report, dashboard
 
 # Compatibility surface for existing maintenance scripts and test harnesses.
 __all__ = ["Handler", "AuditHTTPServer", "connect", "init_db", "hash_password",
