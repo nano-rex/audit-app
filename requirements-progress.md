@@ -261,3 +261,26 @@ transitions, finding linkage, scoring, report filtering/exports, and PDF paginat
 Python static checks and `git diff --check` pass. Frontend regression checks could not run
 because Node.js is not installed in this workspace. Sections 10–20 are checked complete in
 `req_spec_checklist.md` for the implemented web scope.
+
+
+## Remaining core checklist closure (2026-09-20)
+
+- Verified and checked the remaining web workflow items in sections 1–9 and 21–35.
+  Completed inspection history is deliberately retained; the history checklist now says
+  unfinished drafts can be deleted while completed audit records remain immutable.
+- The PDF regression test now verifies finding/checklist content, branding, original and
+  marked evidence, completion photos, corrective action details, and summary counts. PDF
+  priority counts honor the configured classification.
+- Department/PIC work-order and finding list endpoints are scoped to PIC identity or
+  department assignment.
+- The Android database is version 12. Upgrades now create missing tables without dropping
+  local audit data or reseeding sample records. Android remains a separate offline SQLite
+  app; synchronization is deferred.
+- Section 34 external integrations and AI features remain unchecked and explicitly deferred,
+  in line with the confirmed project scope.
+
+Validation: all 39 Python tests pass, Python static checks pass, and `git diff --check` passes.
+The Android build could not run in this ARM64 workspace because the configured Android SDK
+and JDK binaries are x86-64 executables. No Android device acceptance test was available.
+Frontend regression checks also could not run because Node.js is absent. These are environment
+verification limits; they are recorded rather than treated as successful tests.

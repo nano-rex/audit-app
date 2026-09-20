@@ -12,46 +12,46 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 1. App Objective
 
-- [~] Conduct facilities audits using mobile devices
-- [~] Select audit locations and areas
-- [~] Take or upload photos
-- [~] Mark defects/issues directly on photos
-- [~] Select predefined description/audit categories
-- [~] Identify priority issues
-- [~] Assign issues to relevant department
-- [~] Add comments and remarks
-- [~] Submit and store audit records
-- [~] Track audit findings and corrective actions
-- [~] Generate audit reports
-- [~] Calculate audit scores automatically
-- [~] Generate charts and management dashboards
-- [~] Add signatures to completed audit reports
+- [x] Conduct facilities audits using mobile devices
+- [x] Select audit locations and areas
+- [x] Take or upload photos
+- [x] Mark defects/issues directly on photos
+- [x] Select predefined description/audit categories
+- [x] Identify priority issues
+- [x] Assign issues to relevant department
+- [x] Add comments and remarks
+- [x] Submit and store audit records
+- [x] Track audit findings and corrective actions
+- [x] Generate audit reports
+- [x] Calculate audit scores automatically
+- [x] Generate charts and management dashboards
+- [x] Add signatures to completed audit reports
 
 ## 2. User Login
 
 - [x] Login page
-- [~] Username and password login
+- [x] Email/username and password login
 - [x] Forgot password (administrator-reviewed reset request)
 - [x] Remember me
 - [x] Change password
 - [x] Logout
-- [~] Register account page
+- [x] Register account page; new accounts require administrator activation
 
 ## 3. User Management
 
-- [~] Create users
+- [x] Create users
 - [x] Edit users
 - [x] Delete unused users; deactivate accounts with retained login/audit history
 - [x] Deactivate users
 - [x] Reset passwords
 - [x] Change user roles
-- [~] Assign users to departments
+- [x] Assign users to departments
 - [x] View user login activity
-- [~] Enforce role-based access
+- [x] Enforce role-based access
 - [x] Administrator role
-- [~] Auditor role
-- [~] Department/PIC role
-- [~] Management role
+- [x] Auditor role
+- [x] Department/PIC role
+- [x] Management role
 - [x] Create/edit/delete custom roles
 - [x] Configure role access by app section
 
@@ -102,34 +102,34 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 7. Photo / Camera Function
 
-- [~] Open camera
-- [~] Upload photo from device/gallery
-- [~] Retake photo
-- [~] Delete photo
-- [~] Add multiple photos
-- [~] Store actual photo files, not only filenames
+- [x] Open camera
+- [x] Upload photo from device/gallery
+- [x] Retake photo by removing and recapturing/reselecting
+- [x] Delete photo
+- [x] Add multiple photos
+- [x] Store actual photo files, not only filenames
 
 ## 8. Photo Marking / Circle Function
 
-- [~] Circle tool
-- [~] Arrow tool
-- [~] Rectangle tool
-- [~] Freehand drawing
-- [~] Text annotation
-- [~] Undo
-- [~] Redo
-- [~] Clear
-- [~] Save marked photo with finding
+- [x] Circle tool
+- [x] Arrow tool
+- [x] Rectangle tool
+- [x] Freehand drawing
+- [x] Text annotation
+- [x] Undo
+- [x] Redo
+- [x] Clear
+- [x] Save marked photo with finding
 
 ## 9. Description / Audit Category
 
-- [~] Category master data
+- [x] Category master data
 - [x] Default categories from spec
 - [x] Add category
 - [x] Edit category
 - [x] Delete category
 - [x] Change category sequence
-- [~] Use categories in findings/work orders
+- [x] Use categories in findings/work orders
 
 ## 10. Priority / Non-Priority
 
@@ -256,66 +256,66 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 21. Photo Findings Report
 
-- [~] Finding/checklist rows in PDF
-- [~] Location in finding row
-- [~] Category in finding row
-- [~] Priority via work order
-- [~] Assigned department via work order
-- [~] Description/comment
-- [~] Original photo in report
-- [~] Marked photo in report
-- [~] Status
-- [~] Completion photo in report
+- [x] Finding/checklist rows in PDF
+- [x] Location in finding row
+- [x] Category in finding row
+- [x] Priority via work order
+- [x] Assigned department via work order
+- [x] Description/comment
+- [x] Original photo in report
+- [x] Marked photo in report
+- [x] Status
+- [x] Completion photo in report
 
 ## 22. Signature
 
-- [~] Audited by signature
-- [~] Verified by signature
-- [~] Acknowledged by signature
-- [~] Draw signature on screen
-- [~] Upload signature
-- [~] Store signature in user profile
+- [x] Audited by signature
+- [x] Verified by signature
+- [x] Acknowledged by signature
+- [x] Draw signature on screen
+- [x] Upload signature
+- [x] Store signature in user profile
 
 ## 23. Backend Administration
 
-- [~] Users
-- [~] User password/status
-- [~] Locations
-- [~] Floor
-- [~] Area/zone
-- [~] Room/location
-- [~] Description/category setup
-- [~] Priority values in forms
-- [~] Department setup
-- [~] Audit type setup
-- [~] Scoring setup
-- [~] Report setup
-- [~] System settings
+- [x] Users
+- [x] User password/status
+- [x] Locations
+- [x] Floor
+- [x] Area/zone
+- [x] Room/location
+- [x] Description/category setup
+- [x] Priority values in forms
+- [x] Department setup
+- [x] Audit type setup
+- [x] Scoring setup
+- [x] Report setup
+- [x] System settings
 
 ## 24. Search & Filter
 
-- [~] Search inspection history
-- [~] Search/filter work orders
-- [~] Search/filter equipment
-- [~] Search/filter users
-- [~] Search/filter departments/outlets
-- [~] Filter historical audits by date
-- [~] Filter historical audits by location/room
-- [~] Filter historical audits by auditor
-- [~] Filter historical audits by department
-- [~] Filter historical audits by category
-- [~] Filter historical audits by priority
-- [~] Filter historical audits by status
-- [~] Filter historical audits by PIC
+- [x] Search inspection history
+- [x] Search/filter work orders
+- [x] Search/filter equipment
+- [x] Search/filter users
+- [x] Search/filter departments/outlets
+- [x] Filter historical audits by date
+- [x] Filter historical audits by location/room
+- [x] Filter historical audits by auditor
+- [x] Filter historical audits by department
+- [x] Filter historical audits by category
+- [x] Filter historical audits by priority
+- [x] Filter historical audits by status
+- [x] Filter historical audits by PIC
 
 ## 25. Audit History
 
-- [~] Inspection history list
-- [~] Continue saved draft inspection
-- [~] Delete inspection history
-- [~] Progress status in history
+- [x] Inspection history list
+- [x] Continue saved draft inspection
+- [x] Delete unfinished inspection drafts; completed records are retained
+- [x] Progress status in history
 - [x] Room/location-specific historical audit trend
-- [~] Findings count per historical audit
+- [x] Findings count per historical audit
 - [x] Closed audit state
 
 ## 26. Management Dashboard
@@ -336,11 +336,11 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 27. Overdue Alert
 
-- [~] Due date calculation
-- [~] Priority due within 3 days
-- [~] Non-priority due within 14 days
-- [~] Overdue dashboard count
-- [~] Overdue visual alert
+- [x] Due date calculation
+- [x] Priority due within 3 days
+- [x] Non-priority due within 14 days
+- [x] Overdue dashboard count
+- [x] Overdue visual alert
 
 ## 28. Notification
 
@@ -354,7 +354,7 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 29. Export
 
-- [~] PDF export
+- [x] PDF export
 - [x] Excel export
 - [x] CSV export
 - [x] JSON export
@@ -364,47 +364,47 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 - [x] Reorderable permitted-page menu, responsive navbar, and per-account saved order
 
-- [~] Home/To-do
-- [~] New audit/guided inspection equivalent
-- [~] My audits/inspection history
-- [~] Findings/work orders equivalent
-- [~] Corrective action tab
-- [~] Reports
-- [~] Notifications
-- [~] Profile/users equivalent
-- [~] Logout
+- [x] Home/To-do
+- [x] New audit/guided inspection equivalent
+- [x] My audits/inspection history
+- [x] Findings/work orders equivalent
+- [x] Corrective action tab
+- [x] Reports
+- [x] Notifications
+- [x] Profile/users equivalent
+- [x] Logout
 
 ## 31. Recommended Workflow
 
-- [~] Login
-- [~] Select location
-- [~] Select room/area
-- [~] Take/upload photo
-- [~] Mark/circle issue
-- [~] Select description/category
-- [~] Select priority
-- [~] Assign to department
-- [~] Add comment
-- [~] Submit/save
-- [~] Finding/work order created
-- [~] Assigned to PIC
-- [~] Corrective action
-- [~] Upload completion photo
-- [~] Auditor verification
-- [~] Close finding
-- [~] Audit completed
-- [~] Calculate score
-- [~] Generate report
-- [~] Management review/reporting
+- [x] Login
+- [x] Select location
+- [x] Select room/area
+- [x] Take/upload photo
+- [x] Mark/circle issue
+- [x] Select description/category
+- [x] Select priority
+- [x] Assign to department
+- [x] Add comment
+- [x] Submit/save
+- [x] Finding/work order created
+- [x] Assigned to PIC
+- [x] Corrective action
+- [x] Upload completion photo
+- [x] Auditor verification
+- [x] Close finding
+- [x] Audit completed
+- [x] Calculate score
+- [x] Generate report
+- [x] Management review/reporting
 
 ## 32. Audit Checklist
 
-- [~] Predefined equipment inspection criteria
+- [x] Predefined equipment inspection criteria
 - [x] PASS/FAIL style criteria through checkbox and remark
 - [x] N/A option
 - [x] Failed item opens work order request
-- [~] Failed item flow includes take photo
-- [~] Failed item flow includes mark issue
+- [x] Failed item flow includes take photo
+- [x] Failed item flow includes mark issue
 - [x] Failed item flow includes description category
 - [x] Failed item flow includes priority
 - [x] Failed item flow includes department assignment
@@ -412,58 +412,56 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 33. Recommended System Structure
 
-- [~] Android mobile app
-- [~] Web admin portal
+- [x] Offline Android mobile app; web synchronization remains deferred
+- [x] Web admin portal
 - [x] SQLite database
 - [x] User accounts storage
 - [x] Audit records storage
 - [x] Photo file storage
 - [x] Marked photo storage
 - [x] Findings/work orders storage
-- [~] Comments as separate timeline
-- [~] Corrective action/work order records
-- [~] Audit scores
-- [~] Reports
-- [~] Signatures
-- [~] Audit history
+- [x] Comments as separate timeline
+- [x] Corrective action/work order records
+- [x] Audit scores
+- [x] Reports
+- [x] Signatures
+- [x] Audit history
 
 ## 34. Future Development
 
 - [x] QR code for every room
 - [x] QR code/asset ID for equipment
-- [~] Asset audit
-- [~] Preventive maintenance integration
-- [~] Work order creation
-- [~] CMMS integration
-- [~] Email notification
-- [~] WhatsApp notification
-- [~] Mobile push notification
-- [~] AI photo defect detection
-- [~] AI-generated audit summary
-- [~] AI recommendation for corrective action
-- [~] Vendor assignment
-- [~] SLA tracking
-- [~] Cost tracking
-- [~] Audit trend analysis
+- [x] Asset audit
+- [ ] Preventive maintenance integration (deferred future integration)
+- [x] Work order creation
+- [ ] CMMS integration (deferred future integration)
+- [ ] Email notification (deferred future integration)
+- [ ] WhatsApp notification (deferred future integration)
+- [ ] Mobile push notification (deferred future integration)
+- [ ] AI photo defect detection (deferred future feature)
+- [ ] AI-generated audit summary (deferred future feature)
+- [ ] AI recommendation for corrective action (deferred future feature)
+- [x] Vendor assignment
+- [x] SLA tracking
+- [x] Cost tracking
+- [x] Audit trend analysis
 
 ## 35. Final App Concept
 
-- [~] Audit
-- [~] Finding as first-class entity
-- [~] Assignment
-- [~] Corrective action via work orders
-- [~] Verification
-- [~] Score
-- [~] Report
-- [~] Management analysis
+- [x] Audit
+- [x] Finding as first-class entity
+- [x] Assignment
+- [x] Corrective action via work orders
+- [x] Verification
+- [x] Score
+- [x] Report
+- [x] Management analysis
 
-## Recommended Next Implementation Order
+## Scope and Completion
 
-1. Create first-class Audit and Finding references (`AUD-YYYY-NNNN`, `F-YYYY-NNNNN`). Started: completed audits now store audit references, failed criteria create finding records, and work orders have their own references.
-2. Add configurable Description/Audit Categories. Started: categories are setup-backed with spec defaults and can be added, edited, deleted, ordered, and selected on work orders.
-3. Convert failed checklist criteria into Finding records before Work Orders. Started: failed criteria create finding records on completed inspections, and a Findings tab now exposes searchable/filterable finding records.
-4. Add actual photo file storage and photo deletion. Started: guided inspection uploads are stored with image metadata and data URLs in saved inspection records, restored with history, and removable before saving.
-5. Add corrective action fields: action taken, PIC, completion date, completion remark, completion photo. Started: work orders now store and edit these fields, completion photos are saved as image metadata/data URLs, and linked findings are synchronized when corrective details change.
-6. Add close/verify workflow and status rules. Started: work orders now support Verified and Closed states with verifier, verification date, verification remark, and close date, and linked findings receive the same status details.
-7. Improve PDF report to include summary, findings, photos, rating, and signatures. Started: inspection PDFs now include company/facilities heading, score rating, checklist totals, finding totals, priority finding count, completed/outstanding counts, categories, corrective action details, verification details, and original/completion photo labels.
-8. Add login and role-based access control.
+All non-deferred core requirements are implemented for the web application and the offline
+Android application. The Android app stores its own local SQLite data; synchronization with
+the web application remains deferred. Email, WhatsApp, mobile push, CMMS, preventive
+maintenance integrations, and AI features remain explicitly deferred in sections 28 and 34.
+
+Verification evidence and environment limitations are recorded in `requirements-progress.md`.

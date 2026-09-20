@@ -54,7 +54,7 @@ Then open `http://127.0.0.1:41883`.
 
 See [backend architecture](backend-architecture.md) for module responsibilities and test commands,
 [production readiness](production-readiness.md) for deployment limits and load-test results,
-and [requirements progress](requirements-progress.md) for the remaining core work.
+and [requirements progress](requirements-progress.md) for implementation evidence and deferred work.
 
 ## Data Storage
 

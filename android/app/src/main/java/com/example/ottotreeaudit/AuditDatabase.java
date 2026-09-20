@@ -11,7 +11,7 @@ import java.util.List;
 
 final class AuditDatabase extends SQLiteOpenHelper {
     private static final String DB_NAME = "ottotree_audit.db";
-    private static final int DB_VERSION = 11;
+    private static final int DB_VERSION = 12;
     private static final String[] LOUDSPEAKER_OUTLETS = {"STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS"};
 
     AuditDatabase(Context context) {
@@ -20,7 +20,12 @@ final class AuditDatabase extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        db.execSQL("CREATE TABLE audits (" +
+        createSchema(db);
+        seed(db);
+    }
+
+    private void createSchema(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS audits (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "business_unit TEXT NOT NULL," +
                 "outlet TEXT NOT NULL," +
@@ -31,7 +36,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "score INTEGER NOT NULL," +
                 "created_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE schedules (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS schedules (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "business_unit TEXT NOT NULL," +
                 "outlet TEXT NOT NULL," +
@@ -42,13 +47,13 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "status TEXT NOT NULL," +
                 "created_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE captain_logins (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS captain_logins (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "outlet TEXT NOT NULL," +
                 "captain_name TEXT NOT NULL," +
                 "logged_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE inspection_items (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS inspection_items (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "audit_id INTEGER NOT NULL," +
                 "section TEXT NOT NULL," +
@@ -57,7 +62,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "notes TEXT," +
                 "evidence_status TEXT NOT NULL)");
 
-        db.execSQL("CREATE TABLE work_orders (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS work_orders (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "business_unit TEXT NOT NULL," +
                 "outlet TEXT NOT NULL," +
@@ -73,7 +78,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "source_item_id INTEGER," +
                 "created_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE equipment (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS equipment (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "asset_id TEXT NOT NULL UNIQUE," +
                 "qr_code TEXT NOT NULL," +
@@ -98,7 +103,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "inspection_criteria TEXT," +
                 "created_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE locations (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS locations (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "outlet_code TEXT NOT NULL," +
                 "name TEXT NOT NULL," +
@@ -106,7 +111,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "created_at INTEGER NOT NULL," +
                 "UNIQUE(outlet_code, name))");
 
-        db.execSQL("CREATE TABLE admin_records (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS admin_records (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "record_type TEXT NOT NULL," +
                 "name TEXT NOT NULL," +
@@ -115,7 +120,7 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "active INTEGER NOT NULL DEFAULT 1," +
                 "created_at INTEGER NOT NULL)");
 
-        db.execSQL("CREATE TABLE users (" +
+        db.execSQL("CREATE TABLE IF NOT EXISTS users (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL," +
                 "role TEXT NOT NULL," +
@@ -124,22 +129,13 @@ final class AuditDatabase extends SQLiteOpenHelper {
                 "title TEXT," +
                 "responsibilities TEXT," +
                 "created_at INTEGER NOT NULL)");
-
-        seed(db);
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS captain_logins");
-        db.execSQL("DROP TABLE IF EXISTS locations");
-        db.execSQL("DROP TABLE IF EXISTS users");
-        db.execSQL("DROP TABLE IF EXISTS admin_records");
-        db.execSQL("DROP TABLE IF EXISTS equipment");
-        db.execSQL("DROP TABLE IF EXISTS work_orders");
-        db.execSQL("DROP TABLE IF EXISTS inspection_items");
-        db.execSQL("DROP TABLE IF EXISTS schedules");
-        db.execSQL("DROP TABLE IF EXISTS audits");
-        onCreate(db);
+        // Preserve offline audits and configuration across app upgrades.
+        // The current schema change is additive; new tables are created if absent.
+        createSchema(db);
     }
 
     long saveAudit(String businessUnit, String outlet, String auditDate, String auditor, String auditType, int score) {

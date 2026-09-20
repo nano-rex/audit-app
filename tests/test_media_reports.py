@@ -53,19 +53,23 @@ class EvidenceReportTests(unittest.TestCase):
     def test_pdf_contains_final_checklist_row_images_and_signatures(self):
         with tempfile.TemporaryDirectory() as directory:
             media = MediaStore(Path(directory) / "audit.db")
-            image = media.normalize({"dataUrl": photo_data_url(), "name": "Auditor"})
+            image = media.normalize({"dataUrl": photo_data_url(), "markedDataUrl": photo_data_url("red"),
+                                     "name": "original.png", "markedName": "marked-photo.png"})
             logo = media.normalize({"dataUrl": photo_data_url("blue"), "name": "logo.png"})
+            completion = media.normalize({"dataUrl": photo_data_url("orange"), "name": "completion.png"})
+            signature = media.normalize({"dataUrl": photo_data_url("green"), "name": "Auditor"})
             items = [{"section": "Safety", "item": f"Checklist row {i}", "passed": True} for i in range(100)]
             items[0]["images"] = [image]
             items[-1]["item"] = "FINAL-CHECKLIST-ENTRY"
             findings = [
                 {"finding_ref": "F-TEST-1", "priority": "High", "priority_classification": "Non-Priority", "status": "Assigned"},
-                {"finding_ref": "F-TEST-2", "priority": "Routine", "priority_classification": "Priority", "status": "Completed"},
+                {"finding_ref": "F-TEST-2", "priority": "Routine", "priority_classification": "Priority", "status": "Completed",
+                 "completion_photo": [completion], "completion_date": "2026-09-20", "corrective_action": "Repaired"},
             ]
             report = build_report({"id": 1, "audit_ref": "AUD-TEST", "inspection_name": "Inspection 1",
                                    "outlet": "MST", "zone": "Room 1", "audit_date": "2026-09-20",
                                    "auditor": "Auditor One", "items": items, "findings": findings,
-                                   "signatures": {"auditedBy": image}},
+                                   "signatures": {"auditedBy": signature}},
                                   {"companyName": "Test Company", "departmentHeader": "Facilities Department", "logoUrl": logo["url"]},
                                   summarize(items, {}), media)
             reader = PdfReader(BytesIO(report))
@@ -81,7 +85,10 @@ class EvidenceReportTests(unittest.TestCase):
             self.assertIn("Auditor One", text)
             self.assertIn("2 total / 1 priority / 1 non-priority", text)
             self.assertIn("1 completed / 1 outstanding", text)
-            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 3)
+            self.assertIn("Marked: marked-photo.png", text)
+            self.assertIn("Completion photo: completion.png", text)
+            self.assertIn("Action taken: Repaired", text)
+            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 4)
 
 
 if __name__ == "__main__":
