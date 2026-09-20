@@ -176,3 +176,32 @@ The latest isolated load run used 100 concurrent users, 2,500 assets and 300 see
 flow was 11.43 seconds. This is slower than the earlier 8.29-second run; timings vary
 with the shared host and session persistence now also uses SQLite. It is not evidence
 that production meets a particular response-time target.
+
+
+## User administration and location integrity (2026-09-20)
+
+- User edits preserve omitted fields. Removing, demoting, or deactivating the last active
+  Super account is rejected inside a serialized transaction. Deactivation revokes stored
+  sessions so reactivation does not restore old access. Accounts with login/audit history
+  are retained and can be deactivated; unused accounts can be deleted with session and
+  reset-request cleanup.
+- Users now includes an administrator-only Login activity dialog showing successful login
+  timestamps, email, Remember Me, and browser information. The API returns 50 records per
+  page and uses a user/time index; it does not download the complete activity table.
+- Section 6 is complete for the web application's outlet → floor/area → room hierarchy.
+  Floor and area are editable location fields; room order is configurable. Duplicate
+  outlet/location/zone creation returns a conflict instead of replacing an existing ID.
+- Renaming unused locations updates asset placement and zone membership atomically.
+  Renaming unused outlet codes updates child locations, zones, assets, and generated
+  room QR codes. Custom QR values are retained.
+- Names referenced by schedules or saved audits cannot be renamed or deleted; other
+  details remain editable. Remove/relocate dependent assets and child entries before
+  deleting an unused master entry. Zone locations and location equipment must belong to
+  the selected outlet. Invalid changes roll back, and the UI displays the server reason.
+
+Validation: 36 Python tests passed, plus the subsequently added login-activity test
+(37 distinct tests), 9 frontend regression checks, Python static checks, and diff checks.
+New coverage includes last-Super protection, session revocation across reactivation,
+partial user updates, history retention, duplicate master data, cross-outlet rejection,
+rename propagation, rollback, and paginated login activity with authorization checks.
+No device/browser acceptance test was performed. Offline Android remains incomplete.

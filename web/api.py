@@ -9,8 +9,8 @@ from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse, unquote
 from media_store import MediaStore
 import config
-from accounts import branding_settings, is_super_user, public_user
-from catalog import equipment_items, locations, role_items, setup_records, users, zones
+from accounts import is_company_admin_user, branding_settings, is_super_user, public_user
+from catalog import user_login_activity, equipment_items, locations, role_items, setup_records, users, zones
 from common import checklist, inspection_name
 from config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from database import connect
@@ -259,6 +259,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/roles":
             self.json(role_items())
+            return
+        activity = re.fullmatch(r"/api/users/(\d+)/activity", parsed.path)
+        if activity:
+            if not is_company_admin_user(self.current_user()):
+                raise PermissionError("Admin access required")
+            offset = parse_qs(parsed.query).get("offset", ["0"])[0]
+            self.json(user_login_activity(int(activity.group(1)), offset))
             return
         if parsed.path == "/api/users":
             self.json(users())

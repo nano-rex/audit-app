@@ -568,7 +568,12 @@ document.getElementById("outlet-form").addEventListener("submit", async (event) 
     location: formValue(form, "location", ""),
     description: formValue(form, "description", ""),
   };
-  await requestJson(id ? `/api/setup/outlets/${id}` : "/api/setup/outlets", id ? "PATCH" : "POST", payload);
+  try {
+    await requestJson(id ? `/api/setup/outlets/${id}` : "/api/setup/outlets", id ? "PATCH" : "POST", payload);
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });
@@ -711,7 +716,12 @@ document.getElementById("location-form").addEventListener("submit", async (event
     size: formValue(form, "size", ""),
     equipmentIds: [...form.elements.equipmentIds.selectedOptions].map((option) => Number(option.value)),
   };
-  await requestJson(id ? `/api/locations/${id}` : "/api/locations", id ? "PATCH" : "POST", payload);
+  try {
+    await requestJson(id ? `/api/locations/${id}` : "/api/locations", id ? "PATCH" : "POST", payload);
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });
@@ -726,7 +736,12 @@ document.getElementById("zone-form").addEventListener("submit", async (event) =>
     description: formValue(form, "description", ""),
     locations: [...form.querySelectorAll('input[name="zoneLocations"]:checked')].map((input) => input.value),
   };
-  await requestJson(id ? `/api/zones/${id}` : "/api/zones", id ? "PATCH" : "POST", payload);
+  try {
+    await requestJson(id ? `/api/zones/${id}` : "/api/zones", id ? "PATCH" : "POST", payload);
+  } catch (error) {
+    alert(error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });

@@ -10,6 +10,7 @@ document.querySelectorAll("[data-open]").forEach((button) => {
 });
 
 document.addEventListener("click", async (event) => {
+  try {
   const findingLink = event.target.closest("[data-view-inspection-findings]");
   const allFindings = event.target.closest("[data-all-inspection-findings]");
   if (findingLink || allFindings) {
@@ -98,6 +99,12 @@ document.addEventListener("click", async (event) => {
       localStorage.removeItem(lastInspectionSessionKey);
     }
     loadInspectionHistory();
+    return;
+  }
+
+  const activityButton = event.target.closest("[data-login-activity]");
+  if (activityButton) {
+    await showLoginActivity(activityButton.dataset.loginActivity, Number(activityButton.dataset.offset || 0));
     return;
   }
 
@@ -256,6 +263,9 @@ document.addEventListener("click", async (event) => {
     await requestJson(`/api/work-orders/${workOrderButton.dataset.deleteWorkOrder}`, "DELETE");
     loadApp();
     return;
+  }
+  } catch (error) {
+    alert(error.message || "The action could not be completed.");
   }
 });
 
@@ -865,3 +875,28 @@ document.getElementById("report-filter-form")?.addEventListener("submit", async 
 document.getElementById("report-filter-form")?.addEventListener("reset", () => {
   setTimeout(() => loadReport().catch(showLoadError), 0);
 });
+
+async function showLoginActivity(id, offset = 0) {
+  const response = await authFetch(`/api/users/${encodeURIComponent(id)}/activity?offset=${offset}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Login activity could not be loaded");
+  let dialog = document.getElementById("login-activity");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "login-activity";
+    dialog.setAttribute("aria-labelledby", "login-activity-title");
+    document.body.appendChild(dialog);
+  }
+  dialog.innerHTML = `<h2 id="login-activity-title">Login activity: ${escapeHtml(data.name)}</h2>
+    <p>Successful logins · newest first</p>
+    <div class="list">${data.items.length ? data.items.map((row) => `<article><div>
+      <b>${escapeHtml(row.logged_at)}</b><span>${escapeHtml(row.email)}</span>
+      <span>${row.remember_me ? "Remember me" : "Standard session"} · ${escapeHtml(row.user_agent || "Unknown device")}</span>
+    </div></article>`).join("") : "<p>No recorded logins.</p>"}</div>
+    <nav aria-label="Login activity pages">
+      <button type="button" data-login-activity="${escapeAttr(id)}" data-offset="${Math.max(0, offset - 50)}" ${offset === 0 ? "disabled" : ""}>Previous</button>
+      <span>Page ${Math.floor(offset / 50) + 1}</span>
+      <button type="button" data-login-activity="${escapeAttr(id)}" data-offset="${offset + 50}" ${data.hasMore ? "" : "disabled"}>Next</button>
+    </nav><form method="dialog"><button>Close</button></form>`;
+  if (!dialog.open) dialog.showModal();
+}

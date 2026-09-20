@@ -153,3 +153,14 @@ def query_equipment_items(outlet=None):
             params,
         ).fetchall()
     return {"items": hydrate_many(rows)}
+
+
+def user_login_activity(user_id, offset=0):
+    offset = max(0, int(offset))
+    with connect() as db:
+        user = db.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
+        if not user:
+            from workflow import WorkflowError
+            raise WorkflowError("User not found", 404)
+        rows = db.execute("SELECT id, email, logged_at, remember_me, user_agent FROM user_login_activity WHERE user_id = ? ORDER BY logged_at DESC, id DESC LIMIT 51 OFFSET ?", (user_id, offset)).fetchall()
+    return {"name": user["name"], "items": [dict(row) for row in rows[:50]], "offset": offset, "hasMore": len(rows) > 50}

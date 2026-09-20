@@ -40,20 +40,20 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 ## 3. User Management
 
 - [~] Create users
-- [~] Edit users
-- [~] Delete users
-- [~] Deactivate users
-- [~] Reset passwords
-- [~] Change user roles
+- [x] Edit users
+- [x] Delete unused users; deactivate accounts with retained login/audit history
+- [x] Deactivate users
+- [x] Reset passwords
+- [x] Change user roles
 - [~] Assign users to departments
-- [~] View user login activity
+- [x] View user login activity
 - [~] Enforce role-based access
 - [x] Administrator role
 - [~] Auditor role
 - [~] Department/PIC role
 - [~] Management role
-- [~] Create/edit/delete custom roles
-- [~] Configure role access by app section
+- [x] Create/edit/delete custom roles
+- [x] Configure role access by app section
 
 ## 4. Main Dashboard
 
@@ -85,20 +85,20 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 ## 6. Area / Location Selection
 
-- [~] Outlet setup
-- [~] Location setup
-- [~] Zone setup
-- [~] Floor setup
-- [~] Area setup
-- [~] Room hierarchy: outlet -> floor/area -> room
-- [~] Add location
-- [~] Edit location
-- [~] Delete location
-- [~] Add room/location equivalent
-- [~] Edit room/location equivalent
-- [~] Delete room/location equivalent
-- [~] Create areas/zones
-- [~] Change display order of locations
+- [x] Outlet setup
+- [x] Location setup
+- [x] Zone setup
+- [x] Floor setup
+- [x] Area setup
+- [x] Room hierarchy: outlet -> floor/area -> room
+- [x] Add location
+- [x] Edit location
+- [x] Delete location
+- [x] Add room/location equivalent
+- [x] Edit room/location equivalent
+- [x] Delete room/location equivalent
+- [x] Create areas/zones
+- [x] Change display order of locations
 
 ## 7. Photo / Camera Function
 

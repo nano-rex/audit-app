@@ -11,6 +11,7 @@ from accounts import is_company_admin_user, is_super_user, public_user
 from common import hash_password, verify_password
 from config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE
 from database import connect, first_department
+from workflow import WorkflowError
 from permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
 
 
@@ -257,7 +258,14 @@ def patch_users(self, parsed, payload=None):
         self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
-        existing_user = db.execute("SELECT role FROM users WHERE id = ?", (int(user_id),)).fetchone()
+        db.execute("BEGIN IMMEDIATE")
+        existing_user = db.execute("SELECT * FROM users WHERE id = ?", (int(user_id),)).fetchone()
+        if not existing_user:
+            raise WorkflowError("User not found", 404)
+        fields = {"name": "name", "role": "role", "email": "email", "department": "department", "active": "active", "resetRequired": "reset_required", "title": "title", "responsibilities": "responsibilities"}
+        payload = {key: existing_user[column] for key, column in fields.items()} | payload
+        if existing_user["role"] == SUPER_ROLE and existing_user["active"] and (payload["role"] != SUPER_ROLE or not payload["active"]):
+            protect_last_super(db, int(user_id))
         if not is_super_user(self.current_user()) and (payload.get("role") == SUPER_ROLE or (existing_user and existing_user["role"] == SUPER_ROLE)):
             self.json({"ok": False, "error": "Super users require Super access"}, status=403)
             return
@@ -292,6 +300,8 @@ def patch_users(self, parsed, payload=None):
         if cursor.rowcount == 0:
             self.send_error(404)
             return
+        if not payload["active"]:
+            db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
         if reset_password or password:
             db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
             db.execute("UPDATE password_reset_requests SET resolved_at = ? WHERE user_id = ?", (int(time.time() * 1000), int(user_id)))
@@ -354,10 +364,19 @@ def delete_users(self, parsed, payload=None):
         self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
-        existing_user = db.execute("SELECT role FROM users WHERE id = ?", (int(record_id),)).fetchone()
+        db.execute("BEGIN IMMEDIATE")
+        existing_user = db.execute("SELECT role, active FROM users WHERE id = ?", (int(record_id),)).fetchone()
         if not is_super_user(self.current_user()) and existing_user and existing_user["role"] == SUPER_ROLE:
             self.json({"ok": False, "error": "Super users require Super access"}, status=403)
             return
+        if existing_user and existing_user["role"] == SUPER_ROLE and existing_user["active"]:
+            protect_last_super(db, int(record_id))
+        if db.execute("SELECT 1 FROM user_login_activity WHERE user_id = ? LIMIT 1", (int(record_id),)).fetchone() or db.execute("SELECT 1 FROM inspection_sessions WHERE owner_user_id = ? LIMIT 1", (int(record_id),)).fetchone():
+            raise WorkflowError("This account has login or audit history. Deactivate it to retain that history.")
+        db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(record_id),))
+        db.execute("DELETE FROM password_reset_requests WHERE user_id = ?", (int(record_id),))
+        db.execute("DELETE FROM notifications WHERE recipient_user_id = ?", (int(record_id),))
+        db.execute("DELETE FROM due_notification_events WHERE user_id = ?", (int(record_id),))
         cursor = db.execute("DELETE FROM users WHERE id = ?", (int(record_id),))
         if cursor.rowcount == 0:
             self.send_error(404)
@@ -389,3 +408,8 @@ def delete_roles(self, parsed, payload=None):
             return
     self.json({"ok": True})
     return
+
+
+def protect_last_super(db, user_id):
+    if not db.execute("SELECT 1 FROM users WHERE role = ? AND active = 1 AND id != ?", (SUPER_ROLE, user_id)).fetchone():
+        raise WorkflowError("Keep at least one active Super user")

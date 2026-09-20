@@ -96,6 +96,81 @@ class ServerTests(unittest.TestCase):
             count = db.execute("SELECT COUNT(*) FROM comments WHERE record_type = 'inspection' AND record_id = ? AND comment = 'Audit closed'", (session_id,)).fetchone()[0]
         self.assertEqual(count, 1)
 
+    def test_administration_preserves_last_super_and_revokes_deactivated_sessions(self):
+        path = f"/api/users/{self.user_id}"
+        for payload in ({"active": False}, {"role": "Auditor"}):
+            self.assertEqual(self.request(path, "PATCH", payload)[0], 409)
+        self.assertEqual(self.request(path, "DELETE")[0], 409)
+        user = {"name": "Lifecycle User", "email": "lifecycle@example.test", "role": "Auditor", "active": True}
+        self.assertEqual(self.request("/api/users", "POST", user)[0], 200)
+        with app.connect() as db:
+            identifier = db.execute("SELECT id FROM users WHERE email = ?", (user["email"],)).fetchone()[0]
+        app.SESSION_TOKENS["lifecycle"] = {"user_id": identifier, "expires_at": time.time() + 3600}
+        target = f"/api/users/{identifier}"
+        self.assertEqual(self.request(target, "PATCH", {"active": False})[0], 200)
+        self.assertIsNone(app.SESSION_TOKENS.get("lifecycle"))
+        self.assertEqual(self.request(target, "PATCH", {"active": True})[0], 200)
+        self.assertEqual(self.request("/api/account", token="lifecycle")[0], 401)
+        with app.connect() as db:
+            row = db.execute("SELECT name, email, role FROM users WHERE id = ?", (identifier,)).fetchone()
+            self.assertEqual(tuple(row), (user["name"], user["email"], user["role"]))
+            db.execute("INSERT INTO user_login_activity(user_id,email,logged_at) VALUES (?,?,'2026-09-20')", (identifier, user["email"]))
+        self.assertEqual(self.request(target, "DELETE")[0], 409)
+        self.assertEqual(self.request(target, "PATCH", {"active": False})[0], 200)
+
+    def test_location_integrity_duplicates_rename_rollback_and_history(self):
+        for code in ("HIER-A", "HIER-B"):
+            self.assertEqual(self.request("/api/setup/outlets", "POST", {"code": code})[0], 200)
+        location = {"outlet": "HIER-A", "name": "Room One", "floor": "1", "area": "East", "displayOrder": 7}
+        self.assertEqual(self.request("/api/locations", "POST", location)[0], 200)
+        with app.connect() as db:
+            identifier = db.execute("SELECT id FROM locations WHERE outlet_code = 'HIER-A' AND name = 'Room One'").fetchone()[0]
+        target = f"/api/locations/{identifier}"
+        self.assertEqual(self.request("/api/locations", "POST", location)[0], 409)
+        self.assertEqual(self.request("/api/zones", "POST", {"outlet": "HIER-B", "name": "Invalid", "locations": ["Room One"]})[0], 400)
+        self.assertEqual(self.request("/api/zones", "POST", {"outlet": "HIER-A", "name": "Custom", "locations": ["Room One"]})[0], 200)
+        asset = {"outlet": "HIER-A", "location": "Room One", "zone": "Room One", "name": "Hierarchy asset", "code": "HIER-ASSET"}
+        self.assertEqual(self.request("/api/equipment", "POST", asset)[0], 200)
+        self.assertEqual(self.request(target, "PATCH", {"name": "Room Two"})[0], 200)
+        with app.connect() as db:
+            room = db.execute("SELECT * FROM locations WHERE id = ?", (identifier,)).fetchone()
+            self.assertEqual((room["floor"], room["area"], room["display_order"]), ("1", "East", 7))
+            zone = db.execute("SELECT locations_data_id FROM zones WHERE outlet_code = 'HIER-A' AND name = 'Custom'").fetchone()
+            self.assertEqual(load_value(zone[0]), ["Room Two"])
+            equipment = db.execute("SELECT id,location,zone FROM equipment WHERE code = 'HIER-ASSET'").fetchone()
+            self.assertEqual(tuple(equipment)[1:], ("Room Two", "Room Two"))
+            asset_id = equipment["id"]
+        self.assertEqual(self.request(target, "DELETE")[0], 409)
+        self.assertEqual(self.request("/api/locations", "POST", {"outlet": "HIER-B", "name": "Wrong asset", "equipmentIds": [asset_id]})[0], 400)
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT id FROM locations WHERE name = 'Wrong asset'").fetchone())
+            outlet_id = db.execute("SELECT id FROM outlets WHERE code = 'HIER-A'").fetchone()[0]
+        self.assertEqual(self.request(f"/api/setup/outlets/{outlet_id}", "PATCH", {"code": "HIER-C"})[0], 200)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT outlet FROM equipment WHERE id = ?", (asset_id,)).fetchone()[0], "HIER-C")
+        self.assertEqual(self.request("/api/schedules", "POST", {"outlet": "HIER-C", "zone": "Room Two", "scheduledDate": "2026-09-20"})[0], 200)
+        self.assertEqual(self.request(target, "PATCH", {"name": "Lost history"})[0], 409)
+        self.assertEqual(self.request(f"/api/setup/outlets/{outlet_id}", "DELETE")[0], 409)
+        self.assertEqual(self.request(target, "PATCH", {"floor": "2"})[0], 200)
+
+    def test_login_activity_is_admin_only_and_paginated(self):
+        with app.connect() as db:
+            identifier = db.execute("INSERT INTO users(name,role,email,active,created_at) VALUES ('Activity Test','Auditor','activity@example.test',1,0)").lastrowid
+            db.executemany("INSERT INTO user_login_activity(user_id,email,logged_at,remember_me,user_agent) VALUES (?,?,'2026-09-20',1,'Test browser')", [(identifier, 'activity@example.test')] * 55)
+        path = f"/api/users/{identifier}/activity"
+        self.assertEqual(self.request(path, token="limited")[0], 403)
+        status, _, body = self.request(path)
+        self.assertEqual(status, 200)
+        first = json.loads(body)
+        self.assertEqual(len(first["items"]), 50)
+        self.assertTrue(first["hasMore"])
+        _, _, body = self.request(path + "?offset=50")
+        second = json.loads(body)
+        self.assertEqual(len(second["items"]), 5)
+        self.assertFalse(second["hasMore"])
+        self.assertGreater(first["items"][-1]["id"], second["items"][0]["id"])
+        self.assertEqual(self.request(path + "?offset=invalid")[0], 400)
+
     def test_static_allowlist(self):
         for path in ("/data/ottotree_audit_web.db", "/server.py", "/README.md", "/js/../server.py", "/js/%2e%2e/server.py"):
             self.assertEqual(self.request(path, token=None)[0], 404, path)

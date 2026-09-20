@@ -114,6 +114,7 @@ function userRow(row) {
       </div>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-user='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        <button type="button" class="outline" data-login-activity="${row.id}">Login activity</button>
         <button type="button" class="danger" data-delete-user="${row.id}">Delete</button>
       </span>
     </article>
