@@ -96,10 +96,11 @@ function renderInspectionZones(locations, zones, equipment) {
     normalizedZones.unshift(zoneOne);
   }
   zoneOne.locations = [...new Set([...zoneOne.locations, ...unassigned])];
-  return normalizedZones
-    .filter((zone) => zone.locations.length)
-    .map((zone) => inspectionZoneCard(zone.name, zone.locations, equipment))
-    .join("");
+  const activeZones = normalizedZones.filter((zone) => zone.locations.length);
+  inspectionLocationZones = new Map(activeZones.flatMap((zone) => zone.locations.map((location) => [location, zone.name])));
+  return `<div class="inspection-zone-tabs" role="tablist" aria-label="Inspection zones">
+    ${activeZones.map((zone, index) => `<button type="button" class="${index === 0 ? "active" : ""}" data-open-inspection-zone="${escapeAttr(zone.name)}" role="tab" aria-selected="${index === 0}">${escapeHtml(zone.name)} <small data-zone-tab-status="${escapeAttr(zone.name)}">(0%)</small></button>`).join("")}
+  </div>${activeZones.map((zone) => inspectionZoneCard(zone.name, zone.locations, equipment)).join("")}`;
 }
 
 function inspectionZoneCard(zoneName, locations, equipment) {
@@ -566,12 +567,16 @@ function updateInspectionStatusPills(payload) {
       pill.textContent = `(${progress}%)`;
     }
     summary.push(`<span class="status-pill ${status.className}">${escapeHtml(section.dataset.inspectionZone)} (${progress}%)</span>`);
+    const tabStatus = [...document.querySelectorAll("[data-zone-tab-status]")].find((node) => node.dataset.zoneTabStatus === section.dataset.inspectionZone);
+    if (tabStatus) tabStatus.textContent = `(${progress}%)`;
   });
   setHtml("[data-inspection-zone-progress]", summary.join(""));
 }
 
 function openInspectionLocation(location) {
   const section = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location);
+  const zoneName = inspectionLocationZones.get(location);
+  if (zoneName) activateInspectionZone(zoneName);
   if (section && !section.dataset.loaded) {
     const items = inspectionLocationEquipment.get(location) || [];
     const container = section.querySelector("[data-location-items]");
@@ -585,6 +590,24 @@ function openInspectionLocation(location) {
   document.querySelectorAll("[data-open-inspection-location]").forEach((button) => {
     button.classList.toggle("active", button.dataset.openInspectionLocation === location);
   });
+}
+
+function activateInspectionZone(zoneName) {
+  document.querySelectorAll("[data-inspection-zone]").forEach((zone) => {
+    zone.hidden = zone.dataset.inspectionZone !== zoneName;
+  });
+  document.querySelectorAll("[data-open-inspection-zone]").forEach((button) => {
+    const active = button.dataset.openInspectionZone === zoneName;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+}
+
+function openInspectionZone(zoneName) {
+  activateInspectionZone(zoneName);
+  const zone = [...document.querySelectorAll("[data-inspection-zone]")].find((node) => node.dataset.inspectionZone === zoneName);
+  const first = zone?.querySelector("[data-open-inspection-location]");
+  if (first) openInspectionLocation(first.dataset.openInspectionLocation);
 }
 
 function openFirstInspectionLocation() {

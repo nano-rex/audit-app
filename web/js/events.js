@@ -693,6 +693,11 @@ document.querySelector("[data-equipment-photos]")?.addEventListener("click", (ev
 });
 
 checklistContainer?.addEventListener("click", (event) => {
+  const zoneButton = event.target.closest("[data-open-inspection-zone]");
+  if (zoneButton) {
+    openInspectionZone(zoneButton.dataset.openInspectionZone);
+    return;
+  }
   const deleteImageButton = event.target.closest("[data-delete-inspection-image]");
   if (deleteImageButton) {
     const itemRow = deleteImageButton.closest("[data-equipment-id]");

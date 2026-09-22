@@ -595,6 +595,27 @@ fieldset {
   background: #fff;
 }
 
+.inspection-zone-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.inspection-zone-tabs button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+.inspection-zone-tabs button.active {
+  background: var(--green-soft);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 700;
+}
+
 .inspection-zone {
   margin-bottom: 14px;
   background: #f8fafc;
