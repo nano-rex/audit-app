@@ -10,6 +10,36 @@ from backend.database import connect, first_category, first_department, first_ou
 from backend.inspections import finalize_inspection
 
 
+def append_inspection_photos(db, items, now):
+    """Add newly uploaded inspection evidence to each asset's photo library."""
+    for item in items:
+        try:
+            equipment_id = int(item.get("equipmentId") or 0)
+        except (TypeError, ValueError):
+            continue
+        images = item.get("images") or []
+        if not equipment_id or not isinstance(images, list) or not images:
+            continue
+        row = db.execute("SELECT photos_data_id FROM equipment WHERE id = ?", (equipment_id,)).fetchone()
+        if not row:
+            continue
+        existing = load_value(row["photos_data_id"] or "[]") or []
+        if not isinstance(existing, list):
+            existing = []
+        known = {image.get("id") or image.get("url") for image in existing if isinstance(image, dict)}
+        additions = []
+        for image in images:
+            if not isinstance(image, dict):
+                continue
+            key = image.get("id") or image.get("url")
+            if not key or key in known:
+                continue
+            additions.append({**image, "uploadedAt": image.get("uploadedAt") or datetime.fromtimestamp(now / 1000).isoformat()})
+            known.add(key)
+        if additions:
+            db.execute("UPDATE equipment SET photos_data_id = ? WHERE id = ?", (save_value(db, existing + additions), equipment_id))
+
+
 def post_audits(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
@@ -140,6 +170,7 @@ def post_inspections(self, parsed, payload=None):
                     "UPDATE work_orders SET work_order_ref = ? WHERE id = ?",
                     (work_order_ref(work_order_cursor.lastrowid, normalize_audit_date(payload.get("auditDate"))), work_order_cursor.lastrowid),
                 )
+        append_inspection_photos(db, items, now)
     self.json({"ok": True})
 
 
@@ -186,6 +217,7 @@ def post_inspection_sessions(self, parsed, payload=None):
         db.execute("UPDATE inspection_sessions SET owner_user_id = ? WHERE id = ?", (user["id"], session_id))
         db.execute("UPDATE inspection_sessions SET audit_ref = ? WHERE id = ?", (allocate_reference(db, normalize_audit_date(payload.get("auditDate"))), session_id))
         save_session_metadata(db, session_id, payload)
+        append_inspection_photos(db, items, now)
         audit_id = None
         if status == "Completed":
             audit_id = finalize_inspection(db, session_id, payload, now)
@@ -368,6 +400,7 @@ def patch_inspection_sessions(self, parsed, payload=None):
             return
         validate_metadata(db, {key: value for key, value in payload.items() if value is not None}, existing)
         save_session_metadata(db, int(session_id), payload)
+        append_inspection_photos(db, items, now)
         audit_id = None
         if complete:
             audit_id = finalize_inspection(db, int(session_id), payload, now)
