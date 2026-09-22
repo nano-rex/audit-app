@@ -24,11 +24,11 @@
       <nav class="tabs" aria-label="Audit sections">
         <button class="active" data-tab="today">Dashboard</button>
         <button data-tab="inspections">Inspections</button>
-        <button data-tab="findings">History &amp; Findings</button>
+        <button data-tab="findings" data-nested-only hidden>History &amp; Findings</button>
         <button data-tab="work-orders">Work Orders</button>
-        <button data-tab="equipment">Fixed Assets</button>
-        <button data-tab="reports">Reports</button>
-        <button data-tab="corrective-actions">Corrective Actions</button>
+        <button data-tab="equipment" data-nested-only hidden>Fixed Assets</button>
+        <button data-tab="reports" data-nested-only hidden>Reports</button>
+        <button data-tab="corrective-actions" data-nested-only hidden>Corrective Actions</button>
         <button data-tab="notifications">Notifications</button>
         <button data-tab="categories">Categories</button>
         <button data-tab="outlets">Outlets</button>
@@ -81,14 +81,14 @@
   <!-- include: html/dialogs/auth.html -->
 
   <script src="js/auth.js?v=20260909-login"></script>
-  <script src="js/state.js?v=20260922-super-tabs"></script>
+  <script src="js/state.js?v=20260922-context-tabs"></script>
   <script src="js/utils.js?v=20260922-loading"></script>
   <script src="js/pagination.js?v=20260922-pagination"></script>
   <script src="js/setup.js?v=20260922-settings-scope"></script>
   <script src="js/rows.js?v=20260922-users-table"></script>
   <script src="js/dashboard.js?v=20260922-super-tabs"></script>
   <script src="js/inspections.js?v=20260922-location-pagination"></script>
-  <script src="js/navigation.js?v=20260922-settings-access"></script>
+  <script src="js/navigation.js?v=20260922-context-tabs"></script>
   <script src="js/events.js?v=20260922-zone-tabs"></script>
   <script src="js/forms.js?v=20260908-photo-storage"></script>
   <script src="js/permissions.js?v=20260922-settings-access"></script>

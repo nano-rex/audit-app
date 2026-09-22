@@ -44,6 +44,7 @@ const superTabs = [
 ];
 
 const superTabTargets = Object.fromEntries(superTabs.map((tab) => [tab.id, tab.id.replace(/^super-/, "")]));
+const contextParents = { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" };
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
 const setupOptions = {
   departments: [],

@@ -29,7 +29,7 @@ function showTab(tabId) {
     tab.classList.toggle("active", tab.dataset.tab === tabId);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === panelId);
+    panel.classList.toggle("active", panel.id === panelId || contextParents[panelId] === panel.id);
   });
   if (panelId === "users") showUserSubtab(userSection || activeUserSection);
   if (panelId === "inspections") showGuidedContent(false);
@@ -41,6 +41,23 @@ function showTab(tabId) {
   layoutNavbar();
   loadTabData(tabId);
 }
+
+function showContextTab(tabId) {
+  showTab(tabId);
+  document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
+    button.classList.toggle("active", button.dataset.contextTab === tabId);
+  });
+}
+
+Object.entries(contextParents).forEach(([child, parent]) => {
+  const panel = document.getElementById(child);
+  const host = document.getElementById(parent);
+  if (panel && host) host.appendChild(panel);
+});
+
+document.querySelectorAll("[data-context-tab]").forEach((button) => {
+  button.addEventListener("click", () => showContextTab(button.dataset.contextTab));
+});
 
 function showOutletSubtab(tabId) {
   document.querySelectorAll("[data-outlet-subtab]").forEach((button) => {
@@ -137,7 +154,7 @@ async function moveNavigationTab(id, direction) {
 function applyNavbarTabs() {
   const allowedIds = new Set(allowedAppTabs().map((tab) => tab.id));
   document.querySelectorAll("[data-tab]").forEach((tab) => {
-    tab.hidden = !allowedIds.has(tab.dataset.tab);
+    tab.hidden = tab.hasAttribute("data-nested-only") || !allowedIds.has(tab.dataset.tab);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.hidden = !allowedIds.has(panel.id) && ![...allowedIds].some((id) => superTabTargets[id] === panel.id);
@@ -176,6 +193,9 @@ function allowedAppTabs() {
   allowedIds.add("settings");
   if (allowedIds.has("inspections")) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
+  if (allowedIds.has("reports")) allowedIds.add("today");
+  if (allowedIds.has("equipment")) allowedIds.add("categories");
+  if (allowedIds.has("corrective-actions")) allowedIds.add("inspections");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
   return currentUser?.role === "Super" ? [...superTabs, ...regular] : regular;
 }
