@@ -1,10 +1,10 @@
 const listPages = new Map();
-const PAGE_SIZE_STORAGE_KEY = "audit-app-pagination-size";
+const PAGE_SIZE_STORAGE_KEY = "audit-app-pagination-size-v2";
 const PAGE_SIZE_OPTIONS = [5, 10, 15, 20, 25, 30];
 
 function getPaginationSize() {
   const value = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
-  return PAGE_SIZE_OPTIONS.includes(value) ? value : 25;
+  return PAGE_SIZE_OPTIONS.includes(value) ? value : 10;
 }
 
 function setPaginationSize(value) {
