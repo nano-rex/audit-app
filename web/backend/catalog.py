@@ -1,11 +1,11 @@
 """Catalog for the audit application."""
 from backend.relational_values import load_value, hydrate_many
-from backend.config import APP_TABS
+from backend.config import APP_TABS, SUPER_ROLE
 from backend.database import connect
 from backend.response_cache import cached_response
 
 
-def setup_records():
+def setup_records(include_super=False):
     with connect() as db:
         departments = [dict(row) for row in db.execute(
             "SELECT id, code, description, responsibilities FROM departments ORDER BY code"
@@ -19,8 +19,10 @@ def setup_records():
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active FROM categories ORDER BY sequence, name"
         ).fetchall()]
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
+        role_query += " WHERE name = ?" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
-            "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles ORDER BY protected DESC, name"
+            role_query + " ORDER BY protected DESC, name", (SUPER_ROLE,)
         ).fetchall()]
         priorities = [dict(row) for row in db.execute(
             "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
@@ -47,11 +49,11 @@ def setup_records():
     }
 
 
-def role_items():
+def role_items(include_super=False):
     with connect() as db:
-        rows = db.execute(
-            "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles ORDER BY protected DESC, name"
-        ).fetchall()
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
+        role_query += " WHERE name = ?" if include_super else " WHERE name != ?"
+        rows = db.execute(role_query + " ORDER BY protected DESC, name", (SUPER_ROLE,)).fetchall()
     items = []
     for row in rows:
         item = dict(row)
@@ -61,16 +63,18 @@ def role_items():
     return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
 
 
-def users():
+def users(include_super=False):
     with connect() as db:
+        role_filter = "" if include_super else "WHERE role != ?"
         rows = db.execute(
-            """
+            f"""
             SELECT id, name, role, email, department, active, reset_required,
                    last_login_at, login_count, title, responsibilities, permission_overrides_data_id,
                    EXISTS(SELECT 1 FROM password_reset_requests WHERE user_id = users.id AND resolved_at IS NULL) AS reset_requested
             FROM users
+            {role_filter}
             ORDER BY role, name
-            """
+            """, () if include_super else (SUPER_ROLE,)
         ).fetchall()
     items = [dict(row) for row in rows]
     for item in items:

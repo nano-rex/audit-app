@@ -279,7 +279,16 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request("/api/users", token="limited")[0], 403)
         self.assertEqual(self.request("/api/setup/departments", "POST", {}, token="limited")[0], 403)
         self.assertEqual(self.request("/api/equipment", token="limited")[0], 200)
-        self.assertEqual(self.request("/api/setup", token="limited")[0], 200)
+        status, _, body = self.request("/api/setup", token="limited")
+        self.assertEqual(status, 200)
+        self.assertNotIn("Super", {row["name"] for row in json.loads(body)["roles"]})
+
+        with app.connect() as db:
+            admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin' LIMIT 1").fetchone()[0]
+        app.SESSION_TOKENS["admin"] = {"user_id": admin_id, "expires_at": time.time() + 3600}
+        status, _, body = self.request("/api/users", token="admin")
+        self.assertEqual(status, 200)
+        self.assertNotIn("Super", {row["role"] for row in json.loads(body)["items"]})
 
     def test_account_profile_updates_permissions_and_picture(self):
         from test_media_reports import photo_data_url

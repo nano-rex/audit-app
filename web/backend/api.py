@@ -266,10 +266,11 @@ class Handler(BaseHTTPRequestHandler):
             self.download(report_xls(unit, report_filters), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audit-report.xlsx")
             return
         if parsed.path == "/api/setup":
-            self.json(cached_response(("setup",), setup_records))
+            viewer = self.current_user()
+            self.json(cached_response(("setup", is_super_user(viewer)), lambda: setup_records(is_super_user(viewer))))
             return
         if parsed.path == "/api/roles":
-            self.json(role_items())
+            self.json(role_items(is_super_user(self.current_user())))
             return
         activity = re.fullmatch(r"/api/users/(\d+)/activity", parsed.path)
         if activity:
@@ -279,7 +280,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json(user_login_activity(int(activity.group(1)), offset))
             return
         if parsed.path == "/api/users":
-            self.json(users())
+            self.json(users(is_super_user(self.current_user())))
             return
         if parsed.path == "/api/notifications":
             self.json(notifications(self.current_user()["id"]))
