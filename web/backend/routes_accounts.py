@@ -232,8 +232,8 @@ def post_users(self, parsed, payload=None):
 def post_roles(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
-        if not is_super_user(self.current_user()):
-            self.json({"ok": False, "error": "Super access required"}, status=403)
+        if not is_company_admin_user(self.current_user()):
+            self.json({"ok": False, "error": "Admin access required"}, status=403)
             return
         name = (payload.get("name") or "New Role").strip()
         if name.lower() in ("admin", "super"):
@@ -323,8 +323,8 @@ def patch_roles(self, parsed, payload=None):
     if not role_id.isdigit():
         self.send_error(400)
         return
-    if not is_super_user(self.current_user()):
-        self.json({"ok": False, "error": "Super access required"}, status=403)
+    if not is_company_admin_user(self.current_user()):
+        self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
         role = db.execute("SELECT name, protected, inspection_permissions_data_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
@@ -397,8 +397,8 @@ def delete_roles(self, parsed, payload=None):
     if not record_id.isdigit():
         self.send_error(400)
         return
-    if not is_super_user(self.current_user()):
-        self.json({"ok": False, "error": "Super access required"}, status=403)
+    if not is_company_admin_user(self.current_user()):
+        self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
         role = db.execute("SELECT name, protected FROM roles WHERE id = ?", (int(record_id),)).fetchone()
@@ -436,8 +436,8 @@ def patch_navigation(self, parsed, payload=None):
 
 
 def post_database(self, parsed, payload=None):
-    if not is_super_user(self.current_user()):
-        self.json({"error": "Super access required"}, 403)
+    if not is_company_admin_user(self.current_user()):
+        self.json({"error": "Admin access required"}, 403)
         return
     self.json({"ok": True, "database": create_database((payload or {}).get("name", ""))})
 

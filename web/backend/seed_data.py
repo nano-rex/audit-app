@@ -172,7 +172,7 @@ def seed_users(db):
 def seed_roles(db):
     now = int(time.time() * 1000)
     full_permissions = save_value(db, [tab[0] for tab in APP_TABS])
-    admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("roles", "settings")]
+    admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("settings",)]
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
         ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
@@ -204,6 +204,11 @@ def seed_roles(db):
             """,
             (name, description, save_value(db, permissions), now),
         )
+    admin = db.execute("SELECT id, permissions_data_id FROM roles WHERE name = ?", (ADMIN_ROLE,)).fetchone()
+    if admin:
+        permissions = set(load_value(admin["permissions_data_id"] or "[]") or [])
+        permissions.add("roles")
+        db.execute("UPDATE roles SET permissions_data_id = ? WHERE id = ?", (save_value(db, sorted(permissions)), admin["id"]))
     auditor = db.execute("SELECT permissions_data_id FROM roles WHERE name = 'Auditor'").fetchone()
     for role_name, capabilities in {
         "Super": ["auditor", "verifier", "acknowledger"],
