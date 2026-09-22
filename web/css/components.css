@@ -211,6 +211,12 @@
 .department-card-copy p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
 .department-card .row-actions { margin-left: 0; }
 
+.settings-page .settings-grid { grid-template-columns: minmax(280px, 620px); }
+.settings-page .theme-settings { display: grid; gap: 14px; margin-bottom: 0; }
+.settings-page .theme-settings h2 { margin-bottom: 0; }
+.settings-page .theme-toggle { align-items: center; color: var(--text); display: flex; font-size: 14px; gap: 10px; }
+.settings-page .theme-toggle input { accent-color: var(--green); min-height: auto; width: 20px; }
+
 .admin-group {
   border: 1px solid var(--border);
   border-radius: 8px;
