@@ -17,18 +17,18 @@ from backend.database_manager import create_database, remove_database, switch_da
 
 
 def post_auth_login(self, parsed, payload=None):
-    email = (payload.get("email") or "").strip().lower()
+    identifier = (payload.get("identifier") or payload.get("email") or payload.get("username") or "").strip().lower()
     password = payload.get("password") or ""
     remember = bool(payload.get("remember"))
     with connect() as db:
         row = db.execute(
             """
-            SELECT id, name, role, email, department, password_hash, active,
+            SELECT id, name, username, role, email, department, password_hash, active,
                    reset_required, last_login_at, login_count, title, responsibilities
             FROM users
-            WHERE lower(email) = ?
+            WHERE lower(email) = ? OR lower(username) = ?
             """,
-            (email,),
+            (identifier, identifier),
         ).fetchone()
         if not row or not row["active"] or not verify_password(password, row["password_hash"]):
             self.json({"ok": False, "error": "Invalid email or password"}, status=401)
@@ -52,7 +52,7 @@ def post_auth_login(self, parsed, payload=None):
         )
         refreshed = db.execute(
             """
-            SELECT id, name, role, email, department, active, reset_required,
+            SELECT id, name, username, role, email, department, active, reset_required,
                    last_login_at, login_count, title, responsibilities, profile_photo_data_id, signature_image_data_id
             FROM users
             WHERE id = ?
@@ -87,10 +87,11 @@ def patch_account(self, parsed, payload=None):
         existing = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
         name = str(payload.get("name", existing["name"]) or "").strip()
         email = str(payload.get("email", existing["email"]) or "").strip().lower()
+        username = str(payload.get("username") or existing["username"] or email.split("@", 1)[0] or "").strip().lower()
         role = payload.get("role", existing["role"])
         department = payload.get("department", existing["department"])
-        if not name or len(name) > 100 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-            self.json({"error": "Enter a name (up to 100 characters) and a valid email address"}, 400)
+        if not name or len(name) > 100 or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,63}", username) or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+            self.json({"error": "Enter a valid display name, username, and email address"}, 400)
             return
         if not is_company_admin_user(user) and (role != existing["role"] or department != existing["department"]):
             self.json({"error": "An administrator must change your role or department"}, 403)
@@ -110,6 +111,9 @@ def patch_account(self, parsed, payload=None):
         if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user["id"])).fetchone():
             self.json({"error": "That email address belongs to another account"}, 409)
             return
+        if db.execute("SELECT 1 FROM users WHERE lower(username) = ? AND id != ?", (username, user["id"])).fetchone():
+            self.json({"error": "That username belongs to another account"}, 409)
+            return
         photo = payload.get("profilePhoto", load_value(existing["profile_photo_data_id"] or "{}")) or {}
         if not isinstance(photo, dict) or photo and not photo.get("url", "").startswith("/api/media/"):
             self.json({"error": "Upload a profile picture first"}, 400)
@@ -118,8 +122,8 @@ def patch_account(self, parsed, payload=None):
         if not isinstance(signature, dict) or signature and not signature.get("url", "").startswith("/api/media/"):
             self.json({"error": "Upload a signature image first"}, 400)
             return
-        db.execute("UPDATE users SET name = ?, email = ?, department = ?, role = ?, profile_photo_data_id = ?, signature_image_data_id = ? WHERE id = ?",
-                   (name, email, department, role, save_value(db, photo), save_value(db, signature), user["id"]))
+        db.execute("UPDATE users SET name = ?, username = ?, email = ?, department = ?, role = ?, profile_photo_data_id = ?, signature_image_data_id = ? WHERE id = ?",
+                   (name, username, email, department, role, save_value(db, photo), save_value(db, signature), user["id"]))
         refreshed = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
     self.json({"ok": True, "user": public_user(refreshed)})
 
@@ -203,11 +207,12 @@ def post_users(self, parsed, payload=None):
         cursor = db.execute(
             """
             INSERT INTO users
-            (name, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.get("name", "New User"),
+                (payload.get("username") or str(payload.get("email", "")).split("@", 1)[0]).strip().lower(),
                 payload.get("role", ""),
                 payload.get("email", "user@example.com"),
                 payload.get("department") or default_department,
@@ -263,7 +268,7 @@ def patch_users(self, parsed, payload=None):
         existing_user = db.execute("SELECT * FROM users WHERE id = ?", (int(user_id),)).fetchone()
         if not existing_user:
             raise WorkflowError("User not found", 404)
-        fields = {"name": "name", "role": "role", "email": "email", "department": "department", "active": "active", "resetRequired": "reset_required", "title": "title", "responsibilities": "responsibilities"}
+        fields = {"name": "name", "username": "username", "role": "role", "email": "email", "department": "department", "active": "active", "resetRequired": "reset_required", "title": "title", "responsibilities": "responsibilities"}
         payload = {key: existing_user[column] for key, column in fields.items()} | payload
         if existing_user["role"] == SUPER_ROLE and existing_user["active"] and (payload["role"] != SUPER_ROLE or not payload["active"]):
             protect_last_super(db, int(user_id))
@@ -274,6 +279,7 @@ def patch_users(self, parsed, payload=None):
         reset_password = bool(payload.get("resetPassword"))
         updates = [
             payload.get("name", "New User"),
+            str(payload.get("username") or str(payload.get("email", "")).split("@", 1)[0] or "").strip().lower(),
             payload.get("role", ""),
             payload.get("email", "user@example.com"),
             payload.get("department") or first_department(db),
@@ -292,7 +298,7 @@ def patch_users(self, parsed, payload=None):
         cursor = db.execute(
             f"""
             UPDATE users
-            SET name = ?, role = ?, email = ?, department = ?, active = ?, reset_required = ?,
+            SET name = ?, username = ?, role = ?, email = ?, department = ?, active = ?, reset_required = ?,
                 title = ?, responsibilities = ?{password_sql}
             WHERE id = ?
             """,

@@ -231,6 +231,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                username TEXT,
                 role TEXT NOT NULL,
                 email TEXT NOT NULL UNIQUE,
                 department TEXT,
@@ -340,6 +341,11 @@ def init_db():
         ensure_column(db, "inspection_sessions", "inspection_name", "TEXT")
         ensure_column(db, "inspection_sessions", "signatures_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "users", "department", "TEXT")
+        ensure_column(db, "users", "username", "TEXT")
+        for user in db.execute("SELECT id, email FROM users WHERE username IS NULL OR username = ''").fetchall():
+            candidate = (user["email"] or "").split("@", 1)[0].lower()
+            if candidate and not db.execute("SELECT 1 FROM users WHERE lower(username) = ?", (candidate,)).fetchone():
+                db.execute("UPDATE users SET username = ? WHERE id = ?", (candidate, user["id"]))
         ensure_column(db, "users", "password_hash", "TEXT")
         ensure_column(db, "users", "active", "INTEGER NOT NULL DEFAULT 1")
         ensure_column(db, "users", "reset_required", "INTEGER NOT NULL DEFAULT 0")
@@ -440,6 +446,7 @@ def init_db():
         ensure_column(db, "users", "permission_overrides_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "roles", "inspection_permissions_data_id", "INTEGER REFERENCES value_sets(id)")
         ensure_column(db, "users", "signature_image_data_id", "INTEGER REFERENCES value_sets(id)")
+        db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_lower ON users(lower(username)) WHERE username IS NOT NULL AND username != ''")
         ensure_column(db, "inspection_sessions", "owner_user_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "schedule_id", "INTEGER")
         ensure_column(db, "inspection_sessions", "audit_ref", "TEXT")

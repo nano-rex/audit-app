@@ -49,6 +49,7 @@ function openUserEditor(row = null) {
   if (row) {
     form.elements.userId.value = row.id;
     form.elements.name.value = row.name || "";
+    form.elements.username.value = row.username || "";
     form.elements.email.value = row.email || "";
     form.elements.role.value = row.role || "";
     form.elements.department.value = row.department || "";

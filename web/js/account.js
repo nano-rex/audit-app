@@ -23,6 +23,7 @@ async function loadAccount() {
   currentUser = data.user;
   const form = document.getElementById("account-form");
   form.elements.name.value = currentUser.name || "";
+  form.elements.username.value = currentUser.username || "";
   form.elements.email.value = currentUser.email || "";
   updateSelectOptions(form.elements.department, setupOptions.departments, true, "Select department");
   const roles = setupOptions.roles.filter((role) => currentUser.role === "Super" || role !== "Super");
@@ -113,6 +114,7 @@ document.getElementById("account-form").addEventListener("submit", async (event)
   try {
     const data = await requestJson("/api/account", "PATCH", {
       name: form.elements.name.value, email: form.elements.email.value,
+      username: form.elements.username.value,
       department: form.elements.department.value, role: form.elements.role.value, profilePhoto: accountPhoto,
       signatureImage: accountSignature,
     });

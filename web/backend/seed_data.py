@@ -149,19 +149,23 @@ def seed_users(db):
     db.execute("UPDATE OR IGNORE users SET email = 'super@sudo' WHERE lower(email) = 'super@audit-app.local'")
     db.execute("DELETE FROM users WHERE lower(email) = 'super@audit-app.local'")
     rows = [
-        ("Super User", SUPER_ROLE, "super@sudo", "SSD", "Super", "Full app control", "doas"),
-        ("Ottotree System Administrator", ADMIN_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff", DEFAULT_PASSWORD),
+        ("Super User", "super", SUPER_ROLE, "super@sudo", "SSD", "Super", "Full app control", "doas"),
+        ("Ottotree System Administrator", "admin", ADMIN_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff", DEFAULT_PASSWORD),
+        ("Gavin", "gavin", "System Support Executive", "gavin@audit.local", "SSD", "System Support Executive", "System support executive", "123456"),
+        ("Jacky", "jacky", "System Support Officer", "jacky@audit.local", "SSD", "System Support Officer", "System support officer", "123456"),
+        ("Fan", "fan", "Facilities Officer", "fan@audit.local", "AVC", "Facilities Officer", "Facilities officer", "123456"),
+        ("Hui", "hui", "Facilities Executive", "hui@audit.local", "FMS", "Facilities Executive", "Facilities executive", "123456"),
     ]
     for row in rows:
         if db.execute("SELECT 1 FROM users WHERE email = ?", (row[2],)).fetchone():
             continue
         db.execute(
             """
-            INSERT INTO users (name, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
-            ON CONFLICT(email) DO NOTHING
+            INSERT INTO users (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+            ON CONFLICT(email) DO UPDATE SET username = COALESCE(users.username, excluded.username)
             """,
-            (row[0], row[1], row[2], row[3], hash_password(row[6]), row[4], row[5], now),
+            (row[0], row[1], row[2], row[3], row[4], hash_password(row[7]), row[5], row[6], now),
         )
 
 
@@ -174,6 +178,10 @@ def seed_roles(db):
         ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
         ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
+        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
+        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
+        ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "findings", "work-orders", "notifications"]),
+        ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "findings", "work-orders", "notifications"]),
     ]
     if not db.execute("SELECT id FROM roles WHERE name = ?", (SUPER_ROLE,)).fetchone():
         db.execute("UPDATE roles SET name = ?, description = 'Built-in full access role' WHERE name = 'Admin'", (SUPER_ROLE,))

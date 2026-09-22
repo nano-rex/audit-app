@@ -77,7 +77,7 @@ function wireAuth() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: formValue(form, "email", ""),
+        identifier: formValue(form, "identifier", ""),
         password: formValue(form, "password", ""),
         remember: Boolean(form.elements.remember.checked),
       }),

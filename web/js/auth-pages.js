@@ -55,7 +55,7 @@ document.getElementById("login-page-form")?.addEventListener("submit", async (ev
   const form = event.currentTarget;
   try {
     await pagePostJson("/api/auth/login", {
-      email: pageFormValue(form, "email"),
+      identifier: pageFormValue(form, "identifier"),
       password: pageFormValue(form, "password"),
       remember: Boolean(form.elements.remember.checked),
     });
@@ -69,7 +69,7 @@ document.querySelector("[data-page-forgot-password]")?.addEventListener("click",
   const form = document.getElementById("login-page-form");
   try {
     const data = await pagePostJson("/api/auth/forgot-password", {
-      email: pageFormValue(form, "email"),
+      email: pageFormValue(form, "identifier"),
     });
     pageMessage(data.message, true);
   } catch (error) {

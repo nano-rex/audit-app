@@ -20,6 +20,7 @@ def public_user(row, db=None):
         "navigationOrder": navigation_order,
         "id": row["id"],
         "name": row["name"],
+        "username": (row["username"] or "") if "username" in row.keys() else "",
         "role": row["role"],
         "email": row["email"],
         "department": row["department"] or "",

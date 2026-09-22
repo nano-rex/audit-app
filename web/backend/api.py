@@ -90,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
                 return None
             row = db.execute(
                 """
-                SELECT id, name, role, email, department, active, reset_required,
+                SELECT id, name, username, role, email, department, active, reset_required,
                        last_login_at, login_count, title, responsibilities, profile_photo_data_id, signature_image_data_id
                 FROM users
                 WHERE id = ? AND active = 1

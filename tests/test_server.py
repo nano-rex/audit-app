@@ -275,6 +275,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(gzip.decompress(after.compressed)), after)
 
     def test_auth_and_role_permissions(self):
+        status, _, body = self.request("/api/auth/login", "POST", {"identifier": "gavin", "password": "123456"}, token=None)
+        self.assertEqual(status, 200, body)
+        self.assertEqual(json.loads(body)["user"]["username"], "gavin")
         self.assertEqual(self.request("/api/equipment", token=None)[0], 401)
         self.assertEqual(self.request("/api/users", token="limited")[0], 403)
         self.assertEqual(self.request("/api/setup/departments", "POST", {}, token="limited")[0], 403)
