@@ -295,6 +295,10 @@ html[data-theme="dark"] .tab-menu { box-shadow: 0 18px 40px rgb(0 0 0 / 40%); }
   display: block;
 }
 
+.tab-panel.context-child-active > :not(.contextual-tabs):not(.tab-panel) {
+  display: none;
+}
+
 .tabs button[hidden], .tab-menu[hidden] {
   display: none;
 }

@@ -31,6 +31,7 @@ function showTab(tabId) {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     const active = panel.id === panelId || contextParents[panelId] === panel.id;
     panel.classList.toggle("active", active);
+    panel.classList.toggle("context-child-active", contextParents[panelId] === panel.id);
     panel.hidden = !active;
   });
   if (panelId === "users") showUserSubtab(userSection || activeUserSection);
