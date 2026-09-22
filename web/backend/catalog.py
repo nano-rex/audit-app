@@ -131,25 +131,24 @@ def zones(outlet=""):
     return {"items": items}
 
 
-def equipment_items(outlet=None):
-    return cached_response(("equipment", outlet), lambda: query_equipment_items(outlet))
+def equipment_items(outlet=None, compact=False):
+    return cached_response(("equipment", outlet, compact), lambda: query_equipment_items(outlet, compact))
 
 
-def query_equipment_items(outlet=None):
+def query_equipment_items(outlet=None, compact=False):
     where = ""
     params = ()
     if outlet:
         where = "WHERE outlet = ?"
         params = (outlet,)
+    columns = ("id, asset_id, outlet, zone, equipment_type, name, type, code, location, "
+               "inspection_criteria_data_id") if compact else ("id, asset_id, qr_code, outlet, zone, equipment_type, health_status, "
+               "last_checked, replacement_flag, notes, name, description, type, operational_status, code, model, serial_number, brand, location, "
+               "installation_date, temporary_relocation, warranty_date, calibration_date, expiry_date, photos_data_id, inverter_model, motor_capacity, source_file, source_sheet, inspection_criteria_data_id")
     with connect() as db:
         rows = db.execute(
             f"""
-            SELECT id, asset_id, qr_code, outlet, zone, equipment_type, health_status,
-                   last_checked, replacement_flag, notes, name, description, type,
-                   operational_status, code, model, serial_number, brand, location,
-                   installation_date, temporary_relocation, warranty_date, calibration_date,
-                   expiry_date, photos_data_id, inverter_model, motor_capacity, source_file,
-                   source_sheet, inspection_criteria_data_id
+            SELECT {columns}
             FROM equipment
             {where}
             ORDER BY COALESCE(name, asset_id), id

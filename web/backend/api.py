@@ -219,7 +219,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/equipment":
             outlet = parse_qs(parsed.query).get("outlet", [None])[0]
-            self.json(equipment_items(outlet))
+            compact = parse_qs(parsed.query).get("view", [""])[0] == "inspection"
+            self.json(equipment_items(outlet, compact))
             return
         if parsed.path == "/api/inspection-sessions":
             self.json(inspection_sessions())

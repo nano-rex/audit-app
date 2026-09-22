@@ -5,6 +5,8 @@ async function applyInspectionSchedule(row) {
 }
 
 let guidedSchedules = [];
+let inspectionLocationEquipment = new Map();
+let inspectionLocationZones = new Map();
 
 function showGuidedContent(open) {
   document.querySelector("[data-guided-content]").hidden = !open;
@@ -50,7 +52,7 @@ async function loadInspectionItems() {
     return;
   }
   const [equipmentResponse, locationResponse, zoneResponse] = await Promise.all([
-    authFetch(`/api/equipment?outlet=${encodeURIComponent(outlet)}`),
+    authFetch(`/api/equipment?outlet=${encodeURIComponent(outlet)}&view=inspection`),
     authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`),
     authFetch(`/api/zones?outlet=${encodeURIComponent(outlet)}`),
   ]);
@@ -62,6 +64,12 @@ async function loadInspectionItems() {
   inspectionItems.forEach((item) => {
     const location = item.location || item.zone || "Unassigned";
     locationNames.add(location);
+  });
+  inspectionLocationEquipment = new Map();
+  inspectionItems.forEach((item) => {
+    const location = item.location || item.zone || "Unassigned";
+    if (!inspectionLocationEquipment.has(location)) inspectionLocationEquipment.set(location, []);
+    inspectionLocationEquipment.get(location).push(item);
   });
   const mergedLocations = [...locationNames].sort().map((name) => ({ name }));
   checklistContainer.innerHTML = mergedLocations.length
@@ -109,9 +117,16 @@ function inspectionZoneCard(zoneName, locations, equipment) {
           </button>
         `).join("")}
       </div>
-      ${locations.map((location) => inspectionLocationCard(location, equipment.filter((item) => (item.location || item.zone || "") === location))).join("")}
+      ${locations.map((location) => inspectionLocationShell(location)).join("")}
     </section>
   `;
+}
+
+function inspectionLocationShell(location) {
+  return `<section class="inspection-location" data-inspection-location="${escapeAttr(location)}" hidden>
+    <header><h4>${escapeHtml(location)}</h4><span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span></header>
+    <div data-location-items>${loadingMarkup("Loading fixed assets…")}</div>
+  </section>`;
 }
 
 function inspectionLocationCard(location, items) {
@@ -404,6 +419,29 @@ function collectInspectionPayload(complete = false) {
       });
     });
   });
+  const loadedIds = new Set([...form.querySelectorAll("[data-equipment-id]")].map((row) => row.dataset.equipmentId));
+  // Locations are rendered lazily to keep large outlets responsive. Preserve
+  // untouched locations from the session cache when saving the active one.
+  inspectionItems.filter((equipment) => !loadedIds.has(String(equipment.id))).forEach((equipment) => {
+    const saved = inspectionSessionItems.filter((item) => String(item.equipmentId) === String(equipment.id));
+    if (saved.length) {
+      items.push(...saved);
+      return;
+    }
+    parseInspectionCriteria(equipment.inspection_criteria).forEach((criterion) => items.push({
+      equipmentId: equipment.id,
+      location: equipment.location || equipment.zone || "",
+      section: equipment.name || equipment.asset_id || "Fixed Asset",
+      item: criterion,
+      category: "",
+      passed: false,
+      notApplicable: false,
+      score: 0,
+      evidenceStatus: "Missing image",
+      notes: "",
+      images: [],
+    }));
+  });
   return {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
@@ -533,6 +571,14 @@ function updateInspectionStatusPills(payload) {
 }
 
 function openInspectionLocation(location) {
+  const section = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location);
+  if (section && !section.dataset.loaded) {
+    const items = inspectionLocationEquipment.get(location) || [];
+    const container = section.querySelector("[data-location-items]");
+    container.innerHTML = items.length ? items.map(inspectionItemCard).join("") : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`;
+    section.dataset.loaded = "true";
+    applyInspectionSessionItems();
+  }
   document.querySelectorAll("[data-inspection-location]").forEach((section) => {
     section.hidden = section.dataset.inspectionLocation !== location;
   });
