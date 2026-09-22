@@ -260,7 +260,7 @@ dialog label {
 
 .account-panel {
   padding: 24px;
-  margin-bottom: 18px;
+  margin-bottom: 24px;
 }
 
 #account-form {
@@ -273,6 +273,68 @@ dialog label {
   flex-wrap: wrap;
   align-items: center;
   gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.account-photo-row > div {
+  display: grid;
+  gap: 10px;
+  min-width: min(260px, 100%);
+}
+
+.account-photo-row label,
+.account-signature label {
+  display: grid;
+  gap: 6px;
+}
+
+.account-photo-row input[type="file"],
+.account-signature input[type="file"] {
+  width: 100%;
+  min-height: 42px;
+  padding: 8px;
+  background: #fff;
+}
+
+.account-signature {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 16px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.account-signature h3,
+.account-signature p {
+  grid-column: 1 / -1;
+}
+
+.account-signature h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.account-signature p {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+[data-database-management] > p {
+  max-width: 720px;
+  margin-bottom: 16px;
+}
+
+[data-database-message],
+[data-account-message] {
+  min-height: 18px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .list-pager {

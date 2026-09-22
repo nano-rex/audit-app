@@ -250,6 +250,14 @@
     grid-template-columns: 1fr;
   }
 
+  .account-signature {
+    grid-template-columns: 1fr;
+  }
+
+  .account-signature button {
+    width: 100%;
+  }
+
   .signature-strip button {
     width: 100%;
   }
