@@ -71,7 +71,7 @@ function showOutletSubtab(tabId) {
 let navigationSaving = false;
 
 function orderedAppTabs() {
-  const available = allowedAppTabs();
+  const available = allowedAppTabs().filter((tab) => !contextParents[tab.id]);
   const order = currentUser?.navigationOrder?.length ? currentUser.navigationOrder : defaultNavbarTabs;
   const ids = [...new Set([...order, ...available.map((tab) => tab.id)])];
   return ids.map((id) => available.find((tab) => tab.id === id)).filter(Boolean);
