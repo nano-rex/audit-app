@@ -1,5 +1,5 @@
 """Reports for the audit application."""
-from backend.relational_values import load_value, hydrate
+from backend.relational_values import load_value, hydrate_many
 from io import StringIO, BytesIO
 import csv
 from datetime import datetime
@@ -225,8 +225,8 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
         },
-        "workOrders": [hydrate(row) for row in work_orders],
-        "equipment": [hydrate(row) for row in equipment_rows],
+        "workOrders": hydrate_many(work_orders),
+        "equipment": hydrate_many(equipment_rows),
         "charts": {
             "auditScores": [{"label": row["outlet"], "score": row["average"]} for row in outlets],
             "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],
@@ -258,10 +258,10 @@ def report(unit, filters=None):
     data = dashboard(unit, filters, include_room_trends=True)
     where, params = report_scope(unit, "work_orders", filters)
     with connect() as db:
-        critical_orders = [hydrate(row) for row in db.execute(
+        critical_orders = hydrate_many(db.execute(
             f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
             "AND status NOT IN ('Completed', 'Verified', 'Closed') ORDER BY created_at DESC, id DESC", params
-        ).fetchall()]
+        ).fetchall())
     return {
         "unit": unit,
         "monthlySummary": {

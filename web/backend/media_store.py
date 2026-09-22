@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import sqlite3
 import time
+import threading
 from contextlib import nullcontext
 from backend.relational_values import ACTIVE_CONNECTION
 
@@ -16,16 +17,37 @@ class MediaStore:
     formats = {"PNG": ("png", "image/png"), "JPEG": ("jpg", "image/jpeg"), "WEBP": ("webp", "image/webp")}
     identifier = re.compile(r"^[0-9a-f]{64}\.(?:png|jpg|webp)$")
     max_bytes = 10 * 1024 * 1024
+    _schema_lock = threading.Lock()
+    _initialized_paths = set()
 
     def __init__(self, database_path):
         self.database_path = Path(database_path)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.connect() as db:
-            db.execute("""CREATE TABLE IF NOT EXISTS media_images (
-                id TEXT PRIMARY KEY, mime_type TEXT NOT NULL, content BLOB NOT NULL,
-                byte_size INTEGER NOT NULL, created_at INTEGER NOT NULL,
-                CHECK(typeof(content) = 'blob'), CHECK(length(content) = byte_size)
-            )""")
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        path = str(self.database_path.resolve())
+        if self._initialized(path):
+            return
+        with self._schema_lock:
+            if self._initialized(path):
+                return
+            with self.connect() as db:
+                db.execute("""CREATE TABLE IF NOT EXISTS media_images (
+                    id TEXT PRIMARY KEY, mime_type TEXT NOT NULL, content BLOB NOT NULL,
+                    byte_size INTEGER NOT NULL, created_at INTEGER NOT NULL,
+                    CHECK(typeof(content) = 'blob'), CHECK(length(content) = byte_size)
+                )""")
+            self._initialized_paths.add((path, self._database_inode()))
+
+    def _database_inode(self):
+        try:
+            return self.database_path.stat().st_ino
+        except OSError:
+            return None
+
+    def _initialized(self, path):
+        return (path, self._database_inode()) in self._initialized_paths
 
     def connect(self):
         active = ACTIVE_CONNECTION.get()

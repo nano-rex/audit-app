@@ -31,7 +31,9 @@ class SessionStore:
                        (self.key(token), value["user_id"], value["expires_at"]))
 
     def pop(self, token, default=None):
-        value = self.get(token, default)
+        if not token:
+            return default
         with self.connection() as db:
+            row = db.execute("SELECT user_id, expires_at FROM auth_sessions WHERE token_hash = ?", (self.key(token),)).fetchone()
             db.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (self.key(token),))
-        return value
+        return dict(row) if row else default

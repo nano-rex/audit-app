@@ -32,6 +32,11 @@ class Handler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(30)
 
+    def handle_one_request(self):
+        self._current_user_loaded = False
+        self._current_user_value = None
+        return super().handle_one_request()
+
     def read_payload(self):
         try:
             if self.headers.get("Transfer-Encoding"):
@@ -70,13 +75,18 @@ class Handler(BaseHTTPRequestHandler):
         return jar.get("ottotree_session").value if jar.get("ottotree_session") else ""
 
     def current_user(self):
+        if self._current_user_loaded:
+            return self._current_user_value
+        self._current_user_loaded = True
         token = self.session_token()
-        session = SESSION_TOKENS.get(token)
-        if not session or session["expires_at"] < time.time():
-            if token:
-                SESSION_TOKENS.pop(token, None)
+        if not token:
             return None
         with connect() as db:
+            session = db.execute("SELECT user_id, expires_at FROM auth_sessions WHERE token_hash = ?", (SESSION_TOKENS.key(token),)).fetchone()
+            if not session or session["expires_at"] < time.time():
+                if session:
+                    db.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (SESSION_TOKENS.key(token),))
+                return None
             row = db.execute(
                 """
                 SELECT id, name, role, email, department, active, reset_required,
@@ -86,7 +96,8 @@ class Handler(BaseHTTPRequestHandler):
                 """,
                 (session["user_id"],),
             ).fetchone()
-        return public_user(row)
+            self._current_user_value = public_user(row, db)
+            return self._current_user_value
 
     def require_auth(self, parsed):
         if not parsed.path.startswith("/api/"):

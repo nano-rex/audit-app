@@ -33,6 +33,7 @@ def connect():
     conn = sqlite3.connect(config.DB_PATH, timeout=15, factory=DatabaseConnection)
     conn.database_path = config.DB_PATH
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 

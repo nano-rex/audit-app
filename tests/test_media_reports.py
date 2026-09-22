@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from PIL import Image
 from pypdf import PdfReader
@@ -22,6 +23,15 @@ def photo_data_url(color="green"):
 
 
 class EvidenceReportTests(unittest.TestCase):
+    def test_media_schema_is_initialized_once_per_database(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "audit.db"
+            original_connect = MediaStore.connect
+            with patch.object(MediaStore, "connect", autospec=True, side_effect=original_connect) as connect_spy:
+                MediaStore(path)
+                MediaStore(path)
+            self.assertEqual(connect_spy.call_count, 1)
+
     def test_storage_validates_and_preserves_original_and_marked_images(self):
         with tempfile.TemporaryDirectory() as directory:
             media = MediaStore(Path(directory) / "audit.db")

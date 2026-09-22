@@ -221,6 +221,18 @@ class ServerTests(unittest.TestCase):
         _, headers, _ = self.request("/", headers={"Accept-Encoding": "gzip;q=0"})
         self.assertNotIn("Content-Encoding", headers)
 
+    def test_database_connections_enforce_valid_references(self):
+        with app.connect() as db:
+            self.assertEqual(db.execute("PRAGMA foreign_keys").fetchone()[0], 1)
+            self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_authentication_context_is_loaded_once_per_request(self):
+        from unittest.mock import patch
+        with patch("backend.api.connect", wraps=app.connect) as connect_spy:
+            status, _, body = self.request("/api/account")
+        self.assertEqual(status, 200, body)
+        self.assertEqual(connect_spy.call_count, 1)
+
     def test_connection_closes_and_rolls_back(self):
         with app.connect() as db:
             self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "wal")
@@ -529,12 +541,12 @@ class ServerTests(unittest.TestCase):
         titles = {row["title"] for row in json.loads(body)["items"]}
         self.assertTrue({"PIC assignment", "Department assignment"}.issubset(titles))
         self.assertNotIn("Other PIC assignment", titles)
+        app.SESSION_TOKENS.pop("assigned-pic", None)
         with app.connect() as db:
             db.execute("DELETE FROM work_orders WHERE title IN ('PIC assignment', 'Department assignment', 'Other PIC assignment')")
             db.execute("DELETE FROM findings WHERE finding_ref IN ('F-PIC-MATCH', 'F-DEPARTMENT', 'F-OTHER-PIC')")
             db.execute("DELETE FROM audits WHERE id = ?", (audit_id,))
             db.execute("DELETE FROM users WHERE id = ?", (user_id,))
-        app.SESSION_TOKENS.pop("assigned-pic", None)
 
     def test_z_report_distribution_uses_completed_audits_and_saved_ratings(self):
         empty = app.report("Mini Studio")["charts"]["performanceDistribution"]

@@ -164,6 +164,7 @@ public class MainActivity extends Activity {
         if (index == 3) showEquipment();
         if (index == 4) showReports();
         if (index == 5) showDepartments();
+        if (index == 6) showDashboard();
         if (index == 7) showUsers();
         if (index == 8) showAccount();
         if (index == 9) showOutlets();
@@ -174,6 +175,7 @@ public class MainActivity extends Activity {
         tabBar.removeAllViews();
         tabButtons.clear();
         if ("manager".equals(currentRole) || "director".equals(currentRole)) {
+            addTab("Dashboard", 6);
             addTab("Reports", 4);
             addTab("Departments", 5);
             addTab("Outlets", 9);
@@ -1497,6 +1499,13 @@ public class MainActivity extends Activity {
     private LinearLayout businessUnitCard(String name, String detail, boolean selected) {
         LinearLayout c = card();
         c.setBackground(shape(selected ? GREEN_LIGHT : Color.WHITE, selected ? GREEN : BORDER, dp(7)));
+        c.setClickable(true);
+        c.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                activeUnit = name;
+                showTab(6);
+            }
+        });
         c.addView(label(name, 16, selected ? GREEN : TEXT, true));
         c.addView(label(detail, 12, MUTED, false));
         c.addView(label(selected ? "Active checklist" : "Available checklist", 12, selected ? GREEN : MUTED, true));

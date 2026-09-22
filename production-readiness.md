@@ -36,11 +36,11 @@ node tests/test_frontend.cjs
 python3 tools/load_test.py --users 100
 ```
 
-The backend suite has 11 regression tests. Four frontend tests parse all browser scripts and exercise startup loading, request coalescing, asset pagination, and local dates in a JavaScript VM. These are not full browser interaction or visual tests. The Android APK was not rebuilt or device-tested.
+The earlier review ran 11 backend regression tests. The current backend suite has 43 tests. Frontend tests parse browser scripts and exercise startup loading, request coalescing, asset pagination, and local dates in a JavaScript VM; they are not full browser or visual tests. Node.js is not installed in the current workspace, so those tests were not rerun in the latest review. The Android APK was not rebuilt or device-tested.
 
 The load tool starts a loopback server and creates its own temporary database. It seeds 2,500 assets and 300 draft inspections, each containing a synthetic 16 KiB evidence string. A barrier starts 100 simulated, already-authenticated clients together. Each requests the HTML shell, dashboard, and full asset list, then saves a draft: 400 requests total. It verifies the number of drafts actually persisted, rather than relying only on HTTP success. `--baseline` uses `web/server.py` from git HEAD with the current static files and the same synthetic workload. The baseline commit for this review was `d4c5012`; after committing these changes, HEAD will no longer refer to that baseline.
 
-Final observed result on this shared ARM64 environment (four reported CPUs, approximately 2.7 GiB RAM):
+Historical result from the original review on this shared ARM64 environment (four reported CPUs, approximately 2.7 GiB RAM):
 
 | Operation | Median | 95th percentile | Mean response bytes |
 | --- | ---: | ---: | ---: |
@@ -59,7 +59,7 @@ These figures exclude login hashing, TLS, internet latency, actual image uploads
 1. Stage one application process on a Linux host with local SSD storage. Four vCPUs and 4–8 GiB RAM are a starting capacity estimate; validate it using production-shaped data. Begin with `AUDIT_WORKERS=8`. Increasing threads without measurements made this workload worse.
 2. Put TLS termination, request buffering, request-size limits, and login/registration rate limiting in a reverse proxy. Keep the application bound to loopback. Set `AUDIT_SECURE_COOKIES=1` when the site is served only over HTTPS. Do not expose the repository or database directory through the proxy's static-file root. Nginx supports request-rate limits through its [limit_req module](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html); tune limits for users sharing an outlet's public IP address.
 3. Before a public production launch, move HTTP handling into a maintained WSGI/ASGI application and server. This code still uses `http.server`, which Python explicitly [does not recommend for production](https://docs.python.org/3/library/http.server.html). The local changes and load result do not remove that limitation.
-4. Replace process-local session storage before adding replicas or application processes. Sessions currently disappear on restart, and independent processes cannot authenticate one another's cookies. Also add expiry cleanup, login throttling, and session revocation after administrator password resets. Rotate the prototype's built-in credentials before allowing external access.
+4. Sessions are stored in SQLite and survive restarts; processes using the same local database can read them. Expired rows are cleaned during startup and when an expired token is used. Add login throttling before public launch, and keep the database on local storage. Rotate prototype credentials before external access.
 5. Keep SQLite on local storage while the workload remains modest. WAL allows readers and a writer to overlap, but still permits only one writer at a time and is unsuitable for a database shared over a network filesystem. See [SQLite WAL constraints](https://www.sqlite.org/wal.html). Move to PostgreSQL when measured write contention, durable job workers, or multi-host operation requires it.
 6. Move photo bytes out of JSON fields into private object storage, with size limits and thumbnails. Add database-side pagination and filters to assets, findings, work orders, and inspection history as data grows. Current asset pagination limits browser DOM size; the API still returns the full requested asset set.
 7. Run a sustained staging test with realistic photos, audit history, login bursts, and exports. Measure errors, p95 latency, memory, disk latency, and SQLite busy errors. Suggested initial acceptance criteria: no lost or duplicate writes, zero unexpected server errors, and p95 under two seconds for routine API operations. These are proposed targets, not a measured production SLA.
@@ -78,15 +78,23 @@ Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send
 
 ## Remaining correctness and release risks
 
-- The Android app is a separate offline prototype, not a client of the shared web API. Its `AuditDatabase.onUpgrade()` currently drops and recreates tables. Do not ship an Android database-version upgrade before replacing that with reviewed, versioned migrations and testing backups/restores on devices. Android migration work was not included in these web changes.
+- The Android app is separate and offline, with synchronization deferred. Its current schema upgrade preserves existing records and creates missing tables, but still needs an APK build and device upgrade/restore test before release.
 - Web permissions are section-level, not outlet ownership or tenant isolation. Define those access rules before exposing the application to separate organizations.
-- Several reports still label summaries as monthly while aggregating all dates. A date-filtered reporting redesign needs a clear reporting-period definition.
-- Full endpoint field validation, persistent session management, and every inspection-to-work-order edge case are not covered by this test suite. Existing prototype account credentials and administrative reset behavior still require a release review.
+- Full endpoint field validation, login throttling, and every inspection-to-work-order edge case are not covered by this test suite. Existing prototype account credentials and administrative reset behavior still require a release review.
 
 ## Rollout and rollback
 
 Back up the database using SQLite's backup API before restarting with the changes. For a running WAL database, do not back up only the main `.db` file using an ordinary file copy. Keep the backup outside any public document root and test restoring it into a separate directory.
 
-Restarting applies WAL and creates indexes idempotently. The existing live database was not migrated during this audit. The cache is in memory and requires no migration. A restart logs out users because sessions are currently process-local.
+Restarting applies WAL and creates indexes idempotently. The existing live database was not migrated during this review. The response cache is in memory and requires no migration; SQLite-backed sessions remain valid across restart.
 
 Retain the previous code release and a verified database backup. After successful logins or password changes, hashes may use the new PBKDF2 format, so rolling back to the old SHA-only verifier would break those logins. Keep the compatible verifier in any rollback release, or restore the pre-rollout backup with explicit acceptance of losing subsequent data. Do not reset user passwords to prototype defaults as a rollback mechanism.
+
+## Follow-up code review — 20 September 2026
+
+- Asset, dashboard, and report value hydration now batches relational value reads instead of opening a connection for each populated row. Media-table setup now runs once per database file per process rather than on every image-bearing request.
+- SQLite foreign-key enforcement is enabled on every application connection, and the initialized test database passes `PRAGMA foreign_key_check`.
+- Authentication now resolves the stored session, active user, and effective permissions with one SQLite connection per request. Logout also reads and deletes a session in one connection; administrator deactivation and password reset share one session-revocation operation.
+- Android Manager/Director role switching now opens a registered dashboard tab, and its audit-area cards switch the active area.
+- Verification: 43 backend tests pass; pyflakes and `git diff --check` pass. The 100-user harness completed 400 requests with no HTTP/server errors and persisted all 100 drafts. Latest measured p95s were 1.21 s for the HTML shell, 1.29 s for dashboard, 1.53 s for the full asset list, and 3.03 s for saving a draft; the four-request client flow had a 6.91 s p95. Authentication reuse and batched relational hydration improved the burst flow, while SQLite draft writes still exceed a two-second target. This is a synthetic regression/load signal, not a production guarantee.
+- The current workspace lacks Node.js and the Android SDK/JDK executables are x86-64 on ARM64, so frontend and Android build/device checks could not be rerun here.

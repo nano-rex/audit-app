@@ -9,7 +9,7 @@ import unittest
 from test_server import app
 from test_media_reports import photo_data_url
 from backend.media_store import MediaStore
-from backend.relational_values import FIELDS, hydrate, load_value, migrate_columns, save_value
+from backend.relational_values import FIELDS, hydrate, hydrate_many, load_value, migrate_columns, save_value
 from backend.storage_migration import backup_legacy_database
 from backend import config
 
@@ -71,6 +71,22 @@ class RelationalStorageTests(unittest.TestCase):
         image.unlink()
         self.assertEqual(media.read(identifier), (content, "image/png"))
         self.assertIsNone(media.read("a" * 64 + ".png"))
+
+    def test_bulk_hydration_uses_one_database_connection_and_preserves_nulls(self):
+        app.init_db()
+        with app.connect() as db:
+            references = [save_value(db, {"items": [{"index": index}], "image": "/api/media/" + str(index)})
+                          for index in range(25)]
+        from unittest.mock import patch
+        with patch("backend.database.connect", wraps=app.connect) as connect_spy:
+            rows = hydrate_many([
+                {"id": index, "items_data_id": reference, "signatures_data_id": None}
+                for index, reference in enumerate(references)
+            ])
+        self.assertEqual(connect_spy.call_count, 1)
+        self.assertEqual(rows[7]["items_json"], {"items": [{"index": 7}], "image": "/api/media/7"})
+        self.assertIsNone(rows[7]["signatures_json"])
+        self.assertNotIn("items_data_id", rows[7])
 
     def test_schema_and_shared_value_cleanup_and_rollback(self):
         app.init_db()

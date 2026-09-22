@@ -1,5 +1,5 @@
 """Inspections for the audit application."""
-from backend.relational_values import load_value, save_value, hydrate
+from backend.relational_values import load_value, save_value, hydrate_many
 from datetime import datetime
 from backend.scoring import summarize as summarize_score
 from backend.audit_metadata import allocate_reference
@@ -124,7 +124,7 @@ def inspection_session(session_id):
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
-    data["findings"] = [hydrate(item) for item in findings]
+    data["findings"] = hydrate_many(findings)
     return data
 
 

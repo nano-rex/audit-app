@@ -4,6 +4,7 @@ Each scalar occupies a typed SQL column. Containers contain child rows, never a
 serialized JSON document. Domain records hold foreign keys to immutable value sets.
 """
 import json
+import copy
 from contextvars import ContextVar
 
 ACTIVE_CONNECTION = ContextVar("audit_active_connection", default=None)
@@ -102,6 +103,76 @@ def load_value(reference):
             db.close()
 
 
+def load_values(references):
+    """Load multiple relational value sets with one connection and bounded queries."""
+    references = list(references)
+    result = [None] * len(references)
+    identifiers = set()
+    for index, reference in enumerate(references):
+        if isinstance(reference, int):
+            identifiers.add(reference)
+        elif isinstance(reference, str):
+            result[index] = json.loads(reference)
+        else:
+            result[index] = copy.deepcopy(reference)
+    if not identifiers:
+        return result
+
+    db = ACTIVE_CONNECTION.get()
+    owned = db is None
+    if owned:
+        from backend.database import connect
+        db = connect()
+    try:
+        ordered = sorted(identifiers)
+        values = {}
+        for start in range(0, len(ordered), 900):
+            batch = ordered[start:start + 900]
+            placeholders = ",".join("?" for _ in batch)
+            rows = db.execute(
+                "SELECT set_id, node_id, parent_id, field_name, kind, text_value, integer_value, real_value "
+                "FROM value_nodes WHERE set_id IN (" + placeholders + ") ORDER BY set_id, node_id",
+                batch,
+            ).fetchall()
+            nodes = {}
+            for row in rows:
+                set_id, node_id, parent_id, key, kind, text, integer, real = tuple(row)
+                if kind == "null":
+                    value = None
+                elif kind == "object":
+                    value = {}
+                elif kind == "array":
+                    value = []
+                elif kind == "text":
+                    value = text
+                elif kind == "integer":
+                    value = integer
+                elif kind == "boolean":
+                    value = bool(integer)
+                elif kind == "real":
+                    value = real
+                else:
+                    value = "/api/media/" + (text or "")
+                set_nodes = nodes.setdefault(set_id, {})
+                set_nodes[node_id] = value
+                if parent_id is None:
+                    values[set_id] = value
+                elif isinstance(set_nodes[parent_id], dict):
+                    set_nodes[parent_id][key] = value
+                else:
+                    set_nodes[parent_id].append(value)
+        missing = identifiers.difference(values)
+        if missing:
+            raise ValueError("Saved record attributes are missing")
+        for index, reference in enumerate(references):
+            if isinstance(reference, int):
+                result[index] = copy.deepcopy(values[reference])
+        return result
+    finally:
+        if owned:
+            db.close()
+
+
 def data_value(db, value, fallback=None):
     if value is None:
         value = fallback if fallback is not None else []
@@ -115,13 +186,7 @@ def data_value(db, value, fallback=None):
 
 def hydrate(row):
     """Expose API-compatible values, not database foreign-key identifiers."""
-    result = dict(row)
-    for mapping in FIELDS.values():
-        for old, new in mapping.items():
-            if new in result:
-                reference = result.pop(new)
-                result[old] = load_value(reference) if reference is not None else None
-    return result
+    return hydrate_many([row])[0]
 
 
 def migrate_columns(db):
@@ -181,6 +246,22 @@ def install_reference_cleanup(db):
 
 
 def hydrate_many(rows):
-    from backend.database import connect
-    with connect():
-        return [hydrate(row) for row in rows]
+    rows = list(rows)
+    mappings = [(old, new) for fields in FIELDS.values() for old, new in fields.items()]
+    references = []
+    positions = []
+    for row_index, row in enumerate(rows):
+        for old, new in mappings:
+            if new in row.keys() and row[new] is not None:
+                positions.append((row_index, old, len(references)))
+                references.append(row[new])
+    decoded = load_values(references)
+    results = [dict(row) for row in rows]
+    for row_index, old, value_index in positions:
+        results[row_index][old] = decoded[value_index]
+    for row in results:
+        for old, new in mappings:
+            if new in row:
+                row.setdefault(old, None)
+                row.pop(new, None)
+    return results

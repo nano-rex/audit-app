@@ -300,10 +300,9 @@ def patch_users(self, parsed, payload=None):
         if cursor.rowcount == 0:
             self.send_error(404)
             return
-        if not payload["active"]:
+        if not payload["active"] or reset_password or password:
             db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
         if reset_password or password:
-            db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
             db.execute("UPDATE password_reset_requests SET resolved_at = ? WHERE user_id = ?", (int(time.time() * 1000), int(user_id)))
         if "permissionOverrides" in payload:
             overrides = validate_overrides(payload["permissionOverrides"])
