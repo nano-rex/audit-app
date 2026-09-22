@@ -7,6 +7,7 @@ async function applyInspectionSchedule(row) {
 let guidedSchedules = [];
 let inspectionLocationEquipment = new Map();
 let inspectionLocationZones = new Map();
+let inspectionPageDrafts = new Map();
 
 function showGuidedContent(open) {
   document.querySelector("[data-guided-content]").hidden = !open;
@@ -60,6 +61,7 @@ async function loadInspectionItems() {
   const locationData = await locationResponse.json();
   const zoneData = await zoneResponse.json();
   inspectionItems = equipmentData.items;
+  inspectionPageDrafts = new Map();
   const locationNames = new Set(locationData.items.map((location) => location.name));
   inspectionItems.forEach((item) => {
     const location = item.location || item.zone || "Unassigned";
@@ -128,6 +130,60 @@ function inspectionLocationShell(location) {
     <header><h4>${escapeHtml(location)}</h4><span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span></header>
     <div data-location-items>${loadingMarkup("Loading fixed assets…")}</div>
   </section>`;
+}
+
+function captureInspectionPageDrafts(location) {
+  const container = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location)?.querySelector("[data-location-items]");
+  if (!container?.querySelector("[data-equipment-id]")) return;
+  const form = document.getElementById("inspection-form");
+  const formData = new FormData(form);
+  container.querySelectorAll("[data-equipment-id]").forEach((row) => {
+    const equipmentId = row.dataset.equipmentId;
+    const images = storedImagesFromDataset(row);
+    row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
+      const key = `${equipmentId}:${criterionRow.dataset.criterion}`;
+      inspectionPageDrafts.set(key, {
+        ...parseStoredObject(criterionRow.dataset.findingDetails), equipmentId,
+        item: criterionRow.dataset.criterion,
+        passed: formData.get(`equipment-${equipmentId}-criterion-${index}`) === "pass",
+        notApplicable: formData.get(`equipment-${equipmentId}-na-${index}`) === "na",
+        category: formData.get(`equipment-${equipmentId}-category-${index}`) || "",
+        notes: formData.get(`equipment-${equipmentId}-notes-${index}`) || "",
+        images,
+      });
+    });
+  });
+}
+
+function renderInspectionLocationItems(location) {
+  captureInspectionPageDrafts(location);
+  const section = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location);
+  const container = section?.querySelector("[data-location-items]");
+  if (!container) return;
+  const items = inspectionLocationEquipment.get(location) || [];
+  const page = paginateList(`inspection-location-${location}`, items, location, () => renderInspectionLocationItems(location));
+  container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`) + page.controls;
+  applyInspectionSessionItems();
+  page.items.forEach((equipment) => {
+    const rows = container.querySelectorAll(`[data-equipment-id="${equipment.id}"] [data-criterion]`);
+    rows.forEach((criterionRow) => {
+      const draft = inspectionPageDrafts.get(`${equipment.id}:${criterionRow.dataset.criterion}`);
+      if (!draft) return;
+      criterionRow.dataset.findingDetails = JSON.stringify(draft);
+      const id = equipment.id;
+      const index = [...criterionRow.parentElement.querySelectorAll("[data-criterion]")].indexOf(criterionRow);
+      const check = criterionRow.querySelector("[data-inspection-check]");
+      const na = criterionRow.querySelector("[data-inspection-na]");
+      const note = criterionRow.querySelector('input[name*="-notes-"]');
+      const category = criterionRow.querySelector('select[name*="-category-"]');
+      if (check) check.checked = draft.passed;
+      if (na) na.checked = draft.notApplicable;
+      if (note) { note.value = draft.notes || ""; note.disabled = draft.passed || draft.notApplicable; }
+      if (category && draft.category) category.value = draft.category;
+      const row = criterionRow.closest("[data-equipment-id]");
+      if (row && draft.images) { row.dataset.savedImages = JSON.stringify(draft.images); row.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(draft.images); }
+    });
+  });
 }
 
 function inspectionLocationCard(location, items) {
@@ -424,7 +480,8 @@ function collectInspectionPayload(complete = false) {
   // Locations are rendered lazily to keep large outlets responsive. Preserve
   // untouched locations from the session cache when saving the active one.
   inspectionItems.filter((equipment) => !loadedIds.has(String(equipment.id))).forEach((equipment) => {
-    const saved = inspectionSessionItems.filter((item) => String(item.equipmentId) === String(equipment.id));
+    const drafted = parseInspectionCriteria(equipment.inspection_criteria).map((criterion) => inspectionPageDrafts.get(`${equipment.id}:${criterion}`)).filter(Boolean);
+    const saved = drafted.length ? drafted : inspectionSessionItems.filter((item) => String(item.equipmentId) === String(equipment.id));
     if (saved.length) {
       items.push(...saved);
       return;
@@ -580,9 +637,9 @@ function openInspectionLocation(location) {
   if (section && !section.dataset.loaded) {
     const items = inspectionLocationEquipment.get(location) || [];
     const container = section.querySelector("[data-location-items]");
-    container.innerHTML = items.length ? items.map(inspectionItemCard).join("") : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`;
+    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`;
     section.dataset.loaded = "true";
-    applyInspectionSessionItems();
+    if (items.length) renderInspectionLocationItems(location);
   }
   document.querySelectorAll("[data-inspection-location]").forEach((section) => {
     section.hidden = section.dataset.inspectionLocation !== location;
