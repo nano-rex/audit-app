@@ -222,9 +222,10 @@ function renderEquipment() {
       && (!equipmentFilters.type || type === equipmentFilters.type)
       && (!equipmentFilters.brand || brand === equipmentFilters.brand);
   });
-  const pages = Math.max(1, Math.ceil(rows.length / equipmentPageSize));
+  const pageSize = getPaginationSize();
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
   equipmentPage = Math.max(1, Math.min(equipmentPage, pages));
-  const visible = rows.slice((equipmentPage - 1) * equipmentPageSize, equipmentPage * equipmentPageSize);
+  const visible = rows.slice((equipmentPage - 1) * pageSize, equipmentPage * pageSize);
   setHtml("[data-equipment]", rows.length
     ? visible.map(equipmentRow).join("") + `<nav aria-label="Fixed asset pages">
         <button type="button" data-equipment-page="${equipmentPage - 1}" ${equipmentPage === 1 ? "disabled" : ""}>Previous</button>
@@ -233,6 +234,11 @@ function renderEquipment() {
       </nav>`
     : `<article><div><b>No fixed assets found</b><span>Adjust search or filters, or add a new fixed asset.</span></div></article>`);
 }
+
+window.addEventListener("pagination-size-changed", () => {
+  equipmentPage = 1;
+  if (typeof renderEquipment === "function" && equipmentCache.length) renderEquipment();
+});
 
 function updateEquipmentNameOptions() {
   const datalist = document.getElementById("equipment-name-options");

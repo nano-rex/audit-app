@@ -1,8 +1,23 @@
 const listPages = new Map();
+const PAGE_SIZE_STORAGE_KEY = "audit-app-pagination-size";
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
+
+function getPaginationSize() {
+  const value = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+  return PAGE_SIZE_OPTIONS.includes(value) ? value : 25;
+}
+
+function setPaginationSize(value) {
+  if (!PAGE_SIZE_OPTIONS.includes(value)) return;
+  localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(value));
+  listPages.forEach((state) => { state.size = value; state.page = 1; state.render?.(); });
+  window.dispatchEvent(new Event("pagination-size-changed"));
+  document.querySelectorAll("[data-pagination-size]").forEach((select) => { select.value = String(value); });
+}
 
 function paginateList(key, rows, filters, render) {
   const filterKey = JSON.stringify(filters);
-  const state = listPages.get(key) || { page: 1, size: 25 };
+  const state = listPages.get(key) || { page: 1, size: getPaginationSize() };
   if (state.filterKey !== filterKey) state.page = 1;
   state.filterKey = filterKey;
   state.render = render;
@@ -37,11 +52,17 @@ document.addEventListener("change", (event) => {
   const state = listPages.get(key);
   if (!state) return;
   const value = Number(input.value);
-  if (input.dataset.listSize && [10, 25, 50, 100].includes(value)) {
-    state.size = value;
-    state.page = 1;
+  if (input.dataset.listSize && PAGE_SIZE_OPTIONS.includes(value)) {
+    setPaginationSize(value);
   } else if (input.dataset.listJump) {
     state.page = Number.isFinite(value) ? Math.max(1, Math.min(Math.floor(value), state.pages)) : 1;
   }
   state.render();
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("[data-pagination-size]").forEach((select) => {
+    select.value = String(getPaginationSize());
+    select.addEventListener("change", () => setPaginationSize(Number(select.value)));
+  });
 });

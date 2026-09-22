@@ -61,7 +61,6 @@ let selectedZoneOutlet = "";
 let equipmentCache = [];
 let equipmentPage = 1;
 let equipmentFilterKey = "";
-const equipmentPageSize = 100;
 let departmentCache = [];
 let categoryCache = [];
 let outletCache = [];
