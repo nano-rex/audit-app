@@ -258,6 +258,34 @@ main {
   padding: 20px clamp(16px, 3vw, 48px);
 }
 
+html[data-theme="dark"] {
+  --green-soft: #20382e;
+  --text: #edf4f0;
+  --muted: #aab8b1;
+  --border: #3a4943;
+  background: #121816;
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] body { background: #121816; color: var(--text); }
+html[data-theme="dark"] .app-header,
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .stats article,
+html[data-theme="dark"] .outlets article,
+html[data-theme="dark"] .question-card,
+html[data-theme="dark"] .tab-menu,
+html[data-theme="dark"] .list article,
+html[data-theme="dark"] .admin-group,
+html[data-theme="dark"] .unit-card,
+html[data-theme="dark"] button,
+html[data-theme="dark"] select,
+html[data-theme="dark"] input,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .outline { background: #1b2421; color: var(--text); }
+html[data-theme="dark"] .soft { background: #294237; }
+html[data-theme="dark"] .danger { background: #291c1e; }
+html[data-theme="dark"] .tab-menu { box-shadow: 0 18px 40px rgb(0 0 0 / 40%); }
+
 .tab-panel {
   display: none;
 }
