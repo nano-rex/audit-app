@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import importlib.util
+import os
 import re
 import sqlite3
 import time
@@ -12,7 +13,8 @@ except ImportError as exc:
     raise SystemExit("openpyxl is required: python3 -m pip install openpyxl") from exc
 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "web" / "data" / "ottotree_audit_web.db"
+DATA_DIR = Path(os.environ.get("AUDIT_DATA_DIR", str(ROOT / "web" / "data"))).resolve()
+DB_PATH = DATA_DIR / "ottotree_audit_web.db"
 DEFAULT_ASSET_FOLDER = ROOT / "Fixed_Assets"
 DEFAULT_CRITERIA = [
     "Present and correctly placed",
@@ -159,7 +161,7 @@ def ensure_location(db, outlet, location, now):
     if not outlet:
         return False
     existing = db.execute(
-        "SELECT id FROM locations WHERE outlet_code = ? AND name = ?",
+        "SELECT id FROM locations WHERE outlet_code = ? AND lower(name) = lower(?)",
         (outlet, location),
     ).fetchone()
     if existing:
@@ -316,7 +318,8 @@ def main():
     print(
         f"Synced {result['total']} fixed asset rows: "
         f"{result['created']} created, {result['updated']} updated, "
-        f"{result['locations_created']} locations created"
+        f"{result['locations_created']} locations created "
+        f"in {args.db}"
     )
 
 

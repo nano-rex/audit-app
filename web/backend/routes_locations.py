@@ -16,6 +16,11 @@ def post_locations(self, parsed, payload=None):
         outlet = payload.get("outlet") or default_outlet
         outlet_exists(db, outlet)
         location_name = required_name(payload.get("name"))
+        if db.execute(
+            "SELECT 1 FROM locations WHERE outlet_code = ? AND lower(name) = lower(?)",
+            (outlet, location_name),
+        ).fetchone():
+            raise WorkflowError("A location with this name already exists for the selected outlet", 409)
         db.execute(
             """
             INSERT INTO locations (outlet_code, name, floor, area, display_order, size, qr_code, created_at)

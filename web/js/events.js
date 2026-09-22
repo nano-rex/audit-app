@@ -317,6 +317,10 @@ document.getElementById("zone-outlet")?.addEventListener("change", (event) => {
 });
 
 document.querySelector("[data-open-location]")?.addEventListener("click", () => {
+  if (!selectedLocationOutlet) {
+    alert("Select an outlet before adding a location.");
+    return;
+  }
   openLocationEditor();
 });
 
