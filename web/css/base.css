@@ -253,7 +253,9 @@ textarea {
 }
 
 main {
-  padding: 20px 5vw;
+  width: min(1800px, 100%);
+  margin: 0 auto;
+  padding: 20px clamp(16px, 3vw, 48px);
 }
 
 .tab-panel {

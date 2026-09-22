@@ -138,13 +138,13 @@ function populateSettingsForms() {
     },
   };
   const report = {
-    appTitle: getSetting("report.appTitle", "Ottotree Audit"),
-    appSubtitle: getSetting("report.appSubtitle", "Loudspeaker & Mini Studio operations"),
-    businessUnitLabel: getSetting("report.businessUnitLabel", "Ottotree"),
+    appTitle: getSetting("report.appTitle", brandingDefaults.appTitle),
+    appSubtitle: getSetting("report.appSubtitle", brandingDefaults.appSubtitle),
+    businessUnitLabel: getSetting("report.businessUnitLabel", brandingDefaults.businessUnitLabel),
     todayHeading: getSetting("report.todayHeading", "inspections for today"),
     reportHeading: getSetting("report.reportHeading", "audit report"),
-    loginTitle: getSetting("report.loginTitle", "Ottotree Audit"),
-    companyName: getSetting("report.companyName", "Ottotree"),
+    loginTitle: getSetting("report.loginTitle", brandingDefaults.loginTitle),
+    companyName: getSetting("report.companyName", brandingDefaults.businessUnitLabel),
     departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
     logoUrl: getSetting("report.logoUrl", ""),
   };

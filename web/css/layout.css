@@ -38,6 +38,7 @@
 .stats article,
 .outlets article,
 .question-card {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -55,7 +56,7 @@
 .work-grid,
 .inspect-layout {
   display: grid;
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -64,7 +65,7 @@
 .chart-grid,
 .work-grid,
 .inspect-layout {
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   margin-bottom: 0;
 }
 
