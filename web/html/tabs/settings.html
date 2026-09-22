@@ -6,7 +6,7 @@
           <label>Items per page<select data-pagination-size><option value="10">10</option><option value="25">25</option><option value="50">50</option><option value="100">100</option></select></label>
           <p class="muted">This preference is saved on this device and applies to regular and Super pages.</p>
         </article>
-        <article class="panel">
+        <article class="panel" data-super-only-setting hidden>
           <h2>Priority Levels</h2>
           <form id="priority-form" class="inline-form">
             <input name="priorityId" type="hidden">
@@ -18,7 +18,7 @@
           </form>
           <div class="list compact-list" data-priority-records></div>
         </article>
-        <article class="panel">
+        <article class="panel" data-super-only-setting hidden>
           <h2>Audit Types</h2>
           <form id="audit-type-form" class="inline-form">
             <input name="auditTypeId" type="hidden">
@@ -29,7 +29,7 @@
           </form>
           <div class="list compact-list" data-audit-type-records></div>
         </article>
-        <article class="panel">
+        <article class="panel" data-super-only-setting hidden>
           <h2>Scoring</h2>
           <form id="scoring-settings-form" class="inline-form">
             <label>Pass Mark<input name="passMark" type="number" min="0" max="100"></label>
@@ -42,7 +42,7 @@
             <button class="primary" type="submit">Save Scoring</button>
           </form>
         </article>
-        <article class="panel">
+        <article class="panel" data-super-only-setting hidden>
           <h2>Report & System</h2>
           <form id="system-settings-form" class="inline-form">
             <label>App Title<input name="appTitle"></label>

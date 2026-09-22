@@ -85,6 +85,7 @@ async function populateZoneLocationSelect(selectedLocations = []) {
 }
 async function loadSetup() {
   ["[data-department-records]", "[data-category-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
+  document.querySelectorAll("[data-super-only-setting]").forEach((panel) => { panel.hidden = currentUser?.role !== "Super"; });
   const response = await authFetch("/api/setup");
   const data = await response.json();
   setupOptions.departments = data.departments.map((row) => row.code);

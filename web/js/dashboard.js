@@ -56,6 +56,11 @@ async function loadSuperDashboard() {
 
 async function loadSuperSettings() {
   setLoading("[data-super-settings-summary]", "Loading system settings…");
+  const superSettingsGrid = document.querySelector("#super-settings .settings-grid");
+  document.querySelectorAll("#settings [data-super-only-setting]").forEach((panel) => {
+    panel.hidden = false;
+    superSettingsGrid?.appendChild(panel);
+  });
   await loadSuperDatabases();
   const settingCount = Object.keys(setupOptions.settings || {}).length;
   const databaseCount = document.querySelector("[data-super-database-select]")?.options.length || 0;
