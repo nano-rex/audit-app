@@ -17,21 +17,23 @@ document.querySelectorAll("[data-outlet-subtab]").forEach((button) => {
 });
 
 function showTab(tabId) {
-  const userSection = ["departments", "roles"].includes(tabId) ? tabId : null;
+  const resolvedTabId = superTabTargets[tabId] || tabId;
+  const userSection = ["departments", "roles"].includes(resolvedTabId) ? resolvedTabId : null;
   if (userSection) tabId = "users";
   const allowedTabs = allowedAppTabs();
   if (!allowedTabs.some((tab) => tab.id === tabId)) {
     tabId = allowedTabs[0]?.id || defaultNavbarTabs[0];
   }
+  const panelId = superTabTargets[tabId] || tabId;
   document.querySelectorAll("[data-tab]").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.tab === tabId);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === tabId);
+    panel.classList.toggle("active", panel.id === panelId);
   });
-  if (tabId === "users") showUserSubtab(userSection || activeUserSection);
-  if (tabId === "inspections") showGuidedContent(false);
-  if (tabId === "inspections" && pendingInspectionSchedule) {
+  if (panelId === "users") showUserSubtab(userSection || activeUserSection);
+  if (panelId === "inspections") showGuidedContent(false);
+  if (panelId === "inspections" && pendingInspectionSchedule) {
     const row = pendingInspectionSchedule;
     pendingInspectionSchedule = null;
     applyInspectionSchedule(row).catch(showLoadError);
@@ -138,7 +140,7 @@ function applyNavbarTabs() {
     tab.hidden = !allowedIds.has(tab.dataset.tab);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.hidden = !allowedIds.has(panel.id);
+    panel.hidden = !allowedIds.has(panel.id) && ![...allowedIds].some((id) => superTabTargets[id] === panel.id);
   });
   renderTabMenu();
   layoutNavbar();
@@ -166,13 +168,15 @@ if (typeof window !== "undefined") {
 }
 
 function allowedAppTabs() {
+  if (currentUser?.role === "Super") return superTabs;
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
   allowedIds.add("notifications");
   if (allowedIds.has("inspections")) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
-  return allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
+  const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
+  return currentUser?.role === "Super" ? [...superTabs, ...regular] : regular;
 }
 
 let activeUserSection = "users";

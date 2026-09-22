@@ -4,6 +4,7 @@ let inspectionsInitialized = false;
 const tabLoads = new Map();
 
 function showTabLoading(tabId) {
+  const targetTabId = superTabTargets[tabId] || tabId;
   const targets = {
     today: [["[data-outlets]", "Loading dashboard…"], ["[data-recent]", "Loading recent audits…"], ["[data-rankings]", "Loading rankings…"], ["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
     reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
@@ -16,7 +17,7 @@ function showTabLoading(tabId) {
     outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"], ["[data-outlet-records]", "Loading outlets…"]],
     inspections: [["[data-guided-schedules]", "Loading scheduled inspections…"], ["[data-inspection-history]", "Loading inspection history…"]],
   };
-  (targets[tabId] || []).forEach(([selector, label]) => setLoading(selector, label));
+  (targets[targetTabId] || []).forEach(([selector, label]) => setLoading(selector, label));
 }
 
 function showLoadError(error) {
@@ -49,6 +50,12 @@ async function loadTabData(tabId) {
       await Promise.all([loadGuidedSchedules(), loadInspectionHistory()]);
     },
   };
+  if (tabId.startsWith("super-")) {
+    const target = superTabTargets[tabId];
+    if (target === "dashboard") loaders[tabId] = loadSuperDashboard;
+    else if (target === "settings") loaders[tabId] = loadSuperSettings;
+    else loaders[tabId] = loaders[target];
+  }
   if (!loaders[tabId]) return;
   const pending = Promise.resolve().then(loaders[tabId]).then(() => {
     document.getElementById("load-error")?.remove();

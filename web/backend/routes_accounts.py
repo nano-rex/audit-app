@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from backend.accounts import is_company_admin_user, is_super_user, public_user
 from backend.common import hash_password, verify_password
-from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE
+from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
 from backend.database import connect, first_department
 from backend.workflow import WorkflowError
 from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
@@ -424,7 +424,8 @@ def protect_last_super(db, user_id):
 
 def patch_navigation(self, parsed, payload=None):
     order = payload.get("order")
-    pages = ({tab[0] for tab in APP_TABS} | {"account"}) - {"departments", "roles"}
+    super_user = is_super_user(self.current_user())
+    pages = ({tab[0] for tab in APP_TABS} | ({tab[0] for tab in SUPER_TABS} if super_user else set()) | {"account"}) - {"departments", "roles"}
     if not isinstance(order, list) or len(order) > len(pages) or any(not isinstance(page, str) or page not in pages for page in order) or len(set(order)) != len(order):
         raise ValueError("Choose each available page at most once")
     user_id = self.current_user()["id"]

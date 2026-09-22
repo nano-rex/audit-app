@@ -25,6 +25,43 @@ async function loadDashboard() {
   setText('[data-kpi="responseRate"]', `${data.kpi.responseRate}%`);
 }
 
+async function loadSuperDashboard() {
+  const targets = ["[data-super-rankings]", "[data-super-database]"];
+  targets.forEach((selector) => setLoading(selector, "Loading super dashboard…"));
+  const [dashboardResponse, usersResponse, rolesResponse, findingsResponse, equipmentResponse, databaseResponse] = await Promise.all([
+    authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`),
+    authFetch("/api/users"),
+    authFetch("/api/roles"),
+    authFetch("/api/findings"),
+    authFetch("/api/equipment"),
+    authFetch("/api/account/databases"),
+  ]);
+  const [dashboard, users, roles, findings, equipment, databases] = await Promise.all([
+    dashboardResponse.json(), usersResponse.json(), rolesResponse.json(), findingsResponse.json(), equipmentResponse.json(), databaseResponse.json(),
+  ]);
+  const activeUsers = (users.items || []).filter((user) => user.active).length;
+  const setStat = (name, value) => setText(`[data-super-stat="${name}"]`, value);
+  setStat("users", (users.items || []).length);
+  setStat("activeUsers", activeUsers);
+  setStat("roles", (roles.items || []).length);
+  setStat("departments", (setupOptions.departments || []).length);
+  setStat("assets", (equipment.items || []).length);
+  setStat("findings", (findings.items || []).filter((row) => !["Completed", "Closed"].includes(row.status)).length);
+  setHtml("[data-super-rankings]", (dashboard.rankings || []).length
+    ? dashboard.rankings.map((row, index) => rankingRow(row, index + 1)).join("")
+    : `<p class="muted">No outlet performance data available.</p>`);
+  const active = (databases.databases || []).find((database) => database.active);
+  setText("[data-super-database]", active ? active.name : "No active database");
+}
+
+async function loadSuperSettings() {
+  setLoading("[data-super-settings-summary]", "Loading system settings…");
+  await loadSuperDatabases();
+  const settingCount = Object.keys(setupOptions.settings || {}).length;
+  const databaseCount = document.querySelector("[data-super-database-select]")?.options.length || 0;
+  setHtml("[data-super-settings-summary]", `<div><dt>Stored settings</dt><dd>${settingCount}</dd></div><div><dt>Available databases</dt><dd>${databaseCount}</dd></div><div><dt>Role permissions</dt><dd>Managed separately from Super access</dd></div>`);
+}
+
 async function loadWorkOrders() {
   const response = await authFetch("/api/work-orders");
   const data = await response.json();

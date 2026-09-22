@@ -1,0 +1,15 @@
+<section id="super-settings" class="tab-panel">
+  <section class="today-hero"><div><span>Restricted control center</span><h2>Super Settings</h2><p>Controls that affect the whole installation. These options are never part of user roles.</p></div></section>
+  <section class="work-grid settings-grid">
+    <article class="panel">
+      <h2>Company databases</h2>
+      <div class="form-grid">
+        <label>Active database<select data-super-database-select></select></label>
+        <label>New database name<input data-super-new-database-name pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" placeholder="company_name"></label>
+      </div>
+      <div class="form-actions"><button class="outline" type="button" data-super-refresh-databases>Refresh</button><button class="outline" type="button" data-super-create-database>Create Database</button><button class="primary" type="button" data-super-switch-database>Switch Database</button><button class="danger" type="button" data-super-remove-database>Remove Selected</button></div>
+      <p role="status" aria-live="polite" data-super-database-message></p>
+    </article>
+    <article class="panel"><h2>Installation summary</h2><dl class="detail-list" data-super-settings-summary><div><dt>Loading</dt><dd>System settings…</dd></div></dl></article>
+  </section>
+</section>

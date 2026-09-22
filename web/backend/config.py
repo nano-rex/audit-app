@@ -111,6 +111,13 @@ APP_TABS = (
     ("settings", "Settings"),
 )
 
+# These pages are intentionally outside the permission model. They are only
+# exposed to the built-in Super account and can never be granted to a role.
+SUPER_TABS = (
+    ("super-dashboard", "Super Dashboard"),
+    ("super-settings", "Super Settings"),
+)
+
 
 INCLUDE_PATTERN = re.compile(r"<!--\s*include:\s*([a-zA-Z0-9_./-]+)\s*-->")
 

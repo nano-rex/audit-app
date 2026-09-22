@@ -27,6 +27,23 @@ const allTabs = [
   { id: "settings", label: "Settings" },
   { id: "account", label: "Account" },
 ];
+const superTabs = [
+  { id: "super-dashboard", label: "Super Dashboard" },
+  { id: "super-inspections", label: "Super Inspections" },
+  { id: "super-findings", label: "Super History & Findings" },
+  { id: "super-work-orders", label: "Super Work Orders" },
+  { id: "super-equipment", label: "Super Fixed Assets" },
+  { id: "super-reports", label: "Super Reports" },
+  { id: "super-corrective-actions", label: "Super Corrective Actions" },
+  { id: "super-notifications", label: "Super Notifications" },
+  { id: "super-categories", label: "Super Categories" },
+  { id: "super-outlets", label: "Super Outlets" },
+  { id: "super-users", label: "Super Users" },
+  { id: "super-settings", label: "Super Settings" },
+  { id: "super-account", label: "Super Account" },
+];
+
+const superTabTargets = Object.fromEntries(superTabs.map((tab) => [tab.id, tab.id.replace(/^super-/, "")]));
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
 const setupOptions = {
   departments: [],
