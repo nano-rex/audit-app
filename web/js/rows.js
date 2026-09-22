@@ -1,13 +1,13 @@
 function departmentRow(row) {
   return `
-    <li>
-      <b>${escapeHtml(row.code)}</b>
-      <span>${escapeHtml(row.description || "No description")} | ${escapeHtml(row.responsibilities || "No responsibilities")}</span>
-      <span class="row-actions">
+    <article class="department-card">
+      <div class="department-card-heading"><span class="department-code">${escapeHtml(row.code)}</span><span class="department-id">Department</span></div>
+      <div class="department-card-copy"><strong>${escapeHtml(row.description || "No description")}</strong><p>${escapeHtml(row.responsibilities || "No responsibilities")}</p></div>
+      <div class="row-actions">
         <button type="button" class="outline" data-edit-department='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-department="${row.id}">Delete</button>
-      </span>
-    </li>
+      </div>
+    </article>
   `;
 }
 

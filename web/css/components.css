@@ -156,6 +156,45 @@
   gap: 14px;
 }
 
+.department-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.department-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+}
+
+.department-card-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.department-code {
+  color: var(--green);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.department-id {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.department-card-copy strong { display: block; overflow-wrap: anywhere; }
+.department-card-copy p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
+.department-card .row-actions { margin-left: 0; }
+
 .admin-group {
   border: 1px solid var(--border);
   border-radius: 8px;

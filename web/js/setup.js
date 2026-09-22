@@ -198,7 +198,7 @@ function renderDepartments() {
   const search = departmentFilters.search.toLowerCase();
   const rows = departmentCache.filter((row) => [row.code, row.description, row.responsibilities].join(" ").toLowerCase().includes(search));
   setHtml("[data-department-records]", rows.length
-    ? `<section class="admin-group"><ul>${rows.map(departmentRow).join("")}</ul></section>`
+    ? `<section class="department-grid" aria-label="Departments">${rows.map(departmentRow).join("")}</section>`
     : `<section class="admin-group"><ul><li><b>No departments found</b><span>Adjust search or add a department.</span></li></ul></section>`);
 }
 
