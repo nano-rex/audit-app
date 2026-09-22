@@ -106,18 +106,19 @@ function userRow(row) {
   const status = row.active === 0 || row.active === false ? "Inactive" : "Active";
   const login = row.last_login_at || row.lastLoginAt || "Never logged in";
   return `
-    <article>
-      <div>
-        <b>${escapeHtml(row.name)} - ${escapeHtml(row.role)}</b>
-        <span>${escapeHtml(row.email)} | ${escapeHtml(row.department || "No department")} | ${escapeHtml(row.title || "No title")} | ${escapeHtml(row.responsibilities || "No responsibilities")}</span>
-        <span>${escapeHtml(status)} | Last login: ${escapeHtml(login)}${row.reset_requested ? " | Password reset requested" : ""}${row.reset_required || row.resetRequired ? " | Password change required" : ""}</span>
-      </div>
-      <span class="row-actions">
+    <tr>
+      <td class="user-name"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.username || "No username")}</small></td>
+      <td class="user-email">${escapeHtml(row.email)}</td>
+      <td class="user-department">${escapeHtml(row.department || "No department")}</td>
+      <td class="user-role">${escapeHtml(row.role || "No role")}</td>
+      <td><span class="status-pill ${status === "Active" ? "status-complete" : "status-untouched"}">${status}</span>${row.reset_requested || row.reset_required || row.resetRequired ? `<small class="user-alert">Password action needed</small>` : ""}</td>
+      <td class="user-login">${escapeHtml(login)}</td>
+      <td class="row-actions">
         <button type="button" class="outline" data-edit-user='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="outline" data-login-activity="${row.id}">Login activity</button>
         <button type="button" class="danger" data-delete-user="${row.id}">Delete</button>
-      </span>
-    </article>
+      </td>
+    </tr>
   `;
 }
 

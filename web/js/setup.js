@@ -250,6 +250,6 @@ function renderUsers() {
       && (!userFilters.department || row.department === userFilters.department);
   });
   setHtml("[data-users]", rows.length
-    ? rows.map(userRow).join("")
+    ? `<div class="users-table-wrap"><table class="users-table"><thead><tr><th>User</th><th class="user-email">Email</th><th class="user-department">Department</th><th>Role</th><th>Status</th><th class="user-login">Last login</th><th>Actions</th></tr></thead><tbody>${rows.map(userRow).join("")}</tbody></table></div>`
     : `<article><div><b>No users found</b><span>Adjust filters or add a user.</span></div></article>`);
 }

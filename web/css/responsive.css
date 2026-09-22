@@ -30,6 +30,19 @@
   }
 }
 
+@media (max-width: 900px) {
+  .users-table { min-width: 620px; }
+  .users-table .user-email,
+  .users-table .user-login { display: none; }
+}
+
+@media (max-width: 600px) {
+  .users-table { min-width: 500px; }
+  .users-table .user-department { display: none; }
+  .users-table th,
+  .users-table td { padding: 9px 8px; }
+}
+
 @media (max-width: 920px) {
   main {
     padding: 18px 24px;

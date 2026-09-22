@@ -156,6 +156,22 @@
   gap: 14px;
 }
 
+.users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+.users-table { border-collapse: collapse; min-width: 760px; width: 100%; }
+.users-table th,
+.users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; white-space: nowrap; }
+.users-table th { background: var(--green-soft); color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.users-table tbody tr:last-child td { border-bottom: 0; }
+.users-table tbody tr:hover { background: var(--green-soft); }
+.users-table .user-name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.users-table .user-name strong,
+.users-table .user-name small,
+.users-table .user-alert { display: block; overflow: hidden; text-overflow: ellipsis; }
+.users-table .user-name small,
+.users-table .user-alert { color: var(--muted); font-size: 11px; margin-top: 3px; }
+.users-table .user-alert { color: var(--orange); }
+.users-table .row-actions { margin-left: 0; }
+
 .department-grid {
   display: grid;
   gap: 12px;
