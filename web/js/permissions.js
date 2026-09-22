@@ -22,7 +22,8 @@ function renderUserPermissions(overrides = null) {
   const inherit = form.elements.inheritPermissions.checked;
   const disabled = inherit || role?.protected;
   const value = inherit ? role || {} : overrides || role || {};
-  form.querySelector("[data-user-permissions]").innerHTML = permissionCheckboxes(setupOptions.tabs || allTabs, value.permissions || [], "userPermissions", disabled);
+  const permissionTabs = (setupOptions.tabs || allTabs).filter((tab) => tab.id !== "settings");
+  form.querySelector("[data-user-permissions]").innerHTML = permissionCheckboxes(permissionTabs, value.permissions || [], "userPermissions", disabled);
   form.querySelector("[data-user-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, value.inspectionPermissions || [], "userInspectionPermissions", disabled);
   form.elements.inheritPermissions.disabled = Boolean(role?.protected);
 }

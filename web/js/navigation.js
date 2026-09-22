@@ -173,6 +173,7 @@ function allowedAppTabs() {
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
   allowedIds.add("notifications");
+  allowedIds.add("settings");
   if (allowedIds.has("inspections")) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
