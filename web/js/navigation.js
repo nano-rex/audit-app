@@ -46,6 +46,14 @@ function showTab(tabId) {
 }
 
 function showContextTab(tabId) {
+  if (["history", "findings"].includes(tabId)) {
+    showTab("findings");
+    showHistoryFindingsSection(tabId);
+    document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
+      button.classList.toggle("active", button.dataset.contextTab === tabId);
+    });
+    return;
+  }
   showTab(tabId);
   document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
     button.classList.toggle("active", button.dataset.contextTab === tabId);
