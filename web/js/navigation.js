@@ -29,7 +29,9 @@ function showTab(tabId) {
     tab.classList.toggle("active", tab.dataset.tab === tabId);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.classList.toggle("active", panel.id === panelId || contextParents[panelId] === panel.id);
+    const active = panel.id === panelId || contextParents[panelId] === panel.id;
+    panel.classList.toggle("active", active);
+    panel.hidden = !active;
   });
   if (panelId === "users") showUserSubtab(userSection || activeUserSection);
   if (panelId === "inspections") showGuidedContent(false);
