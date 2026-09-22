@@ -1,3 +1,33 @@
+.loading-state {
+  align-items: center;
+  color: var(--muted, #66736c);
+  display: flex;
+  gap: .65rem;
+  justify-content: center;
+  min-height: 5rem;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.loading-spinner {
+  animation: audit-spin .8s linear infinite;
+  border: 3px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 1.1rem;
+  width: 1.1rem;
+}
+
+@keyframes audit-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner { animation-duration: 1.8s; }
+}
+
 .stats article,
 .outlets article,
 .unit-card {

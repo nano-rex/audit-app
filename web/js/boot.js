@@ -3,6 +3,22 @@ let appLoading = null;
 let inspectionsInitialized = false;
 const tabLoads = new Map();
 
+function showTabLoading(tabId) {
+  const targets = {
+    today: [["[data-outlets]", "Loading dashboard…"], ["[data-recent]", "Loading recent audits…"], ["[data-rankings]", "Loading rankings…"], ["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
+    reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
+    findings: [["[data-inspection-history]", "Loading history…"], ["[data-findings]", "Loading findings…"]],
+    "work-orders": [["[data-work-orders]", "Loading work orders…"]],
+    "corrective-actions": [["[data-corrective-actions]", "Loading corrective actions…"]],
+    equipment: [["[data-equipment]", "Loading fixed assets…"]],
+    users: [["[data-users]", "Loading users…"], ["[data-department-records]", "Loading departments…"], ["[data-role-records]", "Loading roles…"]],
+    notifications: [["[data-notifications]", "Loading notifications…"]],
+    outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"], ["[data-outlet-records]", "Loading outlets…"]],
+    inspections: [["[data-guided-schedules]", "Loading scheduled inspections…"], ["[data-inspection-history]", "Loading inspection history…"]],
+  };
+  (targets[tabId] || []).forEach(([selector, label]) => setLoading(selector, label));
+}
+
 function showLoadError(error) {
   let notice = document.getElementById("load-error");
   if (!notice) {
@@ -17,6 +33,7 @@ function showLoadError(error) {
 async function loadTabData(tabId) {
   if (!appReady) return;
   if (tabLoads.has(tabId)) return tabLoads.get(tabId);
+  showTabLoading(tabId);
   const loaders = {
     today: loadDashboard,
     reports: async () => { await loadDashboard(); await loadReport(); },

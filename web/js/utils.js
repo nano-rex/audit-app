@@ -17,6 +17,14 @@ function setHtml(selector, value) {
   }
 }
 
+function loadingMarkup(label = "Loading…") {
+  return `<div class="loading-state" role="status" aria-live="polite"><span class="loading-spinner" aria-hidden="true"></span><span>${escapeHtml(label)}</span></div>`;
+}
+
+function setLoading(selector, label = "Loading…") {
+  setHtml(selector, loadingMarkup(label));
+}
+
 function setCurrentInspectionName(value = "", mode = "New") {
   setText("[data-current-inspection-name]", value ? `${mode}: ${value}` : "New inspection");
 }

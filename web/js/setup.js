@@ -3,6 +3,7 @@ async function loadLocations() {
     setHtml("[data-location-records]", `<section class="admin-group"><ul><li><b>No outlet selected</b><span>Create an outlet first.</span></li></ul></section>`);
     return;
   }
+  setLoading("[data-location-records]", "Loading locations…");
   const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
   locationCache = data.items;
@@ -17,6 +18,7 @@ function renderLocations() {
 }
 
 async function loadZones() {
+  setLoading("[data-zone-records]", "Loading zones…");
   if (!selectedZoneOutlet) {
     const response = await authFetch("/api/zones");
     const data = await response.json();
@@ -82,6 +84,7 @@ async function populateZoneLocationSelect(selectedLocations = []) {
     : `<p class="muted">No locations are set up for this outlet.</p>`;
 }
 async function loadSetup() {
+  ["[data-department-records]", "[data-category-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
   const response = await authFetch("/api/setup");
   const data = await response.json();
   setupOptions.departments = data.departments.map((row) => row.code);

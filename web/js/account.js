@@ -18,6 +18,7 @@ function renderAccountPhoto() {
 }
 
 async function loadAccount() {
+  setText("[data-account-message]", "Loading account…");
   const response = await authFetch("/api/account");
   const data = await response.json();
   currentUser = data.user;
@@ -43,6 +44,7 @@ async function loadAccount() {
   const isSuper = currentUser.role === "Super";
   databaseManagement.hidden = !isSuper;
   if (isSuper) await loadDatabases();
+  setText("[data-account-message]", "");
 }
 
 async function loadDatabases() {
