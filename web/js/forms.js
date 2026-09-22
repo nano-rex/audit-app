@@ -293,6 +293,8 @@ function resetEquipmentForm() {
   const form = document.getElementById("equipment-form");
   form.reset();
   form.elements.equipmentId.value = "";
+  form.dataset.savedImages = "[]";
+  form.querySelector("[data-equipment-photos]").innerHTML = '<span class="muted">No photos attached.</span>';
   form.querySelector("h2").textContent = "Register Fixed Asset";
   form.querySelector('button[type="submit"]').textContent = "Save Fixed Asset";
   updateSetupSelects();
@@ -322,7 +324,9 @@ async function openEquipmentEditor(row) {
   form.elements.temporaryRelocation.value = row.temporary_relocation || "";
   form.elements.inverterModel.value = row.inverter_model || "";
   form.elements.motorCapacity.value = row.motor_capacity || "";
-  form.elements.photos.value = parseStoredImages(row.photos || "[]").map(imageLabel).join(", ") || row.photos || "";
+  const photos = parseStoredImages(row.photos || "[]");
+  form.dataset.savedImages = JSON.stringify(photos);
+  form.querySelector("[data-equipment-photos]").innerHTML = renderSavedImageList(photos, "data-delete-equipment-photo");
   form.elements.description.value = row.description || row.notes || "";
   renderEquipmentCriteria(parseInspectionCriteria(row.inspection_criteria));
   form.querySelector("h2").textContent = "Edit Fixed Asset";
@@ -520,7 +524,7 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
     temporaryRelocation: formValue(form, "temporaryRelocation", ""),
     inverterModel: formValue(form, "inverterModel", ""),
     motorCapacity: formValue(form, "motorCapacity", ""),
-    photos: formValue(form, "photos", ""),
+    photos: storedImagesFromDataset(form),
     description: formValue(form, "description", ""),
     replacementFlag: formValue(form, "operationalStatus", "Operational") === "Replace",
     inspectionCriteria: collectEquipmentCriteria(form),

@@ -22,7 +22,8 @@
             <label>Motor Capacity<input name="motorCapacity" placeholder="If applicable"></label>
           </div>
           <label>Description<textarea name="description" placeholder="Fixed asset description, condition, usage, or replacement note"></textarea></label>
-          <label>Photos / References<textarea name="photos" placeholder="Photo links, filenames, or notes from fixed asset listing"></textarea></label>
+          <label>Photos<input type="file" accept="image/*" multiple capture="environment" data-equipment-photos-upload></label>
+          <div class="saved-images" data-equipment-photos data-saved-images><span class="muted">No photos attached.</span></div>
           <datalist id="equipment-name-options"></datalist>
           <section class="criteria-editor">
             <h3>Inspection Criteria</h3>

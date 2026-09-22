@@ -668,6 +668,30 @@ document.querySelector("[data-work-order-evidence]").addEventListener("click", (
   if (mark) openPhotoMarker(form, Number(mark.dataset.markWorkEvidence));
 });
 
+document.querySelector("[data-equipment-photos-upload]")?.addEventListener("change", async (event) => {
+  const input = event.target;
+  const form = input.form;
+  try {
+    const images = [...storedImagesFromDataset(form), ...await readFilesAsStoredImages(input.files)];
+    form.dataset.savedImages = JSON.stringify(images);
+    form.querySelector("[data-equipment-photos]").innerHTML = renderSavedImageList(images, "data-delete-equipment-photo");
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    input.value = "";
+  }
+});
+
+document.querySelector("[data-equipment-photos]")?.addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-delete-equipment-photo]");
+  if (!remove) return;
+  const form = event.currentTarget.closest("form");
+  const images = storedImagesFromDataset(form);
+  images.splice(Number(remove.dataset.deleteEquipmentPhoto), 1);
+  form.dataset.savedImages = JSON.stringify(images);
+  event.currentTarget.innerHTML = images.length ? renderSavedImageList(images, "data-delete-equipment-photo") : '<span class="muted">No photos attached.</span>';
+});
+
 checklistContainer?.addEventListener("click", (event) => {
   const deleteImageButton = event.target.closest("[data-delete-inspection-image]");
   if (deleteImageButton) {
