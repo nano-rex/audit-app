@@ -709,6 +709,10 @@ fieldset {
   display: none;
 }
 
+.inspection-zone[hidden] {
+  display: none;
+}
+
 .inspection-zone > header,
 .inspection-location > header {
   display: flex;
