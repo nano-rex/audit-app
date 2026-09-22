@@ -11,6 +11,7 @@ from backend.media_store import MediaStore
 from backend import config
 from backend.accounts import is_company_admin_user, branding_settings, is_super_user, public_user
 from backend.catalog import user_login_activity, equipment_items, locations, role_items, setup_records, users, zones
+from backend.database_manager import list_databases
 from backend.common import checklist, inspection_name
 from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
@@ -171,6 +172,12 @@ class Handler(BaseHTTPRequestHandler):
                 self.json({"ok": False, "error": "Login required"}, status=401)
                 return
             self.json({"ok": True, "user": user})
+            return
+        if parsed.path == "/api/account/databases":
+            if not is_super_user(self.current_user()):
+                self.json({"error": "Super access required"}, 403)
+                return
+            self.json({"databases": list_databases()})
             return
         if parsed.path == "/api/branding":
             self.json(branding_settings())

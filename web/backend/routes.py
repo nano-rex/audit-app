@@ -1,6 +1,6 @@
 """HTTP mutation dispatch, grouped by domain in routes_*.py."""
 from backend.audit_closure import close_audit
-from backend.routes_accounts import patch_navigation, delete_roles, delete_users, patch_account, patch_roles, patch_users, post_auth_change_password, post_auth_forgot_password, post_auth_login, post_auth_logout, post_auth_register, post_roles, post_users
+from backend.routes_accounts import delete_database, patch_database, post_database, patch_navigation, delete_roles, delete_users, patch_account, patch_roles, patch_users, post_auth_change_password, post_auth_forgot_password, post_auth_login, post_auth_logout, post_auth_register, post_roles, post_users
 from backend.routes_assets import delete_equipment, patch_equipment, post_equipment
 from backend.routes_inspections import delete_inspection_sessions, delete_schedules, patch_inspection_sessions, patch_schedules, post_audits, post_captain_logins, post_inspection_sessions, post_inspections, post_schedules
 from backend.routes_inspections import start_audit, start_schedule
@@ -37,10 +37,12 @@ ROUTES = {
         '/api/settings': post_settings,
         '/api/comments': post_comments,
         '/api/notifications': post_notifications,
+        '/api/account/databases': post_database,
     },
     'PATCH': {
         '/api/account': patch_account,
         '/api/account/navigation': patch_navigation,
+        '/api/account/databases': patch_database,
         '/api/inspection-sessions': patch_inspection_sessions,
         '/api/users': patch_users,
         '/api/roles': patch_roles,
@@ -72,6 +74,7 @@ ROUTES = {
         '/api/equipment': delete_equipment,
         '/api/work-orders': delete_work_orders,
         '/api/schedules': delete_schedules,
+        '/api/account/databases': delete_database,
     },
 }
 

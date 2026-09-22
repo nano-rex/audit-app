@@ -34,4 +34,19 @@
           <button class="outline" type="button" data-logout>Logout</button>
         </div>
       </article>
+      <article class="panel account-panel" data-database-management hidden>
+        <h2>Company databases</h2>
+        <p class="muted">Super users can switch the active company database or create a new empty company database.</p>
+        <div class="form-grid">
+          <label>Active database<select data-database-select></select></label>
+          <label>New database name<input data-new-database-name pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" placeholder="company_name"></label>
+        </div>
+        <div class="form-actions">
+          <button class="outline" type="button" data-refresh-databases>Refresh</button>
+          <button class="outline" type="button" data-create-database>Create Database</button>
+          <button class="primary" type="button" data-switch-database>Switch Database</button>
+          <button class="danger" type="button" data-remove-database>Remove Selected</button>
+        </div>
+        <p role="status" aria-live="polite" data-database-message></p>
+      </article>
     </section>

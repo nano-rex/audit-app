@@ -38,7 +38,49 @@ async function loadAccount() {
   renderAccountPhoto();
   renderAccountSignature();
   renderCurrentUser();
+  const databaseManagement = document.querySelector("[data-database-management]");
+  const isSuper = currentUser.role === "Super";
+  databaseManagement.hidden = !isSuper;
+  if (isSuper) await loadDatabases();
 }
+
+async function loadDatabases() {
+  const response = await authFetch("/api/account/databases");
+  const data = await response.json();
+  const select = document.querySelector("[data-database-select]");
+  select.innerHTML = (data.databases || []).map((database) => `<option value="${escapeAttr(database.name)}"${database.active ? " selected" : ""}>${escapeHtml(database.name)}${database.active ? " (active)" : ""}</option>`).join("");
+}
+
+document.querySelector("[data-refresh-databases]")?.addEventListener("click", () => loadDatabases().catch((error) => setText("[data-database-message]", error.message)));
+document.querySelector("[data-create-database]")?.addEventListener("click", async () => {
+  const input = document.querySelector("[data-new-database-name]");
+  try {
+    await requestJson("/api/account/databases", "POST", { name: input.value.trim() });
+    input.value = "";
+    await loadDatabases();
+    setText("[data-database-message]", "Database created.");
+  } catch (error) { setText("[data-database-message]", error.message); }
+});
+
+document.querySelector("[data-switch-database]")?.addEventListener("click", async () => {
+  const name = document.querySelector("[data-database-select]").value;
+  if (!name || !confirm(`Switch to ${name}? All users must sign in again.`)) return;
+  try {
+    await requestJson("/api/account/databases", "PATCH", { name });
+    await requestJson("/api/auth/logout", "POST", {});
+    window.location.href = "login.html";
+  } catch (error) { setText("[data-database-message]", error.message); }
+});
+
+document.querySelector("[data-remove-database]")?.addEventListener("click", async () => {
+  const name = document.querySelector("[data-database-select]").value;
+  if (!name || !confirm(`Remove ${name}? This cannot be undone.`)) return;
+  try {
+    await requestJson(`/api/account/databases/${encodeURIComponent(name)}`, "DELETE");
+    await loadDatabases();
+    setText("[data-database-message]", "Database removed.");
+  } catch (error) { setText("[data-database-message]", error.message); }
+});
 
 document.querySelector("[data-account-photo-upload]").addEventListener("change", async (event) => {
   const input = event.target;

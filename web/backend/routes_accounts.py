@@ -13,6 +13,7 @@ from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROL
 from backend.database import connect, first_department
 from backend.workflow import WorkflowError
 from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
+from backend.database_manager import create_database, remove_database, switch_database
 
 
 def post_auth_login(self, parsed, payload=None):
@@ -426,3 +427,26 @@ def patch_navigation(self, parsed, payload=None):
         db.execute("DELETE FROM user_navigation WHERE user_id = ?", (user_id,))
         db.executemany("INSERT INTO user_navigation(user_id,page_id,position) VALUES (?,?,?)", [(user_id, page, position) for position, page in enumerate(order)])
     self.json({"ok": True, "navigationOrder": order})
+
+
+def post_database(self, parsed, payload=None):
+    if not is_super_user(self.current_user()):
+        self.json({"error": "Super access required"}, 403)
+        return
+    self.json({"ok": True, "database": create_database((payload or {}).get("name", ""))})
+
+
+def patch_database(self, parsed, payload=None):
+    if not is_super_user(self.current_user()):
+        self.json({"error": "Super access required"}, 403)
+        return
+    result = switch_database((payload or {}).get("name", ""))
+    SESSION_TOKENS.clear()
+    self.json({"ok": True, "database": result})
+
+
+def delete_database(self, parsed, payload=None):
+    if not is_super_user(self.current_user()):
+        self.json({"error": "Super access required"}, 403)
+        return
+    self.json({"ok": True, "database": remove_database(parsed.path.rsplit("/", 1)[-1])})
