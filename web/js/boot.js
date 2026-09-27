@@ -12,6 +12,7 @@ function showTabLoading(tabId) {
     "work-orders": [["[data-work-orders]", "Loading work orders…"]],
     "corrective-actions": [["[data-corrective-actions]", "Loading corrective actions…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
+    categories: [["[data-category-records]", "Loading categories…"]],
     users: [["[data-users]", "Loading users…"], ["[data-department-records]", "Loading departments…"], ["[data-role-records]", "Loading roles…"]],
     notifications: [["[data-notifications]", "Loading notifications…"]],
     outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"], ["[data-outlet-records]", "Loading outlets…"]],
@@ -42,6 +43,10 @@ async function loadTabData(tabId) {
     "work-orders": loadWorkOrders,
     "corrective-actions": loadWorkOrders,
     equipment: loadEquipment,
+    categories: async () => {
+      if (!categoryCache.length) await loadSetup();
+      else renderCategories();
+    },
     users: () => (currentUser?.permissions || ["users"]).includes("users") ? loadUsers() : Promise.resolve(),
     account: loadAccount,
     notifications: loadNotifications,
