@@ -1,4 +1,4 @@
-# Ottotree Audit Requirements Checklist
+# Audit App Requirements Checklist
 
 Source: `/home/user/Downloads/codex/req_spec.md`
 

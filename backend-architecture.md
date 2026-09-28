@@ -5,8 +5,7 @@ reviewability and testing; it does not by itself increase request throughput.
 
 All application Python modules live in `web/backend/`; `web/server.py` is the entry point.
 Python regression tests remain in `tests/` and maintenance commands in `tools/`.
-The web root remains `web/`, and the default database remains
-`web/data/ottotree_audit_web.db`. Moving modules does not move or recreate existing data.
+The web root remains `web/`, and the database remains under the configured `web/data/` directory. Moving modules does not move or recreate existing data.
 
 | Module | Responsibility |
 | --- | --- |

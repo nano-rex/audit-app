@@ -12,7 +12,7 @@ See [production readiness and measured performance](../production-readiness.md) 
 - `html/dialogs/` contains modal form markup.
 - `js/` contains browser scripts split by responsibility.
 - `css/` contains stylesheets loaded directly by the HTML entry points; `styles.css` remains a compatibility entry point.
-- `data/ottotree_audit_web.db` is the local SQLite database. Prototype data can be recreated from setup screens.
+- `data/` contains the local SQLite database. Prototype data can be recreated from setup screens.
 
 Run:
 
@@ -28,11 +28,7 @@ Then open:
 http://127.0.0.1:41883
 ```
 
-Data is stored in:
-
-```text
-data/ottotree_audit_web.db
-```
+Data is stored in the configured SQLite database under `data/`.
 
 The first screen is `Today`, backed by SQLite schedules and audit status.
 

@@ -40,7 +40,7 @@ This project builds without Gradle. It expects the local workspace SDK/JDK layou
 
 ## Data Storage
 
-The Android app uses a local SQLite database named `ottotree_audit.db` for upgrade compatibility with existing installations. The existing Android package ID is also retained so installed offline users can upgrade without losing access to app data. Branding and organization labels are settings stored in the `app_settings` table; the launcher label is the generic `Audit App`.
+The Android app uses a private local SQLite database for upgrade compatibility with existing installations. Branding and organization labels are stored in the `app_settings` table; the launcher label is the generic `Audit App`.
 
 Tables:
 

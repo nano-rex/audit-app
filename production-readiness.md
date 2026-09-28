@@ -1,4 +1,4 @@
-# Audit and performance review — 14 September 2026
+# Audit App performance review — 14 September 2026
 
 This pass implements and tests improvements to the shared web application. It does not certify that every bug has been found, deploy a service, or modify the existing application database. The installed data was inspected read-only: 2,330 assets, one inspection session, no completed audits or work orders, and five users. All write tests used temporary databases.
 
@@ -74,7 +74,7 @@ PORT=41883 \
 python3 web/server.py
 ```
 
-Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send the session cookie over HTTP. The default database path remains `web/data/ottotree_audit_web.db`. No external dependency was added to the Python server.
+Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send the session cookie over HTTP. The default database remains under `web/data/`. No external dependency was added to the Python server.
 
 ## Remaining correctness and release risks
 

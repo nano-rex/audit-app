@@ -1,14 +1,11 @@
 # Audit App
 
-Ottotree Audit application with two platform versions:
+The application has two platform versions:
 
 - `android/` - native Android app, builds an APK using the local SDK
 - `web/` - browser version backed by a local Python SQLite API
 
-The product model is one Ottotree audit system. Loudspeaker and Mini Studio checks are combined into the same inspection workflow:
-
-- Loudspeaker
-- Mini Studio
+The product model is one configurable audit system. Checks for different operational areas are combined into the same inspection workflow.
 
 The first screen is `Today`, which is organized for on-site work: scheduled visits, pending uploads, follow-up counts, and quick actions for starting inspections or scanning QR codes.
 
@@ -34,7 +31,7 @@ cd android
 APK output:
 
 ```text
-android/build/ottotree-audit-debug.apk
+android/build/audit-app-debug.apk
 ```
 
 ## Web
@@ -58,11 +55,11 @@ and [requirements progress](requirements-progress.md) for implementation evidenc
 
 ## Data Storage
 
-The Android version uses local SQLite through `ottotree_audit.db`.
+The Android version uses a local SQLite database.
 
-The web version uses a local Python API backed by SQLite at `web/data/ottotree_audit_web.db`.
+The web version uses a local Python API backed by SQLite in the configured data directory.
 
-All persistent web records and image bytes are stored in `web/data/ottotree_audit_web.db`.
+All persistent web records and image bytes are stored in the configured SQLite database.
 Images use SQLite BLOBs; checklist answers, permissions, settings, and image metadata use typed
 relational rows linked to their owning records. JSON is used for HTTP messages and exports, not
 as database document columns. Set `AUDIT_DATA_DIR` to use another data directory.
