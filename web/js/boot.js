@@ -15,7 +15,7 @@ function showTabLoading(tabId) {
     categories: [["[data-category-records]", "Loading categories…"]],
     users: [["[data-users]", "Loading users…"], ["[data-department-records]", "Loading departments…"], ["[data-role-records]", "Loading roles…"]],
     notifications: [["[data-notifications]", "Loading notifications…"]],
-    outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"], ["[data-outlet-records]", "Loading outlets…"]],
+    outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"]],
     inspections: [["[data-guided-schedules]", "Loading scheduled inspections…"], ["[data-inspection-history]", "Loading inspection history…"]],
   };
   (targets[targetTabId] || []).forEach(([selector, label]) => setLoading(selector, label));
@@ -50,7 +50,12 @@ async function loadTabData(tabId) {
     users: () => (currentUser?.permissions || ["users"]).includes("users") ? loadUsers() : Promise.resolve(),
     account: loadAccount,
     notifications: loadNotifications,
-    outlets: () => Promise.all([loadLocations(), loadZones()]),
+    outlets: async () => {
+      // Outlet rows are already part of the initial setup response. Keep them
+      // visible while the dependent location and zone lists refresh.
+      renderOutlets();
+      await Promise.all([loadLocations(), loadZones()]);
+    },
     inspections: async () => {
       await Promise.all([loadGuidedSchedules(), loadInspectionHistory()]);
     },

@@ -580,20 +580,6 @@ document.querySelector('#inspection-form select[name="outlet"]')?.addEventListen
 checklistContainer?.addEventListener("change", async (event) => {
   const input = event.target.closest("[data-inspection-check]");
   if (!input) {
-    const naInput = event.target.closest("[data-inspection-na]");
-    if (naInput) {
-      const row = naInput.closest(".criteria-row");
-      const pass = row.querySelector("[data-inspection-check]");
-      const notes = row.querySelector('input[name*="-notes-"]');
-      if (naInput.checked && pass) pass.checked = false;
-      row.classList.toggle("passed", naInput.checked || Boolean(pass?.checked));
-      if (notes) {
-        notes.disabled = naInput.checked || Boolean(pass?.checked);
-        if (notes.disabled) notes.value = "";
-      }
-      updateInspectionProgress();
-      return;
-    }
     if (event.target.matches("[data-equipment-images]")) {
       const itemRow = event.target.closest("[data-equipment-id]");
       const existingImages = storedImagesFromDataset(itemRow);
@@ -609,8 +595,6 @@ checklistContainer?.addEventListener("change", async (event) => {
   }
   const row = input.closest(".criteria-row");
   const notes = row.querySelector('input[name*="-notes-"]');
-  const naInput = row.querySelector("[data-inspection-na]");
-  if (input.checked && naInput) naInput.checked = false;
   row.classList.toggle("passed", input.checked);
   if (notes) {
     notes.disabled = input.checked;

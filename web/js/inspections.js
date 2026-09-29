@@ -146,8 +146,8 @@ function captureInspectionPageDrafts(location) {
         ...parseStoredObject(criterionRow.dataset.findingDetails), equipmentId,
         item: criterionRow.dataset.criterion,
         passed: formData.get(`equipment-${equipmentId}-criterion-${index}`) === "pass",
-        notApplicable: formData.get(`equipment-${equipmentId}-na-${index}`) === "na",
-        category: formData.get(`equipment-${equipmentId}-category-${index}`) || "",
+        notApplicable: false,
+        category: "",
         notes: formData.get(`equipment-${equipmentId}-notes-${index}`) || "",
         images,
       });
@@ -173,13 +173,9 @@ function renderInspectionLocationItems(location) {
       const id = equipment.id;
       const index = [...criterionRow.parentElement.querySelectorAll("[data-criterion]")].indexOf(criterionRow);
       const check = criterionRow.querySelector("[data-inspection-check]");
-      const na = criterionRow.querySelector("[data-inspection-na]");
       const note = criterionRow.querySelector('input[name*="-notes-"]');
-      const category = criterionRow.querySelector('select[name*="-category-"]');
       if (check) check.checked = draft.passed;
-      if (na) na.checked = draft.notApplicable;
-      if (note) { note.value = draft.notes || ""; note.disabled = draft.passed || draft.notApplicable; }
-      if (category && draft.category) category.value = draft.category;
+      if (note) { note.value = draft.notes || ""; note.disabled = draft.passed; }
       const row = criterionRow.closest("[data-equipment-id]");
       if (row && draft.images) { row.dataset.savedImages = JSON.stringify(draft.images); row.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(draft.images); }
     });
@@ -202,9 +198,6 @@ function inspectionLocationCard(location, items) {
 
 function inspectionItemCard(item) {
   const criteria = parseInspectionCriteria(item.inspection_criteria);
-  const categoryOptions = setupOptions.categories.length
-    ? setupOptions.categories.map((category) => `<option>${escapeHtml(category)}</option>`).join("")
-    : `<option>Others</option>`;
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
@@ -223,8 +216,6 @@ function inspectionItemCard(item) {
             location: item.location || item.zone || "",
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
-          <label class="checkbox-line"><input type="checkbox" name="equipment-${item.id}-na-${index}" value="na" data-inspection-na> N/A</label>
-          <select name="equipment-${item.id}-category-${index}" aria-label="Category">${categoryOptions}</select>
           <input name="equipment-${item.id}-notes-${index}" placeholder="Required when unchecked">
         </div>
       `).join("")}
@@ -459,17 +450,16 @@ function collectInspectionPayload(complete = false) {
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const criterion = criterionRow.dataset.criterion;
       const passed = formData.get(`equipment-${row.dataset.equipmentId}-criterion-${index}`) === "pass";
-      const notApplicable = formData.get(`equipment-${row.dataset.equipmentId}-na-${index}`) === "na";
       items.push({
         ...parseStoredObject(criterionRow.dataset.findingDetails),
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
-        category: formData.get(`equipment-${row.dataset.equipmentId}-category-${index}`) || "",
+        category: "",
         passed,
-        notApplicable,
-        score: passed || notApplicable ? 100 : 0,
+        notApplicable: false,
+        score: passed ? 100 : 0,
         evidenceStatus: images.length ? images.map(imageLabel).join(", ") : "Missing image",
         notes: formData.get(`equipment-${row.dataset.equipmentId}-notes-${index}`) || "",
         images,
@@ -724,17 +714,13 @@ function applyInspectionSessionItems() {
         cause: item.cause, recommendation: item.recommendation, requiredAction: item.requiredAction,
       });
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
-      const na = criterionRow.querySelector("[data-inspection-na]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
       checkbox.checked = Boolean(item.passed);
-      if (na) na.checked = Boolean(item.notApplicable);
-      criterionRow.classList.toggle("passed", checkbox.checked || Boolean(item.notApplicable));
+      criterionRow.classList.toggle("passed", checkbox.checked);
       if (notes) {
         notes.value = item.notes || "";
-        notes.disabled = checkbox.checked || Boolean(item.notApplicable);
+        notes.disabled = checkbox.checked;
       }
-      const category = criterionRow.querySelector('select[name*="-category-"]');
-      if (category && item.category) category.value = item.category;
     });
   });
 }
