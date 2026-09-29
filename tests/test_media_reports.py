@@ -60,7 +60,7 @@ class EvidenceReportTests(unittest.TestCase):
         self.assertTrue(result["meetsPassMark"])
         self.assertFalse(summarize([{"notApplicable": True}], {})["meetsPassMark"])
 
-    def test_pdf_contains_final_checklist_row_images_and_signatures(self):
+    def test_pdf_contains_location_grading_and_signatures(self):
         with tempfile.TemporaryDirectory() as directory:
             media = MediaStore(Path(directory) / "audit.db")
             image = media.normalize({"dataUrl": photo_data_url(), "markedDataUrl": photo_data_url("red"),
@@ -83,9 +83,10 @@ class EvidenceReportTests(unittest.TestCase):
                                   {"companyName": "Test Company", "departmentHeader": "Facilities Department", "logoUrl": logo["url"]},
                                   summarize(items, {}), media)
             reader = PdfReader(BytesIO(report))
-            self.assertGreater(len(reader.pages), 1)
+            self.assertGreaterEqual(len(reader.pages), 1)
             text = "\n".join(page.extract_text() for page in reader.pages)
-            self.assertIn("FINAL-CHECKLIST-ENTRY", text)
+            self.assertIn("Location grading", text)
+            self.assertNotIn("FINAL-CHECKLIST-ENTRY", text)
             self.assertIn("Audited by: Auditor", text)
             self.assertIn("Test Company", text)
             self.assertIn("Facilities Department", text)
@@ -95,10 +96,9 @@ class EvidenceReportTests(unittest.TestCase):
             self.assertIn("Auditor One", text)
             self.assertIn("2 total / 1 priority / 1 non-priority", text)
             self.assertIn("1 completed / 1 outstanding", text)
-            self.assertIn("Marked: marked-photo.png", text)
             self.assertIn("Completion photo: completion.png", text)
             self.assertIn("Action taken: Repaired", text)
-            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 4)
+            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 3)
 
 
 if __name__ == "__main__":

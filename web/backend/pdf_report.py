@@ -74,6 +74,7 @@ def build_report(session, brand, summary, media, settings=None):
     ]
     table = Table([[paragraph(cell) for cell in row] for row in rows], colWidths=[125, 355])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e5f0eb")), ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
+    story += [table]
     # Keep the PDF compact by reporting one grading row per location rather
     # than repeating every checklist criterion and its evidence.
     location_items = {}
