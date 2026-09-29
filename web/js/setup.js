@@ -86,6 +86,7 @@ async function populateZoneLocationSelect(selectedLocations = []) {
 async function loadSetup() {
   ["[data-department-records]", "[data-category-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
   document.querySelectorAll("[data-super-only-setting]").forEach((panel) => { panel.hidden = currentUser?.role !== "Super"; });
+  document.querySelectorAll("[data-company-admin-setting]").forEach((panel) => { panel.hidden = !["Admin", "Super"].includes(currentUser?.role); });
   const response = await authFetch("/api/setup");
   const data = await response.json();
   setupOptions.departments = data.departments.map((row) => row.code);
@@ -185,6 +186,11 @@ function populateSettingsForms() {
     systemForm.elements.logoUrl.value = report.logoUrl || "";
     systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
     systemForm.elements.integrations.value = (system.futureIntegrations || []).join(", ");
+  }
+  const featureForm = document.getElementById("feature-visibility-form");
+  if (featureForm) {
+    featureForm.elements.findingsEnabled.checked = setupOptions.settings["system.findingsEnabled"] !== false;
+    featureForm.elements.correctiveActionsEnabled.checked = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
   }
 }
 

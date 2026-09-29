@@ -170,6 +170,10 @@ function applyNavbarTabs() {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.hidden = !allowedIds.has(panel.id) && ![...allowedIds].some((id) => superTabTargets[id] === panel.id);
   });
+  const findingsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.findingsEnabled"] !== false;
+  const correctiveActionsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.correctiveActionsEnabled"] !== false;
+  document.querySelectorAll('[data-feature-section="findings"]').forEach((node) => { node.hidden = !findingsEnabled; });
+  document.querySelectorAll('[data-feature-section="corrective-actions"]').forEach((node) => { node.hidden = !correctiveActionsEnabled; });
   renderTabMenu();
   layoutNavbar();
 }
@@ -197,16 +201,20 @@ if (typeof window !== "undefined") {
 
 function allowedAppTabs() {
   if (currentUser?.role === "Super") return superTabs;
+  const findingsEnabled = setupOptions.settings["system.findingsEnabled"] !== false;
+  const correctiveActionsEnabled = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
   allowedIds.add("notifications");
   allowedIds.add("settings");
-  if (allowedIds.has("inspections")) allowedIds.add("findings");
+  if (allowedIds.has("inspections") && findingsEnabled) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
   if (allowedIds.has("reports")) allowedIds.add("today");
   if (allowedIds.has("equipment")) allowedIds.add("categories");
-  if (allowedIds.has("corrective-actions")) allowedIds.add("inspections");
+  if (allowedIds.has("corrective-actions") && correctiveActionsEnabled) allowedIds.add("inspections");
+  if (!findingsEnabled) allowedIds.delete("findings");
+  if (!correctiveActionsEnabled) allowedIds.delete("corrective-actions");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
   return currentUser?.role === "Super" ? [...superTabs, ...regular] : regular;
 }

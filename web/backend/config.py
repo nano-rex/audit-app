@@ -83,6 +83,8 @@ DEFAULT_REPORT_SETTINGS = {
 
 
 DEFAULT_SYSTEM_SETTINGS = {
+    "findingsEnabled": True,
+    "correctiveActionsEnabled": True,
     "emailEnabled": False,
     "whatsappEnabled": False,
     "pushEnabled": False,

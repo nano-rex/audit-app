@@ -707,6 +707,21 @@ document.getElementById("system-settings-form")?.addEventListener("submit", asyn
   loadApp();
 });
 
+document.getElementById("feature-visibility-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  try {
+    await requestJson("/api/settings", "POST", { settings: {
+      "system.findingsEnabled": Boolean(form.elements.findingsEnabled.checked),
+      "system.correctiveActionsEnabled": Boolean(form.elements.correctiveActionsEnabled.checked),
+    } });
+    setText("[data-feature-visibility-message]", "Section visibility saved.");
+    await loadApp();
+  } catch (error) {
+    setText("[data-feature-visibility-message]", error.message);
+  }
+});
+
 document.getElementById("location-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;

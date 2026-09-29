@@ -12,7 +12,7 @@ from backend import config
 from backend.accounts import is_company_admin_user, branding_settings, is_super_user, public_user
 from backend.catalog import user_login_activity, equipment_items, locations, role_items, setup_records, users, zones
 from backend.database_manager import list_databases
-from backend.common import checklist, inspection_name
+from backend.common import checklist, inspection_name, read_setting
 from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
 from backend.http_support import api_errors, static_content, static_fingerprint
@@ -119,6 +119,13 @@ class Handler(BaseHTTPRequestHandler):
         if is_super_user(user):
             return True
         route = parsed.path.removeprefix("/api/").split("/", 1)[0]
+        if route == "settings" and is_company_admin_user(user):
+            return True
+        if route == "findings":
+            with connect() as db:
+                if read_setting(db, "system.findingsEnabled", True) is False:
+                    self.json({"ok": False, "error": "History and Findings is disabled"}, 403)
+                    return False
         permissions = {
             "dashboard": {"today", "reports"},
             "reports": {"reports"},
