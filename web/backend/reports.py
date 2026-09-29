@@ -356,4 +356,4 @@ def inspection_pdf(session):
     with connect() as db:
         settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
     summary = session.get("scoring") or summarize_score(session.get("items", []), settings)
-    return build_report(session, branding_settings(), summary, MediaStore(config.DB_PATH))
+    return build_report(session, branding_settings(), summary, MediaStore(config.DB_PATH), settings)

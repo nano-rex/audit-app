@@ -11,9 +11,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
+from backend.scoring import rating_for_score
 
 
-def build_report(session, brand, summary, media):
+def build_report(session, brand, summary, media, settings=None):
     output = BytesIO()
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle("Caption", parent=styles["BodyText"], fontSize=8, leading=11))
@@ -73,18 +74,33 @@ def build_report(session, brand, summary, media):
     ]
     table = Table([[paragraph(cell) for cell in row] for row in rows], colWidths=[125, 355])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e5f0eb")), ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
-    story += [table, Spacer(1, 14), paragraph("Checklist and evidence", "Heading1")]
-    seen_images = set()
-    for index, item in enumerate(session.get("items", []), 1):
-        status = "N/A" if item.get("notApplicable") else "PASS" if item.get("passed") else "FAIL"
-        story += [paragraph(f"{index}. {status} — {item.get('section', '')}: {item.get('item', '')}", "Heading3"),
-                  paragraph(f"Location: {item.get('location') or session.get('zone')} | Category: {item.get('category') or 'Unassigned'}"),
-                  paragraph(item.get("notes"))]
-        for photo in item.get("images") or []:
-            key = json.dumps(photo, sort_keys=True)
-            if key not in seen_images:
-                images([photo], "Original")
-                seen_images.add(key)
+    # Keep the PDF compact by reporting one grading row per location rather
+    # than repeating every checklist criterion and its evidence.
+    location_items = {}
+    for item in session.get("items", []):
+        location = item.get("location") or session.get("zone") or "Unassigned"
+        location_items.setdefault(location, []).append(item)
+    location_rows = [["Location", "Checks", "Passed", "Failed", "N/A", "Score", "Grade"]]
+    for location, items in location_items.items():
+        applicable = [item for item in items if not item.get("notApplicable")]
+        passed = sum(bool(item.get("passed")) for item in applicable)
+        failed = len(applicable) - passed
+        score = round(100 * passed / len(applicable)) if applicable else 0
+        location_rows.append([location, len(items), passed, failed,
+                              len(items) - len(applicable), f"{score}/100",
+                              rating_for_score(score, settings or {})])
+    if len(location_rows) == 1:
+        location_rows.append([session.get("zone") or "Unassigned", 0, 0, 0, 0, "0/100", "Critical"])
+    location_table = Table([[paragraph(cell, "Caption" if row else "BodyText") for cell in values]
+                            for row, values in enumerate(location_rows)],
+                           colWidths=[145, 48, 48, 48, 42, 55, 85], repeatRows=1)
+    location_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5f0eb")),
+        ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story += [Spacer(1, 14), paragraph("Location grading", "Heading1"), location_table]
     story.append(paragraph("Findings and corrective actions", "Heading1"))
     for finding in findings:
         story += [paragraph(f"{finding.get('finding_ref')} — {finding.get('status')}", "Heading2"),
