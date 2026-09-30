@@ -13,7 +13,9 @@ function showTabLoading(tabId) {
     "corrective-actions": [["[data-corrective-actions]", "Loading corrective actions…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
     categories: [["[data-category-records]", "Loading categories…"]],
-    users: [["[data-users]", "Loading users…"], ["[data-department-records]", "Loading departments…"], ["[data-role-records]", "Loading roles…"]],
+    // Departments and roles are loaded with the initial setup catalog. Keep
+    // those cached lists visible while the user list refreshes.
+    users: [["[data-users]", "Loading users…"]],
     notifications: [["[data-notifications]", "Loading notifications…"]],
     outlets: [["[data-location-records]", "Loading locations…"], ["[data-zone-records]", "Loading zones…"]],
     inspections: [["[data-guided-schedules]", "Loading scheduled inspections…"], ["[data-inspection-history]", "Loading inspection history…"]],
