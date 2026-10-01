@@ -23,10 +23,18 @@ from backend.work_orders import comments, finding_items, notifications, work_ord
 from backend.routes import dispatch
 
 
+BODY_LIMIT = 20 * 1024 * 1024
+# Sign-in forms are small; unauthenticated callers cannot make the server buffer uploads.
+UNAUTHENTICATED_BODY_LIMIT = 64 * 1024
+
+
 class Handler(BaseHTTPRequestHandler):
 
     def end_headers(self):
         self.response_started = True
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "same-origin")
         super().end_headers()
 
     def setup(self):
@@ -34,19 +42,21 @@ class Handler(BaseHTTPRequestHandler):
         self.connection.settimeout(30)
 
     def handle_one_request(self):
+        self.response_started = False
         self._current_user_loaded = False
         self._current_user_value = None
         return super().handle_one_request()
 
-    def read_payload(self):
+    def read_payload(self, limit=BODY_LIMIT):
         try:
             if self.headers.get("Transfer-Encoding"):
                 raise ValueError("Transfer-Encoding is not supported")
             length = int(self.headers.get("Content-Length", "0"))
             if length < 0:
                 raise ValueError("Invalid Content-Length")
-            if length > 20 * 1024 * 1024:
-                self.json({"error": "Request body exceeds 20 MiB"}, 413)
+            if length > limit:
+                self.close_connection = True
+                self.json({"error": f"Request body exceeds {limit // 1024 // 1024} MiB" if limit >= 1024 * 1024 else "Request body is too large"}, 413)
                 return None
             payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
@@ -58,6 +68,16 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError) as error:
             self.json({"error": str(error)}, 400)
             return None
+
+    def discard_body(self):
+        """Finish a refused request: drain a small unread body so the refusal is delivered, never a large one."""
+        self.close_connection = True
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return
+        if 0 < length <= UNAUTHENTICATED_BODY_LIMIT:
+            self.rfile.read(length)
 
     def accepts_gzip(self):
         for entry in self.headers.get("Accept-Encoding", "").split(","):
@@ -203,7 +223,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "private, max-age=3600")
-            self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)
             return
@@ -309,14 +328,16 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_POST(self):
         parsed = urlparse(self.path)
-        payload = self.read_payload()
-        if payload is None:
-            return
         if parsed.path.startswith("/api/auth/"):
-            if not dispatch("POST", self, parsed, payload):
+            payload = self.read_payload(UNAUTHENTICATED_BODY_LIMIT)
+            if payload is not None and not dispatch("POST", self, parsed, payload):
                 self.send_error(404)
             return
         if not self.require_auth(parsed):
+            self.discard_body()
+            return
+        payload = self.read_payload()
+        if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
         if parsed.path in {"/api/audits", "/api/inspections"}:
@@ -334,8 +355,11 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_PATCH(self):
         parsed = urlparse(self.path)
+        if not self.require_auth(parsed):
+            self.discard_body()
+            return
         payload = self.read_payload()
-        if payload is None or not self.require_auth(parsed):
+        if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
         if not dispatch("PATCH", self, parsed, payload):
@@ -378,14 +402,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
         self.send_header("ETag", etag)
         self.send_header("Vary", "Accept-Encoding")
-        self.send_header("X-Content-Type-Options", "nosniff")
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def json(self, payload, status=200):
+    def json(self, payload, status=200, headers=()):
         body = payload.body if isinstance(payload, PreparedJson) else json.dumps(payload, separators=(",", ":")).encode("utf-8")
         use_gzip = len(body) >= 1024 and self.accepts_gzip()
         if use_gzip:
@@ -394,6 +417,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Vary", "Accept-Encoding")
+        for name, value in headers:
+            self.send_header(name, value)
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
