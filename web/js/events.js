@@ -22,7 +22,8 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("[data-back-to-schedules]")) {
-    if (!confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;
+    const readOnly = document.getElementById("inspection-form")?.dataset.completed === "true";
+    if (!readOnly && !confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;
     showGuidedContent(false);
     await loadGuidedSchedules();
     return;
@@ -287,7 +288,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
   } catch (error) {
-    alert(error.message || "The action could not be completed.");
+    showActionError(error);
   }
 });
 

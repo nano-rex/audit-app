@@ -1,6 +1,7 @@
 """Work orders for the audit application."""
 from backend.relational_values import save_value, hydrate_many
 import time
+from backend.common import sla_status
 from backend.database import connect
 from backend.report_filters import report_scope
 
@@ -67,7 +68,14 @@ def work_order_items(user=None):
                 created_at DESC, id DESC
             """, params
         ).fetchall()
-    return {"items": hydrate_many(rows)}
+    return {"items": with_current_sla(hydrate_many(rows))}
+
+
+def with_current_sla(orders):
+    """The stored SLA status is as of the last edit; an order becomes overdue without being edited."""
+    for order in orders:
+        order["sla_status"] = sla_status(order["status"], order.get("due_date"))
+    return orders
 
 
 def sync_finding_from_work_order(db, work_order_id):

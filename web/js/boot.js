@@ -33,6 +33,43 @@ function showLoadError(error) {
   notice.textContent = `Could not load data: ${error.message}. Select the tab again to retry, or reload the page.`;
 }
 
+// An action that fails must say so. Forms without their own message area report here:
+// inside the open dialog when there is one, otherwise in the banner at the top of the page.
+function showActionError(error) {
+  const text = error?.message || String(error || "") || "The action could not be completed.";
+  const dialog = document.querySelector("dialog[open]");
+  if (!dialog) {
+    let notice = document.getElementById("load-error");
+    if (!notice) {
+      notice = document.createElement("p");
+      notice.id = "load-error";
+      notice.setAttribute("role", "alert");
+      document.body.prepend(notice);
+    }
+    notice.textContent = `That could not be completed: ${text}`;
+    return;
+  }
+  let note = dialog.querySelector("[data-action-error]");
+  if (!note) {
+    note = document.createElement("p");
+    note.className = "form-message";
+    note.dataset.actionError = "";
+    note.setAttribute("role", "alert");
+    (dialog.querySelector("form") || dialog).append(note);
+  }
+  note.textContent = text;
+  note.scrollIntoView?.({ block: "nearest" });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault?.();
+    showActionError(event.reason);
+  });
+  // A message belongs to one attempt; drop it when the dialog closes.
+  document.addEventListener("close", (event) => event.target.querySelector?.("[data-action-error]")?.remove(), true);
+}
+
 async function loadTabData(tabId) {
   if (!appReady) return;
   if (tabLoads.has(tabId)) return tabLoads.get(tabId);

@@ -10,7 +10,7 @@ from backend.accounts import branding_settings
 from backend.common import rating, sla_status
 from backend.report_filters import report_scope
 from backend.database import connect
-from backend.work_orders import finding_items
+from backend.work_orders import finding_items, with_current_sla
 
 
 def dashboard(unit, filters=None, include_room_trends=False):
@@ -221,10 +221,10 @@ def report(unit, filters=None):
     data = dashboard(unit, filters, include_room_trends=True)
     where, params = report_scope(unit, "work_orders", filters)
     with connect() as db:
-        critical_orders = hydrate_many(db.execute(
+        critical_orders = with_current_sla(hydrate_many(db.execute(
             f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
             "AND status NOT IN ('Completed', 'Verified', 'Closed') ORDER BY created_at DESC, id DESC", params
-        ).fetchall())
+        ).fetchall()))
     return {
         "unit": unit,
         "monthlySummary": {

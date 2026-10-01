@@ -7,6 +7,8 @@ async function resetScheduleForm() {
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
   await updateScheduleLocationSelect();
   form.elements.status.value = "Pending";
+  form.elements.scheduledDate.value = todayIsoDate();
+  form.elements.auditor.value = currentUser?.name || "";
   form.querySelector("[data-delete-current-schedule]").hidden = true;
 }
 
@@ -257,7 +259,6 @@ async function openWorkOrderEditor(row = null) {
     form.elements.assignee.value = row.assignee || "";
     form.elements.dueDate.value = row.due_date || "";
     form.elements.vendor.value = row.vendor || "";
-    form.elements.slaStatus.value = row.sla_status || "";
     form.elements.cost.value = row.cost || "";
     form.elements.pic.value = row.pic || "";
     form.elements.title.value = row.title || "";
@@ -465,6 +466,7 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
     status: formValue(form, "status", "Pending"),
   };
   const id = formValue(form, "scheduleId", "");
+  if (!form.reportValidity()) return;
   await requestJson(id ? `/api/schedules/${id}` : "/api/schedules", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
   resetScheduleForm();
@@ -502,7 +504,6 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     assignee: formValue(form, "assignee", "Technical Support"),
     dueDate: formValue(form, "dueDate", ""),
     vendor: formValue(form, "vendor", ""),
-    slaStatus: formValue(form, "slaStatus", ""),
     cost: Number(formValue(form, "cost", "0")) || 0,
     pic: formValue(form, "pic", ""),
     actionTaken: formValue(form, "actionTaken", ""),

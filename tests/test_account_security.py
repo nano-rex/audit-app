@@ -206,6 +206,19 @@ class AccountSecurityTests(unittest.TestCase):
         setup = json.loads(self.request("/api/setup", token="super")[2])
         self.assertIn("Auditor", {row["name"] for row in setup["roles"]})
 
+    def test_work_orders_become_overdue_without_being_edited(self):
+        with app.connect() as db:
+            order_id = db.execute("INSERT INTO work_orders(business_unit,outlet,zone,request_type,priority,title,assignee,status,due_date,sla_status,created_at) "
+                                  "VALUES ('Ottotree','STP','Room','SSD','High','Stale SLA','Super User','Assigned','2020-01-01','On Track',0)").lastrowid
+        listed = next(row for row in json.loads(self.request("/api/work-orders")[2])["items"] if row["id"] == order_id)
+        self.assertEqual(listed["sla_status"], "Overdue")
+        task = next(row for row in json.loads(self.request("/api/todo")[2])["items"] if row["type"] == "work_order" and row["id"] == order_id)
+        self.assertTrue(task["overdue"])
+        critical = next(row for row in json.loads(self.request("/api/reports?unit=Ottotree")[2])["criticalIssues"] if row["id"] == order_id)
+        self.assertEqual(critical["sla_status"], "Overdue")
+        with app.connect() as db:
+            db.execute("DELETE FROM work_orders WHERE id = ?", (order_id,))
+
     def test_open_schedules_are_listed_before_finished_ones(self):
         with app.connect() as db:
             for day, status in (("2020-01-01", "Completed"), ("2031-01-01", "Pending"), ("2020-01-02", "Cancelled")):

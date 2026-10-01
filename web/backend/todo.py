@@ -1,4 +1,5 @@
 """What is waiting on the signed-in user: drafts, signatures, corrective actions, verification, closure."""
+from backend.common import sla_status
 from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to, can_verify
@@ -57,4 +58,4 @@ def order_item(order, action):
     return {"type": "work_order", "id": order["id"], "action": action,
             "title": f"{order.get('work_order_ref') or '#' + str(order['id'])} {order['title']}",
             "detail": f"{order['outlet']} | {order.get('zone') or 'No location'} | {order['priority']} | {due}",
-            "overdue": order.get("sla_status") == "Overdue"}
+            "overdue": sla_status(order["status"], order.get("due_date")) == "Overdue"}
