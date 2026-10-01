@@ -1,5 +1,46 @@
+// Tasks addressed to the signed-in user, and the unread notification count shown on the bar.
+async function loadAttention() {
+  const response = await authFetch("/api/todo");
+  const data = await response.json();
+  unreadNotifications = data.unreadNotifications || 0;
+  renderUnreadBadge();
+  const items = data.items || [];
+  const count = document.querySelector("[data-attention-count]");
+  if (count) {
+    count.textContent = String(data.total || items.length);
+    count.hidden = !items.length;
+  }
+  setHtml("[data-attention]", items.length
+    ? items.map((item) => `
+      <article>
+        <div>
+          <b>${escapeHtml(item.action)}</b>
+          <span>${escapeHtml(item.title)}</span>
+          <span>${escapeHtml(item.detail)}</span>
+        </div>
+        <span class="row-actions">
+          ${item.overdue ? '<span class="status-pill status-untouched">Overdue</span>' : ""}
+          <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-id="${Number(item.id)}">Open</button>
+        </span>
+      </article>`).join("")
+    : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and corrective actions assigned to you, appear here.</span></div></article>`);
+}
+
+async function openAttentionItem(type, id) {
+  if (type === "inspection") {
+    await openInspectionSession(id);
+    return;
+  }
+  const response = await authFetch("/api/work-orders");
+  const row = ((await response.json()).items || []).find((order) => order.id === id);
+  if (!row) throw new Error("That work order is no longer available");
+  await openWorkOrderEditor(row);
+}
+
 async function loadDashboard() {
-  const response = await authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`);
+  const [response] = await Promise.all([authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`), loadAttention()]);
+  // Scheduled audits are opened from Inspections; do not offer them to accounts without that page.
+  document.querySelectorAll("[data-scheduled-panel]").forEach((node) => { node.hidden = !(currentUser?.permissions || []).includes("inspections"); });
   const data = await response.json();
   renderMainDashboard(data);
 
@@ -15,7 +56,7 @@ async function loadDashboard() {
   setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
   setHtml("[data-today-schedules]", data.today.scheduled.length
     ? data.today.scheduled.map(scheduleRow).join("")
-    : `<article><div><b>No scheduled work</b><span>Create a schedule to assign outlet checks.</span></div></article>`);
+    : `<article><div><b>No scheduled audits</b><span>Use + New Audit to start one now, or Schedule Visit to plan one.</span></div></article>`);
   setHtml("[data-bars]", data.outlets.map((outlet) => `
     <label>${escapeHtml(outlet.outlet)}<span class="${outlet.latest >= 90 ? "excellent-bar" : ""}" style="--value:${outlet.latest}">${outlet.latest}</span></label>
   `).join(""));
@@ -174,6 +215,8 @@ async function loadNotifications() {
   const response = await authFetch("/api/notifications");
   const data = await response.json();
   notificationCache = data.items || [];
+  unreadNotifications = notificationCache.filter((row) => row.status === "Unread").length;
+  renderUnreadBadge();
   renderNotifications();
 }
 

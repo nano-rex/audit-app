@@ -89,6 +89,7 @@ async function initializeApp() {
   setInspectionSignatures(inspectionSignatures());
   appReady = true;
   const tab = allowedAppTabs().some((item) => item.id === activeTab) ? activeTab : allowedAppTabs()[0]?.id || "today";
+  loadAttention().catch(() => {});
   if (contextTab && tab === activeTab) showContextTab(contextTab);
   else showTab(tab);
   await loadTabData(activeTabId || tab);

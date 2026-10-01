@@ -968,3 +968,67 @@ dialog header h2 {
 .compact-list article > div {
   flex: 1 1 160px;
 }
+
+/* Unread count on the Notifications button, or on the page menu while that button does not fit. */
+.tab-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.menu-button {
+  position: relative;
+}
+
+.menu-button .tab-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  margin: 0;
+}
+
+.count-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.attention-grid {
+  margin-bottom: 24px;
+}
+
+.attention-grid .panel {
+  margin-bottom: 0;
+}
+
+.attention-grid .list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.inspection-item {
+  position: relative;
+}
+
+.pass-all {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}

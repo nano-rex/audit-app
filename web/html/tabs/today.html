@@ -12,8 +12,19 @@
           <!--<button class="primary" data-jump-tab="inspections">Start Inspection</button>-->
           <!--<button class="outline">Scan QR</button>-->
           <button type="button" class="primary" data-open="new-audit" hidden>+ New Audit</button>
-          <button class="outline" data-open="schedule">Schedule Visit</button>
+          <button class="outline" data-open="schedule" data-scheduled-panel>Schedule Visit</button>
         </div>
+      </section>
+
+      <section class="work-grid attention-grid">
+        <article class="panel">
+          <h2>Waiting on you <span class="count-pill" data-attention-count hidden></span></h2>
+          <div class="list compact-list" data-attention></div>
+        </article>
+        <article class="panel" data-scheduled-panel>
+          <h2>Scheduled audits</h2>
+          <div class="list compact-list" data-today-schedules></div>
+        </article>
       </section>
 
       <p>All-time audit overview. Pending includes drafts and scheduled work that has not started; each audit is counted once.</p>
@@ -29,19 +40,4 @@
       </section>
       <section class="chart-grid" data-dashboard-charts aria-label="Audit charts"></section>
 
-      <section class="work-grid">
-        <article class="panel">
-          <h2>Follow-up Scheduled Works</h2>
-          <div class="list compact-list" data-today-schedules></div>
-        </article>
-        <article class="panel">
-          <h2>On-site Flow</h2>
-          <div class="flow-list">
-            <span><b>1</b> Scan outlet, room, or fixed asset QR</span>
-            <span><b>2</b> Complete checklist by location</span>
-            <span><b>3</b> Attach clear photos immediately</span>
-            <span><b>4</b> Submit report or create follow-up work order</span>
-          </div>
-        </article>
-      </section>
     </section>

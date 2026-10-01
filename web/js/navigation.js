@@ -1,8 +1,27 @@
 document.querySelectorAll("[data-tab]").forEach((button) => {
   button.addEventListener("click", () => {
-    showTab(button.dataset.tab);
+    openTab(button.dataset.tab);
   });
 });
+
+// Entry from the bar or the page menu: some pages open on their most-used sub-page.
+function openTab(tabId) {
+  const child = defaultContextChild[tabId];
+  if (child && allowedAppTabs().some((tab) => tab.id === child)) showContextTab(child);
+  else showTab(tabId);
+}
+
+let unreadNotifications = 0;
+
+function renderUnreadBadge() {
+  const barButton = document.querySelector('.tabs [data-tab="notifications"]');
+  document.querySelectorAll("[data-unread-badge]").forEach((badge) => {
+    const onMenu = badge.dataset.unreadBadge === "menu";
+    // The menu button carries the count only while the Notifications button does not fit on the bar.
+    badge.hidden = !unreadNotifications || (onMenu && barButton && !barButton.hidden);
+    badge.textContent = unreadNotifications > 99 ? "99+" : String(unreadNotifications);
+  });
+}
 
 document.querySelectorAll("[data-jump-tab]").forEach((button) => {
   button.addEventListener("click", () => showTab(button.dataset.jumpTab));
@@ -121,6 +140,7 @@ function layoutNavbar() {
   const gap = Number.parseFloat(getComputedStyle(nav).columnGap) || 0;
   const count = navbarVisibleCount(buttons.map((button) => button.getBoundingClientRect().width), nav.clientWidth, window.innerWidth, gap);
   buttons.forEach((button, index) => { button.hidden = index >= count; });
+  renderUnreadBadge();
 }
 
 function renderTabMenu() {

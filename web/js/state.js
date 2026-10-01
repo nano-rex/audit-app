@@ -19,7 +19,7 @@ const allTabs = [
   { id: "reports", label: "Reports" },
   { id: "corrective-actions", label: "Corrective Actions" },
   { id: "notifications", label: "Notifications" },
-  { id: "categories", label: "Categories" },
+  { id: "categories", label: "Assets" },
   { id: "departments", label: "Departments" },
   { id: "outlets", label: "Outlets" },
   { id: "users", label: "Users" },
@@ -33,6 +33,18 @@ const superTabs = [
   { id: "super-settings", label: "Super Settings" },
 ];
 const contextParents = { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" };
+// Opening a page from the bar or menu lands on this sub-page when the user may see it.
+const defaultContextChild = { categories: "equipment" };
+// Mirrors TRANSITIONS in web/backend/workflow.py, which remains the authority.
+const workOrderTransitions = {
+  Open: ["Assigned", "In Progress", "Pending"],
+  Assigned: ["In Progress", "Pending", "Completed"],
+  "In Progress": ["Pending", "Completed"],
+  Pending: ["Assigned", "In Progress"],
+  Completed: ["Verified", "Closed", "In Progress"],
+  Verified: ["Closed", "In Progress"],
+  Closed: [],
+};
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
 const setupOptions = {
   departments: [],

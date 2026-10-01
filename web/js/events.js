@@ -50,7 +50,7 @@ document.addEventListener("click", async (event) => {
 
   const menuOpenTab = event.target.closest("[data-menu-open-tab]");
   if (menuOpenTab) {
-    showTab(menuOpenTab.dataset.menuOpenTab);
+    openTab(menuOpenTab.dataset.menuOpenTab);
     document.getElementById("tab-menu").hidden = true;
     document.querySelector("[data-menu-toggle]")?.setAttribute("aria-expanded", "false");
     return;
@@ -172,6 +172,12 @@ document.addEventListener("click", async (event) => {
   const editZoneButton = event.target.closest("[data-edit-zone]");
   if (editZoneButton) {
     await openZoneEditor(JSON.parse(editZoneButton.dataset.editZone));
+    return;
+  }
+
+  const attentionButton = event.target.closest("[data-attention-type]");
+  if (attentionButton) {
+    openAttentionItem(attentionButton.dataset.attentionType, Number(attentionButton.dataset.attentionId)).catch(showLoadError);
     return;
   }
 
@@ -695,6 +701,21 @@ checklistContainer?.addEventListener("click", (event) => {
     if (itemRow) itemRow.dataset.savedImages = JSON.stringify(images);
     const savedImages = itemRow?.querySelector("[data-saved-images]");
     if (savedImages) savedImages.innerHTML = renderInspectionImages(images);
+    updateInspectionProgress();
+    return;
+  }
+
+  const passAllButton = event.target.closest("[data-pass-all]");
+  if (passAllButton) {
+    // Leaves alone any criterion that already has a remark: that is a recorded failure.
+    passAllButton.closest("[data-equipment-id]").querySelectorAll(".criteria-row").forEach((row) => {
+      const checkbox = row.querySelector("[data-inspection-check]");
+      const notes = row.querySelector('input[name*="-notes-"]');
+      if (checkbox.checked || checkbox.disabled || notes?.value.trim()) return;
+      checkbox.checked = true;
+      row.classList.add("passed");
+      if (notes) notes.disabled = true;
+    });
     updateInspectionProgress();
     return;
   }

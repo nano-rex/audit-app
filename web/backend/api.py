@@ -21,6 +21,7 @@ from backend.reports import dashboard, inspection_pdf, report, report_csv, repor
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.routes import dispatch
+from backend.todo import todo_items
 
 
 BODY_LIMIT = 20 * 1024 * 1024
@@ -229,6 +230,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/dashboard":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.json(cached_response(("dashboard", unit), lambda: dashboard(unit)))
+            return
+        if parsed.path == "/api/todo":
+            self.json(todo_items(self.current_user()))
             return
         if parsed.path == "/api/checklist":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
