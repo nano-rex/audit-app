@@ -579,11 +579,13 @@ class ServerTests(unittest.TestCase):
         for key, capabilities in (("author", ["auditor"]), ("reviewer", ["verifier"]), ("ack", ["acknowledger"])):
             role = {"name": f"Test {key}", "permissions": ["inspections", "notifications"], "inspectionPermissions": capabilities}
             self.assertEqual(self.request("/api/roles", "POST", role)[0], 200)
-            user = {"name": f"Test {key}", "email": f"{key}@example.test", "role": role["name"], "active": True}
+            # A chosen password: accounts left on the default one must change it before using the API.
+            user = {"name": f"Test {key}", "email": f"{key}@example.test", "role": role["name"], "active": True, "password": "TestPassword123"}
             self.assertEqual(self.request("/api/users", "POST", user)[0], 200)
             with app.connect() as db:
                 user_id = db.execute("SELECT id FROM users WHERE email = ?", (user["email"],)).fetchone()[0]
             app.SESSION_TOKENS[key] = {"user_id": user_id, "expires_at": time.time() + 3600}
+            del user["password"]  # Later edits reuse this record; resending a password would revoke the session.
             people[key] = (user_id, user)
             _, _, body = self.request("/api/account", token=key)
             effective = json.loads(body)["user"]

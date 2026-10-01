@@ -14,7 +14,7 @@ const shared = () => ({
   document: emptyDocument(),
   window: { addEventListener() {}, dispatchEvent() {}, innerWidth: 1280 },
   Event: class {},
-  contextParents: { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" },
+  contextParents: { reports: "today", findings: "inspections", equipment: "categories" },
   superTabs: [{ id: "super-dashboard", label: "Super Dashboard" }, { id: "super-settings", label: "Super Settings" }],
   setupOptions: { settings: {}, departments: [] },
   localStorage: { getItem: () => null, setItem() {} },
@@ -31,7 +31,7 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   const calls = [];
   const document = { ...emptyDocument(), querySelector: () => ({ id: "today" }) };
   const context = vm.createContext({ ...shared(), document, currentUser: {}, Promise, Map, activeTabId: null, activeContextTab: null });
-  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules", "loadSuperDashboard", "loadSuperSettings", "loadAttention"]) {
+  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadInspectionHistory", "loadGuidedSchedules", "loadSuperDashboard", "loadSuperSettings", "loadAttention"]) {
     context[name] = async () => { calls.push(name); };
   }
   Object.assign(context, {
@@ -333,4 +333,15 @@ test("photo evidence is always needed for failed checks and optional for passed 
   assert.match(context.validateInspectionComplete({ items: [{ ...failed, section: "Speaker" }] }), /Upload image/);
   assert.equal(context.isInspectionReadyToComplete({ items: [passed, { ...failed, images: photo }] }), true);
   assert.equal(context.isInspectionReadyToComplete({ items: [{ passed: false, notes: "", images: photo }] }), false, "a failed check still needs its remark");
+});
+
+test("a notification opens its record only for users who can reach that page", () => {
+  const context = vm.createContext({ ...shared(), currentUser: { permissions: ["work-orders"] }, escapeHtml: String, escapeAttr: String });
+  vm.runInContext(source("rows.js"), context);
+  const target = (row) => JSON.stringify(context.notificationTarget(row));
+  assert.equal(target({ related_type: "work_order", related_id: 7 }), '{"type":"work_order","id":7}');
+  assert.equal(target({ related_type: "inspection", related_id: 3 }), "null");
+  assert.equal(target({ related_type: "work_order", related_id: null }), "null");
+  assert.match(context.notificationRow({ id: 1, title: "Due soon", status: "Unread", related_type: "work_order", related_id: 7 }), /data-open-notification="1"/);
+  assert.doesNotMatch(context.notificationRow({ id: 2, title: "Audit verified", status: "Read", related_type: "inspection", related_id: 3 }), /data-open-notification/);
 });

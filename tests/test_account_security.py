@@ -154,6 +154,37 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual((row["active"], row["reset_required"]), (0, 1))
         self.assertTrue(app.verify_password("temporary-password", row["password_hash"]))
 
+    def test_required_password_change_blocks_the_api_until_done(self):
+        user = {"name": "Temporary User", "email": "temporary@example.test", "role": "Auditor"}
+        self.assertEqual(self.request("/api/users", "POST", user)[0], 200)
+        status, headers, _ = self.request("/api/auth/login", "POST", {"identifier": user["email"], "password": config.DEFAULT_PASSWORD}, token=None)
+        self.assertEqual(status, 200)
+        token = headers["Set-Cookie"].split(";", 1)[0].split("=", 1)[1]
+        status, _, body = self.request("/api/setup", token=token)
+        self.assertEqual((status, json.loads(body).get("resetRequired")), (403, True))
+        self.assertEqual(self.request("/api/account", "PATCH", {"name": "Renamed"}, token=token)[0], 403)
+        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Blocked"}, token=token)[0], 403)
+        # The account can still see who it is, change the password, and sign out.
+        self.assertTrue(json.loads(self.request("/api/auth/me", token=token)[2])["user"]["resetRequired"])
+        self.assertEqual(self.request("/api/account", token=token)[0], 200)
+        change = {"oldPassword": config.DEFAULT_PASSWORD, "newPassword": "a-new-long-password"}
+        self.assertEqual(self.request("/api/auth/change-password", "POST", change, token=token)[0], 200)
+        self.assertEqual(self.request("/api/setup", token=token)[0], 200)
+
+    def test_notifications_can_all_be_marked_read_and_cannot_be_broadcast(self):
+        with app.connect() as db:
+            for title in ("First", "Second"):
+                db.execute("INSERT INTO notifications(title,message,channel,status,created_at,recipient_user_id) VALUES (?, '', 'In-App', 'Unread', 0, ?)", (title, self.reviewer_id))
+            other = db.execute("INSERT INTO notifications(title,message,channel,status,created_at,recipient_user_id) VALUES ('Other', '', 'In-App', 'Unread', 0, ?)", (self.super_id,)).lastrowid
+        self.assertGreaterEqual(json.loads(self.request("/api/todo", token="reviewer")[2])["unreadNotifications"], 2)
+        status, _, body = self.request("/api/notifications/all", "PATCH", {}, token="reviewer")
+        self.assertEqual(status, 200, body)
+        self.assertGreaterEqual(json.loads(body)["updated"], 2)
+        self.assertEqual(json.loads(self.request("/api/todo", token="reviewer")[2])["unreadNotifications"], 0)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT status FROM notifications WHERE id = ?", (other,)).fetchone()[0], "Unread")
+        self.assertEqual(self.request("/api/notifications", "POST", {"title": "To everyone"}, token="reviewer")[0], 404)
+
     def test_accounts_with_older_addresses_remain_editable(self):
         # The built-in Super address has no dotted domain; a profile save must not be rejected for it.
         status, _, body = self.request("/api/account", "PATCH", {"name": "Super User"})
@@ -224,6 +255,23 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertIn(("inspection", "Close audit"), actions("super"))
         self.assertEqual(self.request("/api/inspection-sessions/close", "POST", {"id": session_id})[0], 200)
         self.assertEqual(len(todo("super")["items"]), before)
+
+    def test_retired_corrective_actions_permission_becomes_work_orders_on_upgrade(self):
+        from backend.permissions import resolve_permissions
+        with app.connect() as db:
+            role = save_value(db, ["today", "corrective-actions", "work-orders"])
+            db.execute("INSERT INTO roles(name, description, permissions_data_id, protected, created_at) VALUES ('Legacy fixer', '', ?, 0, 0)", (role,))
+            override = save_value(db, {"permissions": ["corrective-actions"], "inspectionPermissions": []})
+            user_id = db.execute("INSERT INTO users(name,role,email,active,created_at,permission_overrides_data_id) VALUES ('Legacy override','Auditor','legacy-override@example.test',1,0,?)", (override,)).lastrowid
+        app.init_db()  # What a restart on the new release does.
+        with app.connect() as db:
+            self.assertEqual(resolve_permissions(db, "Legacy fixer")[0], ["today", "work-orders"])
+        app.SESSION_TOKENS["legacy-override"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        status, _, body = self.request("/api/account", token="legacy-override")
+        self.assertEqual(status, 200, body)
+        self.assertEqual(json.loads(body)["user"]["permissions"], ["work-orders"])
+        self.assertEqual(self.request("/api/work-orders", token="legacy-override")[0], 200)
+        self.assertEqual(self.request("/api/roles", "POST", {"name": "Uses retired page", "permissions": ["corrective-actions"]})[0], 400)
 
     def test_admin_can_change_the_photo_evidence_option(self):
         with app.connect() as db:
