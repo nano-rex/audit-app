@@ -31,7 +31,7 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   const calls = [];
   const document = { ...emptyDocument(), querySelector: () => ({ id: "today" }) };
   const context = vm.createContext({ ...shared(), document, currentUser: {}, Promise, Map, activeTabId: null, activeContextTab: null });
-  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules", "loadSuperDashboard", "loadSuperSettings"]) {
+  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules", "loadSuperDashboard", "loadSuperSettings", "loadAttention"]) {
     context[name] = async () => { calls.push(name); };
   }
   Object.assign(context, {
@@ -42,7 +42,7 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   });
   vm.runInContext(source("boot.js"), context);
   await context.loadApp();
-  assert.deepEqual(calls.sort(), ["loadBranding", "loadDashboard", "loadSetup"].sort());
+  assert.deepEqual(calls.sort(), ["loadAttention", "loadBranding", "loadDashboard", "loadSetup"].sort());
   let release;
   let requests = 0;
   context.loadEquipment = () => { requests++; return new Promise((resolve) => { release = resolve; }); };
@@ -317,4 +317,20 @@ test("a failed check saves its finding details to the draft and closes the dialo
   assert.equal(summarised, true);
   assert.equal(notes.value, "Cable missing; at the rear");
   assert.deepEqual(JSON.parse(row.dataset.findingDetails), { category: "Electrical", priority: "High", assignedDepartment: "AVC", pic: "Gavin", cause: "Wear", recommendation: "", requiredAction: "" });
+});
+
+test("photo evidence is always needed for failed checks and optional for passed ones", () => {
+  const context = vm.createContext({ ...shared(), checklistContainer: null });
+  vm.runInContext(source("inspections.js"), context);
+  const photo = [{ url: "/api/media/x.png" }];
+  const passed = { passed: true, notes: "", images: [] };
+  const failed = { passed: false, notes: "Cracked", images: [] };
+  assert.equal(context.isInspectionReadyToComplete({ items: [passed] }), false, "every asset needs a photo by default");
+  assert.equal(context.isInspectionReadyToComplete({ items: [{ ...passed, images: photo }] }), true);
+  context.setupOptions.settings["system.requirePhotoEveryAsset"] = false;
+  assert.equal(context.isInspectionReadyToComplete({ items: [passed] }), true);
+  assert.equal(context.isInspectionReadyToComplete({ items: [passed, failed] }), false);
+  assert.match(context.validateInspectionComplete({ items: [{ ...failed, section: "Speaker" }] }), /Upload image/);
+  assert.equal(context.isInspectionReadyToComplete({ items: [passed, { ...failed, images: photo }] }), true);
+  assert.equal(context.isInspectionReadyToComplete({ items: [{ passed: false, notes: "", images: photo }] }), false, "a failed check still needs its remark");
 });

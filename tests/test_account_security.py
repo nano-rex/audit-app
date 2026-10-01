@@ -182,6 +182,61 @@ class AccountSecurityTests(unittest.TestCase):
         rows = [row for row in json.loads(self.request("/api/schedules")[2])["items"] if row["zone"] == "Order test"]
         self.assertEqual([row["status"] for row in rows], ["Pending", "Completed", "Cancelled"])
 
+    def test_todo_lists_each_users_next_steps_through_the_workflow(self):
+        from test_media_reports import photo_data_url
+        todo = lambda token: json.loads(self.request("/api/todo", token=token)[2])
+        actions = lambda token: [(row["type"], row["action"]) for row in todo(token)["items"]]
+        self.assertEqual(self.request("/api/todo", token=None)[0], 401)
+        with app.connect() as db:
+            department = db.execute("SELECT code FROM departments ORDER BY code LIMIT 1").fetchone()[0]
+            role = db.execute("SELECT name FROM roles WHERE name = 'System Support Executive'").fetchone()[0]
+            pic_id = db.execute("INSERT INTO users(name,role,email,department,active,created_at) VALUES ('Todo PIC',?,'todo-pic@example.test',?,1,0)", (role, department)).lastrowid
+        app.SESSION_TOKENS["todo-pic"] = {"user_id": pic_id, "expires_at": time.time() + 3600}
+        before = len(todo("super")["items"])
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
+        image = json.loads(body)["image"]
+        items = [{"item": "Works", "passed": True, "images": [image]},
+                 {"item": "Clean", "notes": "Dusty", "priority": "High", "assignedDepartment": department, "pic": "Todo PIC", "images": [image]}]
+        status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items[:1] + [{"item": "Clean"}]})
+        session_id = json.loads(body)["id"]
+        self.assertIn(("inspection", "Continue inspection"), actions("super"))
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": items, "complete": True})[0], 200)
+        self.assertIn(("inspection", "Sign as auditor, verifier, acknowledger"), actions("super"))
+        # The reviewer has the verifier capability but no Inspections page, so nothing is offered to them.
+        self.assertEqual(actions("reviewer"), [])
+        self.assertEqual(actions("todo-pic"), [("work_order", "Complete corrective action")])
+        order_id = todo("todo-pic")["items"][0]["id"]
+        self.assertGreaterEqual(todo("todo-pic")["unreadNotifications"], 1)
+        done = {"status": "Completed", "actionTaken": "Cleaned", "completionDate": time.strftime("%Y-%m-%d"), "completionRemark": "Done", "completionPhoto": [image]}
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", done, token="todo-pic")[0], 200)
+        self.assertEqual(actions("todo-pic"), [])
+        self.assertIn(("work_order", "Verify corrective action"), actions("super"))
+        # A verifier accepts and closes in one step; the verification is still recorded.
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed"}, token="super")[0], 400)
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed", "verificationRemark": "Accepted"}, token="todo-pic")[0], 403)
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed", "verificationRemark": "Accepted"}, token="super")[0], 200)
+        with app.connect() as db:
+            order = db.execute("SELECT status, verified_by, verified_at, closed_at FROM work_orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual((order["status"], order["verified_by"]), ("Closed", "Super User"))
+        self.assertTrue(order["verified_at"] and order["closed_at"])
+        signatures = {key: image for key in ("auditedBy", "verifiedBy", "acknowledgedBy")}
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"signatures": signatures})[0], 200)
+        self.assertIn(("inspection", "Close audit"), actions("super"))
+        self.assertEqual(self.request("/api/inspection-sessions/close", "POST", {"id": session_id})[0], 200)
+        self.assertEqual(len(todo("super")["items"]), before)
+
+    def test_admin_can_change_the_photo_evidence_option(self):
+        with app.connect() as db:
+            admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
+        app.SESSION_TOKENS["option-admin"] = {"user_id": admin_id, "expires_at": time.time() + 3600}
+        settings = lambda: json.loads(self.request("/api/setup", token="option-admin")[2])["settings"]
+        self.assertIsNot(settings().get("system.requirePhotoEveryAsset"), False)
+        saved = {"settings": {"system.requirePhotoEveryAsset": False, "report.companyName": "Not allowed for Admin"}}
+        self.assertEqual(self.request("/api/settings", "POST", saved, token="option-admin")[0], 200)
+        self.assertIs(settings()["system.requirePhotoEveryAsset"], False)
+        self.assertNotEqual(settings().get("report.companyName"), "Not allowed for Admin")
+        self.assertEqual(self.request("/api/settings", "POST", {"settings": {"system.requirePhotoEveryAsset": True}}, token="option-admin")[0], 200)
+
     def test_database_creation_switch_and_removal(self):
         original = config.DB_PATH
         outcome = {}
