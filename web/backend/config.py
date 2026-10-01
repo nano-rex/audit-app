@@ -3,6 +3,7 @@ import re
 import os
 import threading
 from collections import OrderedDict
+from contextvars import ContextVar
 from pathlib import Path
 
 
@@ -13,6 +14,13 @@ DATA_DIR = Path(os.environ.get("AUDIT_DATA_DIR", str(ROOT / "data"))).resolve()
 
 
 DB_PATH = DATA_DIR / "ottotree_audit_web.db"
+
+# Lets one thread initialize another database without redirecting concurrent requests.
+DB_PATH_OVERRIDE = ContextVar("audit_db_path_override", default=None)
+
+
+def active_db_path():
+    return DB_PATH_OVERRIDE.get() or DB_PATH
 
 
 LOUDSPEAKER_OUTLETS = ("STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS")

@@ -30,8 +30,9 @@ class DatabaseConnection(sqlite3.Connection):
 
 def connect():
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(config.DB_PATH, timeout=15, factory=DatabaseConnection)
-    conn.database_path = config.DB_PATH
+    path = config.active_db_path()
+    conn = sqlite3.connect(path, timeout=15, factory=DatabaseConnection)
+    conn.database_path = path
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn

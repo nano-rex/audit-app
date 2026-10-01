@@ -193,7 +193,7 @@ def migrate_columns(db):
     initialize(db)
     from backend.media_store import MediaStore
     from backend import config
-    media = MediaStore(config.DB_PATH)
+    media = MediaStore(config.active_db_path())
     for table, fields in FIELDS.items():
         columns = {row[1] for row in db.execute(f'PRAGMA table_info("{table}")')}
         if not columns:

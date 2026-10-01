@@ -37,3 +37,7 @@ class SessionStore:
             row = db.execute("SELECT user_id, expires_at FROM auth_sessions WHERE token_hash = ?", (self.key(token),)).fetchone()
             db.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (self.key(token),))
         return dict(row) if row else default
+
+    def clear(self):
+        with self.connection() as db:
+            db.execute("DELETE FROM auth_sessions")

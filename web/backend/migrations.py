@@ -19,8 +19,8 @@ def ensure_column(db, table, column, definition):
 
 
 def init_db():
-    backup_legacy_database(config.DB_PATH)
-    MediaStore(config.DB_PATH).migrate_directory(config.DATA_DIR / "media")
+    backup_legacy_database(config.active_db_path())
+    MediaStore(config.active_db_path()).migrate_directory(config.DATA_DIR / "media")
     with connect() as db:
         db.execute("PRAGMA journal_mode=WAL")
         db.execute("BEGIN IMMEDIATE")
