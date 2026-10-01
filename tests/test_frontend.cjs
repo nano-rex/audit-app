@@ -5,6 +5,21 @@ const vm = require("node:vm");
 const { test } = require("node:test");
 const scripts = path.join(__dirname, "../web/js");
 const source = (name) => fs.readFileSync(path.join(scripts, name), "utf8");
+// Globals that state.js and the browser provide to every script.
+const emptyDocument = () => ({
+  querySelector: () => null, querySelectorAll: () => [], getElementById: () => null, addEventListener() {},
+  createElement: () => ({ setAttribute() {}, textContent: "" }), body: { prepend() {} },
+});
+const shared = () => ({
+  document: emptyDocument(),
+  window: { addEventListener() {}, dispatchEvent() {}, innerWidth: 1280 },
+  Event: class {},
+  contextParents: { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" },
+  superTabs: [{ id: "super-dashboard", label: "Super Dashboard" }, { id: "super-settings", label: "Super Settings" }],
+  setupOptions: { settings: {}, departments: [] },
+  localStorage: { getItem: () => null, setItem() {} },
+  setLoading() {},
+});
 
 test("all browser scripts parse", () => {
   for (const name of fs.readdirSync(scripts).filter((name) => name.endsWith(".js"))) {
@@ -14,12 +29,9 @@ test("all browser scripts parse", () => {
 
 test("startup loads only the active tab and coalesces duplicate requests", async () => {
   const calls = [];
-  const document = {
-    querySelector: () => ({ id: "today" }),
-    getElementById: () => null,
-  };
-  const context = vm.createContext({ document, currentUser: {}, Promise, Map });
-  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules"]) {
+  const document = { ...emptyDocument(), querySelector: () => ({ id: "today" }) };
+  const context = vm.createContext({ ...shared(), document, currentUser: {}, Promise, Map, activeTabId: null, activeContextTab: null });
+  for (const name of ["loadBranding", "loadSetup", "loadDashboard", "loadReport", "loadFindings", "loadWorkOrders", "loadEquipment", "loadUsers", "loadAccount", "loadNotifications", "loadLocations", "loadZones", "loadChecklist", "restoreLastInspectionSession", "loadInspectionHistory", "loadGuidedSchedules", "loadSuperDashboard", "loadSuperSettings"]) {
     context[name] = async () => { calls.push(name); };
   }
   Object.assign(context, {
@@ -45,22 +57,22 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   assert.deepEqual(calls.sort(), ["loadGuidedSchedules", "loadInspectionHistory"].sort());
 });
 
-test("equipment renders at most 100 rows and resets pagination on filtering", () => {
+test("equipment renders one page of rows and resets pagination on filtering", () => {
   let rendered = "";
   const context = vm.createContext({
     equipmentCache: Array.from({ length: 2330 }, (_, id) => ({ id, name: `Asset ${id}`, outlet: id < 3 ? "Small" : "Large" })),
     equipmentFilters: { search: "", outlet: "", location: "", type: "", brand: "" },
-    equipmentPage: 1, equipmentPageSize: 100, equipmentFilterKey: "",
+    ...shared(),
+    equipmentPage: 1, equipmentFilterKey: "", getPaginationSize: () => 30,
     setHtml: (_, html) => { rendered = html; },
     equipmentRow: () => "<article></article>",
-    document: { getElementById: () => null },
   });
   vm.runInContext(source("dashboard.js"), context);
   context.renderEquipment();
-  assert.equal((rendered.match(/<article>/g) || []).length, 100);
-  context.equipmentPage = 24;
-  context.renderEquipment();
   assert.equal((rendered.match(/<article>/g) || []).length, 30);
+  context.equipmentPage = 78;
+  context.renderEquipment();
+  assert.equal((rendered.match(/<article>/g) || []).length, 20);
   context.equipmentFilters.outlet = "Small";
   context.renderEquipment();
   assert.equal(context.equipmentPage, 1);
@@ -92,9 +104,10 @@ test("user management groups departments and roles without widening permissions"
   const buttons = sections.map((id) => makeNode({ userSubtab: id }));
   const panels = sections.map((id) => makeNode({ userPanel: id }));
   const context = vm.createContext({
+    ...shared(),
     currentUser: { permissions: ["departments"] },
     allTabs: ["today", ...sections].map((id) => ({ id, label: id })),
-    document: { querySelectorAll(selector) {
+    document: { ...emptyDocument(), querySelectorAll(selector) {
       return selector === "[data-user-subtab]" ? buttons : selector === "[data-user-panel]" ? panels : [];
     } },
   });
@@ -146,7 +159,7 @@ test("Edit User opens from the real dialog markup and saves existing users", asy
 test("performance distribution reflects counts and hides empty charts", () => {
   const chart = { style: {}, setAttribute(key, value) { this[key] = value; } };
   const content = {};
-  const context = vm.createContext({ document: { querySelector: () => chart },
+  const context = vm.createContext({ ...shared(), document: { ...emptyDocument(), querySelector: () => chart },
     setText: (key, value) => { content[key] = value; }, setHtml: (key, value) => { content[key] = value; } });
   vm.runInContext(source("dashboard.js"), context);
   context.renderPerformanceDistribution([]);
@@ -164,9 +177,13 @@ test("performance distribution reflects counts and hides empty charts", () => {
 
 test("pagination handles navigation, filtering, page sizes, and record deletion", () => {
   const handlers = {};
-  const context = vm.createContext({ document: { addEventListener: (type, handler) => { handlers[type] = handler; } } });
+  const context = vm.createContext({ ...shared(),
+    // A saved page size of 25; the default is 10.
+    localStorage: { value: "25", getItem() { return this.value; }, setItem(_, value) { this.value = value; } },
+    document: { ...emptyDocument(), addEventListener: (type, handler) => { handlers[type] = handler; } } });
   vm.runInContext(source("pagination.js"), context);
   for (const key of ["outlets", "zones", "locations", "findings", "inspections", "categories"]) {
+    context.localStorage.value = "25";  // The size chosen for the previous list is shared by all lists.
     let rows = Array.from({ length: 61 }, (_, id) => id), filter = "", result;
     const render = () => { result = context.paginateList(key, rows, filter, render); };
     render();
@@ -193,6 +210,7 @@ test("pagination handles navigation, filtering, page sizes, and record deletion"
 test("dashboard renders actual counts, scaled charts, monthly audits, and empty states", () => {
   const rendered = {};
   const context = vm.createContext({
+    ...shared(),
     setText: (selector, value) => { rendered[selector] = value; },
     setHtml: (selector, value) => { rendered[selector] = value; },
     escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
@@ -222,13 +240,13 @@ test("dashboard renders actual counts, scaled charts, monthly audits, and empty 
 
 test("navigation follows account order and fits the available navbar width", () => {
   const context = vm.createContext({
-    currentUser: { id: 1, permissions: ["today", "inspections", "reports"], navigationOrder: ["reports", "today"] },
-    allTabs: ["today", "inspections", "reports", "account", "notifications"].map((id) => ({ id, label: id })),
+    ...shared(),
+    currentUser: { id: 1, permissions: ["today", "inspections", "work-orders"], navigationOrder: ["work-orders", "today"] },
+    allTabs: ["today", "inspections", "work-orders", "account", "notifications"].map((id) => ({ id, label: id })),
     defaultNavbarTabs: ["today", "inspections"],
-    document: { querySelectorAll: () => [] },
   });
   vm.runInContext(source("navigation.js"), context);
-  assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["reports","today","inspections","account","notifications"]');
+  assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["work-orders","today","inspections","account","notifications"]');
   assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 400, 390), 2);
   assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 320, 900), 3);
   assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 600, 1400), 4);
@@ -240,20 +258,63 @@ test("navigation follows account order and fits the available navbar width", () 
 test("navigation reordering saves the account and rolls back failed saves", async () => {
   let saved, message;
   const context = vm.createContext({
-    currentUser: { id: 7, permissions: ["today", "reports"], navigationOrder: ["today", "reports"] },
-    allTabs: ["today", "reports"].map((id) => ({ id, label: id })),
+    ...shared(),
+    currentUser: { id: 7, permissions: ["today", "work-orders"], navigationOrder: ["today", "work-orders"] },
+    allTabs: ["today", "work-orders"].map((id) => ({ id, label: id })),
     defaultNavbarTabs: ["today"],
-    document: { querySelectorAll: () => [], querySelector: () => null },
     setText: (_, value) => { message = value; },
     requestJson: async (path, method, payload) => { saved = { path, method, payload }; return { navigationOrder: payload.order }; },
   });
   vm.runInContext(source("navigation.js"), context);
-  await context.moveNavigationTab("reports", -1);
+  await context.moveNavigationTab("work-orders", -1);
   assert.equal(saved.path, "/api/account/navigation");
-  assert.equal(JSON.stringify(saved.payload.order), '["reports","today"]');
+  assert.equal(JSON.stringify(saved.payload.order), '["work-orders","today"]');
   assert.match(message, /saved/);
   context.requestJson = async () => { throw new Error("Offline"); };
-  await context.moveNavigationTab("reports", 1);
-  assert.equal(JSON.stringify(context.currentUser.navigationOrder), '["reports","today"]');
+  await context.moveNavigationTab("work-orders", 1);
+  assert.equal(JSON.stringify(context.currentUser.navigationOrder), '["work-orders","today"]');
   assert.match(message, /not saved: Offline/);
+});
+
+test("the Super account keeps every regular page and adds the two restricted ones", () => {
+  const context = vm.createContext({
+    ...shared(),
+    currentUser: { id: 1, role: "Super", permissions: ["today", "inspections", "equipment"] },
+    allTabs: ["today", "inspections", "findings", "equipment", "categories", "notifications", "settings", "account"].map((id) => ({ id, label: id })),
+    defaultNavbarTabs: ["today", "inspections"],
+  });
+  context.setupOptions.settings["system.findingsEnabled"] = false;
+  vm.runInContext(source("navigation.js"), context);
+  const allowed = context.allowedAppTabs().map((tab) => tab.id);
+  assert.equal(allowed.slice(-2).join(), "super-dashboard,super-settings");
+  assert.ok(allowed.includes("findings"), "Super keeps sections that are switched off for other users");
+  assert.equal(context.orderedAppTabs().map((tab) => tab.id).join(), "today,inspections,categories,notifications,settings,account,super-dashboard,super-settings");
+});
+
+test("a failed check saves its finding details to the draft and closes the dialog", async () => {
+  let submit, closed = false, summarised = false;
+  const dialog = { close() { closed = true; } };
+  const values = { requestType: "AVC", category: "Electrical", priority: "High", pic: "Gavin", description: "Cable missing\nat the rear", cause: "Wear" };
+  const form = { dataset: {}, closest: () => dialog, addEventListener(event, handler) { if (event === "submit") submit = handler; } };
+  const notes = { value: "" };
+  const asset = { dataset: {}, querySelector: () => ({ innerHTML: "" }) };
+  // The checklist row has a remark field and no category control.
+  const row = { dataset: {}, closest: () => asset, querySelector: (selector) => selector.includes("-notes-") ? notes : null };
+  const dummy = { addEventListener() {} };
+  const context = vm.createContext({
+    ...shared(),
+    document: { ...emptyDocument(), getElementById: (id) => id === "work-order-form" ? form : dummy, querySelector: () => dummy },
+    activeFindingRow: row, currentUnit: "Facilities",
+    wireForm() {}, setText() {}, updateInspectionProgress() {}, renderInspectionImages: () => "",
+    renderFindingSummary() { summarised = true; },
+    storedImagesFromDataset: () => [], parseStoredImages: () => [],
+    formValue: (_, key, fallback) => values[key] || fallback,
+    requestJson: async () => { throw new Error("A draft finding must not be sent as a work order"); },
+  });
+  vm.runInContext(source("forms.js"), context);
+  await submit({ preventDefault() {}, currentTarget: form });
+  assert.equal(closed, true);
+  assert.equal(summarised, true);
+  assert.equal(notes.value, "Cable missing; at the rear");
+  assert.deepEqual(JSON.parse(row.dataset.findingDetails), { category: "Electrical", priority: "High", assignedDepartment: "AVC", pic: "Gavin", cause: "Wear", recommendation: "", requiredAction: "" });
 });

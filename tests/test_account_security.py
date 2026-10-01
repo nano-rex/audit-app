@@ -164,6 +164,24 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/users/{legacy_id}", "PATCH", {"active": False})[0], 200)
         self.assertEqual(self.user_row("legacy@intranet")["active"], 0)
 
+    def test_super_manages_every_role_and_others_never_see_the_super_role(self):
+        names = lambda token: {row["name"] for row in json.loads(self.request("/api/roles", token=token)[2])["items"]}
+        with app.connect() as db:
+            admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
+        app.SESSION_TOKENS["role-admin"] = {"user_id": admin_id, "expires_at": time.time() + 3600}
+        self.assertLessEqual({"Super", "Admin", "Auditor"}, names("super"))
+        self.assertIn("Auditor", names("role-admin"))
+        self.assertNotIn("Super", names("role-admin"))
+        setup = json.loads(self.request("/api/setup", token="super")[2])
+        self.assertIn("Auditor", {row["name"] for row in setup["roles"]})
+
+    def test_open_schedules_are_listed_before_finished_ones(self):
+        with app.connect() as db:
+            for day, status in (("2020-01-01", "Completed"), ("2031-01-01", "Pending"), ("2020-01-02", "Cancelled")):
+                db.execute("INSERT INTO schedules(business_unit,outlet,zone,scheduled_date,auditor,remarks,status,created_at) VALUES ('Ottotree','STP','Order test',?,?,'',?,0)", (day, "Tester", status))
+        rows = [row for row in json.loads(self.request("/api/schedules")[2])["items"] if row["zone"] == "Order test"]
+        self.assertEqual([row["status"] for row in rows], ["Pending", "Completed", "Cancelled"])
+
     def test_database_creation_switch_and_removal(self):
         original = config.DB_PATH
         outcome = {}
