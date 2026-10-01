@@ -84,7 +84,6 @@ DEFAULT_REPORT_SETTINGS = {
     "appTitle": "Ottotree Audit",
     "appSubtitle": "Loudspeaker & Mini Studio operations",
     "businessUnitLabel": "Ottotree",
-    "todayHeading": "inspections for today",
     "reportHeading": "audit report",
     "loginTitle": "Ottotree Audit",
 }
@@ -92,17 +91,8 @@ DEFAULT_REPORT_SETTINGS = {
 
 DEFAULT_SYSTEM_SETTINGS = {
     "findingsEnabled": True,
-    "correctiveActionsEnabled": True,
     # When off, only assets with a failed check need photo evidence before an inspection can be completed.
     "requirePhotoEveryAsset": True,
-    "emailEnabled": False,
-    "whatsappEnabled": False,
-    "pushEnabled": False,
-    "cmmsEnabled": False,
-    "preventiveMaintenanceEnabled": False,
-    "aiPhotoDetectionEnabled": False,
-    "aiSummaryEnabled": False,
-    "aiRecommendationEnabled": False,
 }
 
 
@@ -118,7 +108,6 @@ APP_TABS = (
     ("outlets", "Outlets"),
     ("users", "Users"),
     ("roles", "Roles"),
-    ("corrective-actions", "Corrective Actions"),
     ("notifications", "Notifications"),
     ("settings", "Settings"),
 )

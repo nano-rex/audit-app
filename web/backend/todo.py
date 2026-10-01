@@ -36,7 +36,7 @@ def todo_items(user):
                         "SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' UNION ALL SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1",
                         (row["audit_id"], row["audit_id"])).fetchone():
                     items.append(inspection_item(row, "Close audit", "Signed and all corrective actions closed"))
-        if permissions & {"work-orders", "corrective-actions"}:
+        if "work-orders" in permissions:
             for row in db.execute("SELECT * FROM work_orders WHERE status NOT IN ('Verified', 'Closed') ORDER BY CASE WHEN due_date IS NULL OR due_date = '' THEN 1 ELSE 0 END, due_date, id LIMIT 500"):
                 order = dict(row)
                 if order["status"] in ACTIVE_ORDERS and assigned_to(user, order):

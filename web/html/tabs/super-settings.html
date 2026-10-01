@@ -5,7 +5,7 @@
       <h2>Company databases</h2>
       <div class="form-grid">
         <label>Active database<select data-super-database-select></select></label>
-        <label>New database name<input data-super-new-database-name pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" placeholder="company_name"></label>
+        <label>New database name<input data-super-new-database-name pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,63}" placeholder="company_name"></label>
       </div>
       <div class="form-actions"><button class="outline" type="button" data-super-refresh-databases>Refresh</button><button class="outline" type="button" data-super-create-database>Create Database</button><button class="primary" type="button" data-super-switch-database>Switch Database</button><button class="danger" type="button" data-super-remove-database>Remove Selected</button></div>
       <p role="status" aria-live="polite" data-super-database-message></p>

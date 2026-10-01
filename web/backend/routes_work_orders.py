@@ -2,7 +2,7 @@
 from backend.relational_values import data_value
 import time
 from backend.reminders import notify_work_order
-from backend.common import create_notification, priority_due_date, sla_status, work_order_ref
+from backend.common import priority_due_date, sla_status, work_order_ref
 from backend.database import connect, first_category, first_department, first_outlet
 from backend.work_orders import sync_finding_from_work_order
 from backend.workflow import WorkflowError, validate_update
@@ -84,21 +84,16 @@ def post_comments(self, parsed, payload=None):
     self.json({"ok": True})
 
 
-def post_notifications(self, parsed, payload=None):
-    with connect() as db:
-        create_notification(
-            db,
-            payload.get("title", "Notification"),
-            payload.get("message", ""),
-            payload.get("channel", "In-App"),
-            payload.get("relatedType", ""),
-            int(payload.get("relatedId") or 0),
-        )
-    self.json({"ok": True})
-
-
 def patch_notifications(self, parsed, payload=None):
     record_id = parsed.path.rsplit("/", 1)[-1]
+    if record_id == "all":
+        with connect() as db:
+            cursor = db.execute(
+                "UPDATE notifications SET status = 'Read', read_at = ? WHERE status = 'Unread' AND recipient_user_id = ?",
+                (int(time.time() * 1000), self.current_user()["id"]),
+            )
+        self.json({"ok": True, "updated": cursor.rowcount})
+        return
     if not record_id.isdigit():
         self.send_error(400)
         return

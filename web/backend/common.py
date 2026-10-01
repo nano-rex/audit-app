@@ -66,19 +66,6 @@ def verify_password(password, stored_hash):
     return secrets.compare_digest(actual, digest)
 
 
-def workflow_dates(payload):
-    status = payload.get("status", "Assigned")
-    verified_at = payload.get("verifiedAt", "")
-    closed_at = payload.get("closedAt", "")
-    if status in ("Verified", "Closed") and not verified_at:
-        verified_at = today_date()
-    if status == "Closed" and not closed_at:
-        closed_at = today_date()
-    if status not in ("Verified", "Closed"):
-        closed_at = ""
-    return status, verified_at, closed_at
-
-
 def read_setting(db, key, fallback=None):
     row = db.execute("SELECT value_data_id FROM app_settings WHERE key = ?", (key,)).fetchone()
     if not row:
@@ -113,16 +100,6 @@ def sla_status(status, due_date):
     return "On Track"
 
 
-def create_notification(db, title, message, channel="In-App", related_type=None, related_id=None):
-    db.execute(
-        """
-        INSERT INTO notifications (title, message, channel, status, related_type, related_id, created_at)
-        VALUES (?, ?, ?, 'Unread', ?, ?, ?)
-        """,
-        (title, message, channel, related_type, related_id, int(time.time() * 1000)),
-    )
-
-
 def image_label(image):
     if isinstance(image, dict):
         return image.get("markedName") or image.get("name") or "Image"
@@ -133,18 +110,6 @@ def image_labels(images):
     return [image_label(image) for image in (images or [])]
 
 
-def parse_image_list(value):
-    if not value:
-        return []
-    if isinstance(value, list):
-        return value
-    try:
-        images = load_value(value)
-        return images if isinstance(images, list) else [images]
-    except (TypeError, json.JSONDecodeError):
-        return [value]
-
-
 def rating(score):
     if score >= 90:
         return "Excellent"
@@ -153,26 +118,6 @@ def rating(score):
     if score >= 60:
         return "Below Expectation"
     return "Critical"
-
-
-def checklist(unit):
-    loudspeaker = [
-        {"section": "Loudspeaker Display", "item": "Main speaker display is present, clean, and powered"},
-        {"section": "Loudspeaker Display", "item": "Price tags and product cards are accurate"},
-        {"section": "Loudspeaker Demo", "item": "Demo audio source and cables are working"},
-        {"section": "Loudspeaker Safety", "item": "Power socket, cable routing, and fixture are safe"},
-    ]
-    mini_studio = [
-        {"section": "Main Entrance", "item": "Big headphone display is present and in good condition"},
-        {"section": "Studio Area", "item": "Demo headphones are clean, working, and correctly placed"},
-        {"section": "Counter", "item": "F&B counter cabinet and cashier drawer area are clean"},
-        {"section": "Safety", "item": "Emergency exit and walkway are clear and usable"},
-    ]
-    if unit == "Loudspeaker":
-        return loudspeaker
-    if unit == "Mini Studio":
-        return mini_studio
-    return mini_studio + loudspeaker
 
 
 def scope(unit, table_name):

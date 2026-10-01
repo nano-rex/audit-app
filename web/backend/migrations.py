@@ -9,7 +9,7 @@ from datetime import datetime
 from backend.common import audit_ref, hash_password, inspection_progress, location_qr_code, today_date
 from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
-from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
+from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
 def ensure_column(db, table, column, definition):
@@ -477,6 +477,7 @@ def init_db():
         seed_locations(db)
         seed_zones(db)
         seed_roles(db)
+        retire_corrective_actions_page(db)
         seed_priority_levels(db)
         seed_audit_types(db)
         seed_settings(db)

@@ -35,9 +35,7 @@
 }
 
 .panel,
-.stats article,
-.outlets article,
-.question-card {
+.stats article {
   min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -50,8 +48,6 @@
 }
 
 .stats,
-.unit-grid,
-.outlets,
 .chart-grid,
 .work-grid,
 .inspect-layout {
@@ -61,7 +57,6 @@
   margin-bottom: 24px;
 }
 
-.unit-grid,
 .chart-grid,
 .work-grid,
 .inspect-layout {
@@ -375,10 +370,6 @@
 .check-item input,
 .check-item select {
   width: 100%;
-}
-
-.check-notes {
-  grid-column: 1 / -1;
 }
 
 .form-actions {

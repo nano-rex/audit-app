@@ -6,11 +6,10 @@ const tabLoads = new Map();
 function showTabLoading(tabId) {
   const targetTabId = tabId;
   const targets = {
-    today: [["[data-outlets]", "Loading dashboard…"], ["[data-recent]", "Loading recent audits…"], ["[data-rankings]", "Loading rankings…"], ["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
+    today: [["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
     reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
     findings: [["[data-inspection-history]", "Loading history…"], ["[data-findings]", "Loading findings…"]],
     "work-orders": [["[data-work-orders]", "Loading work orders…"]],
-    "corrective-actions": [["[data-corrective-actions]", "Loading corrective actions…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
     categories: [["[data-category-records]", "Loading categories…"]],
     // Departments and roles are loaded with the initial setup catalog. Keep
@@ -43,7 +42,6 @@ async function loadTabData(tabId) {
     reports: async () => { await loadDashboard(); await loadReport(); },
     findings: () => Promise.all([loadInspectionHistory(), loadFindings()]),
     "work-orders": loadWorkOrders,
-    "corrective-actions": loadWorkOrders,
     equipment: loadEquipment,
     categories: async () => {
       if (!categoryCache.length) await loadSetup();

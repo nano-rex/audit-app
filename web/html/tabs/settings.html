@@ -14,7 +14,6 @@
           <p class="muted">Choose whether users can access these operational sections. Super users always retain access.</p>
           <form id="feature-visibility-form" class="inline-form">
             <label class="checkbox-line"><input name="findingsEnabled" type="checkbox"> History &amp; Findings</label>
-            <label class="checkbox-line"><input name="correctiveActionsEnabled" type="checkbox"> Corrective Actions</label>
             <label class="checkbox-line"><input name="requirePhotoEveryAsset" type="checkbox"> Require a photo of every inspected asset</label>
             <p class="muted">When this is off, only assets with a failed check need a photo before an inspection can be completed.</p>
             <button class="primary" type="submit">Save workflow options</button>
@@ -63,7 +62,6 @@
             <label>App Title<input name="appTitle"></label>
             <label>App Subtitle<input name="appSubtitle"></label>
             <label>Business Unit Label<input name="businessUnitLabel"></label>
-            <label>To-do Heading<input name="todayHeading"></label>
             <label>Report Heading<input name="reportHeading"></label>
             <label>Login Title<input name="loginTitle"></label>
             <label>Company Name<input name="companyName"></label>
@@ -72,8 +70,6 @@
             <input type="hidden" name="logoUrl">
             <button type="button" class="outline" data-remove-report-logo>Remove Logo</button>
             <p data-report-logo-message role="status"></p>
-            <label>Notification Channels<input name="channels" placeholder="In-App, Email, WhatsApp, Push"></label>
-            <label>Future Integrations<textarea name="integrations" placeholder="CMMS, vendor portal, AI summary, AI defect detection"></textarea></label>
             <button class="primary" type="submit">Save Settings</button>
           </form>
         </article>

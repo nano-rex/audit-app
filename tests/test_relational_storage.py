@@ -9,7 +9,7 @@ import unittest
 from test_server import app
 from test_media_reports import photo_data_url
 from backend.media_store import MediaStore
-from backend.relational_values import FIELDS, hydrate, hydrate_many, load_value, migrate_columns, save_value
+from backend.relational_values import FIELDS, hydrate_many, load_value, migrate_columns, save_value
 from backend.storage_migration import backup_legacy_database
 from backend import config
 
@@ -44,7 +44,7 @@ class RelationalStorageTests(unittest.TestCase):
             for key in ("empty", "object", "null"):
                 self.assertEqual(saved[key], value[key])
             self.assertNotIn("dataUrl", saved["image"])
-            self.assertEqual(hydrate(record)["signatures_json"], {})
+            self.assertEqual(hydrate_many([record])[0]["signatures_json"], {})
             self.assertEqual(db.execute("SELECT typeof(content) FROM media_images").fetchone()[0], "blob")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM value_nodes WHERE text_value LIKE 'data:image/%'").fetchone()[0], 0)
         self.assertEqual(media.image_bytes(saved["image"]), base64.b64decode(photo_data_url().split(",")[1]))

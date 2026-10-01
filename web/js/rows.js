@@ -83,6 +83,17 @@ function auditTypeRow(row) {
   `;
 }
 
+// The page a notification is about, when the signed-in user can open it.
+function notificationTarget(row) {
+  const permissions = currentUser?.permissions || [];
+  const id = Number(row.related_id);
+  if (!id) return null;
+  if (row.related_type === "inspection" && permissions.includes("inspections")) return { type: "inspection", id };
+  if (row.related_type === "work_order" && permissions.includes("work-orders")) return { type: "work_order", id };
+  if (row.related_type === "user" && permissions.includes("users")) return { type: "user", id };
+  return null;
+}
+
 function notificationRow(row) {
   const created = row.created_at ? new Date(row.created_at).toLocaleString() : "No date";
   return `
@@ -93,8 +104,8 @@ function notificationRow(row) {
         <span>${escapeHtml(row.channel || "In-App")} | ${escapeHtml(created)} | ${escapeHtml(row.related_type || "General")}</span>
       </div>
       <span class="row-actions">
-        <strong class="${row.status === "Unread" ? "warn" : ""}">${escapeHtml(row.status || "Unread")}</strong>
-        ${row.related_type === "inspection" && (currentUser?.permissions || []).includes("inspections") ? `<button type="button" class="outline" data-open-inspection-session="${Number(row.related_id)}">Open Inspection</button>` : ""}
+        <span class="status-pill ${row.status === "Unread" ? "status-progress" : "status-none"}">${escapeHtml(row.status || "Unread")}</span>
+        ${notificationTarget(row) ? `<button type="button" class="primary" data-open-notification="${row.id}">Open</button>` : ""}
         <button type="button" class="outline" data-read-notification="${row.id}">Read</button>
         <button type="button" class="danger" data-delete-notification="${row.id}">Delete</button>
       </span>
@@ -241,15 +252,6 @@ function scheduleRow(row) {
         <button type="button" class="primary" data-open-schedule='${escapeAttr(JSON.stringify(row))}'>Open</button>
         <button type="button" class="outline" data-edit-schedule='${escapeAttr(JSON.stringify(row))}'>Edit</button>
       </span>
-    </article>
-  `;
-}
-
-function auditRow(row) {
-  return `
-    <article>
-      <div><b>${escapeHtml(row.outlet)}</b><span>${escapeHtml(row.branch)} - ${escapeHtml(row.audit_date)}</span></div>
-      <strong class="${row.score >= 90 ? "excellent" : ""}">${row.score}<small>${escapeHtml(row.rating)}</small></strong>
     </article>
   `;
 }

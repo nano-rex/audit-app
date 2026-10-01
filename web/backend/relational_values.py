@@ -184,11 +184,6 @@ def data_value(db, value, fallback=None):
     return save_value(db, value)
 
 
-def hydrate(row):
-    """Expose API-compatible values, not database foreign-key identifiers."""
-    return hydrate_many([row])[0]
-
-
 def migrate_columns(db):
     initialize(db)
     from backend.media_store import MediaStore

@@ -16,8 +16,7 @@
     flex: 1 1 520px;
   }
 
-  .stats,
-  .outlets {
+  .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -75,7 +74,6 @@
 
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout {
     grid-template-columns: 1fr;
   }
@@ -174,9 +172,7 @@
   }
 
   .panel,
-  .stats article,
-  .outlets article,
-  .question-card {
+  .stats article {
     border-radius: 8px;
   }
 
@@ -185,10 +181,8 @@
     margin-bottom: 16px;
   }
 
-  .outlets,
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout,
   .filter,
   .form-grid,
@@ -203,22 +197,18 @@
   }
 
   .stats,
-  .outlets,
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout {
     gap: 12px;
     margin-bottom: 16px;
   }
 
-  .stats article,
-  .outlets article {
+  .stats article {
     padding: 14px;
   }
 
   .stats strong,
-  .outlets strong,
   .list strong {
     font-size: 20px;
   }

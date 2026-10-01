@@ -146,22 +146,11 @@ function populateSettingsForms() {
     appTitle: getSetting("report.appTitle", brandingDefaults.appTitle),
     appSubtitle: getSetting("report.appSubtitle", brandingDefaults.appSubtitle),
     businessUnitLabel: getSetting("report.businessUnitLabel", brandingDefaults.businessUnitLabel),
-    todayHeading: getSetting("report.todayHeading", "inspections for today"),
     reportHeading: getSetting("report.reportHeading", "audit report"),
     loginTitle: getSetting("report.loginTitle", brandingDefaults.loginTitle),
     companyName: getSetting("report.companyName", brandingDefaults.businessUnitLabel),
     departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
     logoUrl: getSetting("report.logoUrl", ""),
-  };
-  const system = {
-    notificationChannels: ["In-App", getSetting("system.emailEnabled") ? "Email" : "", getSetting("system.whatsappEnabled") ? "WhatsApp" : "", getSetting("system.pushEnabled") ? "Push" : ""].filter(Boolean),
-    futureIntegrations: [
-      getSetting("system.preventiveMaintenanceEnabled") ? "Preventive Maintenance" : "",
-      getSetting("system.cmmsEnabled") ? "CMMS" : "",
-      getSetting("system.aiPhotoDetectionEnabled") ? "AI Photo Defect Detection" : "",
-      getSetting("system.aiSummaryEnabled") ? "AI Audit Summary" : "",
-      getSetting("system.aiRecommendationEnabled") ? "AI Corrective Recommendation" : "",
-    ].filter(Boolean),
   };
   const scoringForm = document.getElementById("scoring-settings-form");
   if (scoringForm) {
@@ -178,19 +167,15 @@ function populateSettingsForms() {
     systemForm.elements.appTitle.value = report.appTitle;
     systemForm.elements.appSubtitle.value = report.appSubtitle;
     systemForm.elements.businessUnitLabel.value = report.businessUnitLabel;
-    systemForm.elements.todayHeading.value = report.todayHeading;
     systemForm.elements.reportHeading.value = report.reportHeading;
     systemForm.elements.loginTitle.value = report.loginTitle;
     systemForm.elements.companyName.value = report.companyName || "Ottotree";
     systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
     systemForm.elements.logoUrl.value = report.logoUrl || "";
-    systemForm.elements.channels.value = (system.notificationChannels || ["In-App"]).join(", ");
-    systemForm.elements.integrations.value = (system.futureIntegrations || []).join(", ");
   }
   const featureForm = document.getElementById("feature-visibility-form");
   if (featureForm) {
     featureForm.elements.findingsEnabled.checked = setupOptions.settings["system.findingsEnabled"] !== false;
-    featureForm.elements.correctiveActionsEnabled.checked = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
     featureForm.elements.requirePhotoEveryAsset.checked = setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
   }
 }

@@ -47,7 +47,6 @@ function applyBranding() {
   document.title = branding.appTitle || brandingDefaults.appTitle;
   setText("[data-brand-title]", branding.appTitle || brandingDefaults.appTitle);
   setText("[data-brand-subtitle]", branding.appSubtitle || brandingDefaults.appSubtitle);
-  setText("[data-today-heading]", branding.todayHeading || brandingDefaults.todayHeading);
   setText("[data-report-heading]", branding.reportHeading || brandingDefaults.reportHeading);
   unitTexts.forEach((node) => {
     node.textContent = currentUnit;
@@ -303,30 +302,11 @@ async function requestJson(url, method, payload) {
   return response.json();
 }
 
-async function postJson(url, payload) {
-  return requestJson(url, "POST", payload);
-}
-
 function formValue(form, name, fallback = "") {
   const value = new FormData(form).get(name);
   return value ? String(value) : fallback;
 }
 
-function wireForm(id, url, buildPayload) {
-  const form = document.getElementById(id);
-  if (!form) {
-    return;
-  }
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await postJson(url, buildPayload(form));
-    const dialog = form.closest("dialog");
-    if (dialog) {
-      dialog.close();
-    }
-    loadApp();
-  });
-}
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",

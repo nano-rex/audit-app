@@ -425,7 +425,6 @@ async function saveInspectionSession(complete = false) {
     form.elements.inspectionSessionId.value = result.id;
     if (complete) form.dataset.completed = "true";
     setCurrentInspectionName(result.inspectionName || `${payload.outlet}_${payload.auditDate}_${result.id}`, "Editing");
-    localStorage.setItem(lastInspectionSessionKey, result.id);
     updateInspectionProgress();
     loadInspectionHistory();
     if (complete) {
@@ -729,8 +728,6 @@ document.getElementById("scoring-settings-form")?.addEventListener("submit", asy
 document.getElementById("system-settings-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  const channels = formValue(form, "channels", "In-App").split(",").map((item) => item.trim()).filter(Boolean);
-  const integrations = formValue(form, "integrations", "").split(",").map((item) => item.trim()).filter(Boolean);
   await requestJson("/api/settings", "POST", {
     settings: {
       "report.companyName": formValue(form, "companyName", "Ottotree"),
@@ -739,17 +736,8 @@ document.getElementById("system-settings-form")?.addEventListener("submit", asyn
       "report.appTitle": formValue(form, "appTitle", "Ottotree Audit"),
       "report.appSubtitle": formValue(form, "appSubtitle", "Loudspeaker & Mini Studio operations"),
       "report.businessUnitLabel": formValue(form, "businessUnitLabel", "Ottotree"),
-      "report.todayHeading": formValue(form, "todayHeading", "inspections for today"),
       "report.reportHeading": formValue(form, "reportHeading", "audit report"),
       "report.loginTitle": formValue(form, "loginTitle", "Ottotree Audit"),
-      "system.emailEnabled": channels.includes("Email"),
-      "system.whatsappEnabled": channels.includes("WhatsApp"),
-      "system.pushEnabled": channels.includes("Push"),
-      "system.preventiveMaintenanceEnabled": integrations.includes("Preventive Maintenance"),
-      "system.cmmsEnabled": integrations.includes("CMMS"),
-      "system.aiPhotoDetectionEnabled": integrations.includes("AI Photo Defect Detection"),
-      "system.aiSummaryEnabled": integrations.includes("AI Audit Summary"),
-      "system.aiRecommendationEnabled": integrations.includes("AI Corrective Recommendation"),
     },
   });
   loadApp();
@@ -761,7 +749,6 @@ document.getElementById("feature-visibility-form")?.addEventListener("submit", a
   try {
     await requestJson("/api/settings", "POST", { settings: {
       "system.findingsEnabled": Boolean(form.elements.findingsEnabled.checked),
-      "system.correctiveActionsEnabled": Boolean(form.elements.correctiveActionsEnabled.checked),
       "system.requirePhotoEveryAsset": Boolean(form.elements.requirePhotoEveryAsset.checked),
     } });
     setText("[data-feature-visibility-message]", "Workflow options saved.");
@@ -814,11 +801,6 @@ document.getElementById("zone-form").addEventListener("submit", async (event) =>
   form.closest("dialog").close();
   loadApp();
 });
-
-wireForm("captain-form", "/api/captain-logins", (form) => ({
-  outlet: formValue(form, "outlet", ""),
-  captainName: formValue(form, "captainName", "Unnamed Captain"),
-}));
 
 
 document.querySelector("[data-report-logo-upload]")?.addEventListener("change", async (event) => {

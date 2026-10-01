@@ -44,26 +44,9 @@ async function loadDashboard() {
   const data = await response.json();
   renderMainDashboard(data);
 
-  setHtml("[data-outlets]", data.outlets.map((outlet) => `
-    <article>
-      <b>${escapeHtml(outlet.outlet)}</b>
-      <strong>${outlet.average}</strong>
-      <span>Average | ${outlet.audit_count} ${outlet.audit_count === 1 ? "audit" : "audits"}</span>
-    </article>
-  `).join(""));
-
-  setHtml("[data-recent]", data.recent.map(auditRow).join(""));
-  setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
   setHtml("[data-today-schedules]", data.today.scheduled.length
     ? data.today.scheduled.map(scheduleRow).join("")
     : `<article><div><b>No scheduled audits</b><span>Use + New Audit to start one now, or Schedule Visit to plan one.</span></div></article>`);
-  setHtml("[data-bars]", data.outlets.map((outlet) => `
-    <label>${escapeHtml(outlet.outlet)}<span class="${outlet.latest >= 90 ? "excellent-bar" : ""}" style="--value:${outlet.latest}">${outlet.latest}</span></label>
-  `).join(""));
-  setText('[data-kpi="assigned"]', data.kpi.assigned);
-  setText('[data-kpi="completed"]', data.kpi.completed);
-  setText('[data-kpi="pending"]', data.kpi.pending);
-  setText('[data-kpi="responseRate"]', `${data.kpi.responseRate}%`);
 }
 
 async function loadSuperDashboard() {
@@ -114,7 +97,6 @@ async function loadWorkOrders() {
   workOrderCache = data.items;
   updateWorkOrderFilterSelects();
   renderWorkOrders();
-  renderCorrectiveActions();
 }
 
 async function loadFindings() {
@@ -188,27 +170,6 @@ function renderWorkOrders() {
   setHtml("[data-work-orders]", rows.length
     ? rows.map(workOrderRow).join("")
     : `<article><div><b>No work orders found</b><span>Adjust search or filters, or add a new work order.</span></div></article>`);
-}
-
-function renderCorrectiveActions() {
-  const search = (document.getElementById("corrective-search")?.value || "").toLowerCase();
-  const outlet = document.getElementById("corrective-filter-outlet")?.value || "";
-  const department = document.getElementById("corrective-filter-department")?.value || "";
-  const status = document.getElementById("corrective-filter-status")?.value || "";
-  updateSelectOptions(document.getElementById("corrective-filter-outlet"), setupOptions.outlets, true, "All outlets");
-  updateSelectOptions(document.getElementById("corrective-filter-department"), setupOptions.departments, true, "All departments");
-  if (outlet) document.getElementById("corrective-filter-outlet").value = outlet;
-  if (department) document.getElementById("corrective-filter-department").value = department;
-  const rows = workOrderCache.filter((row) => {
-    const haystack = [row.work_order_ref, row.outlet, row.zone, row.request_type, row.title, row.action_taken, row.pic, row.status, row.sla_status].join(" ").toLowerCase();
-    return (!search || haystack.includes(search))
-      && (!outlet || row.outlet === outlet)
-      && (!department || row.request_type === department)
-      && (!status || row.status === status);
-  });
-  setHtml("[data-corrective-actions]", rows.length
-    ? rows.map(workOrderRow).join("")
-    : `<article><div><b>No corrective actions found</b><span>Work orders and finding follow-ups appear here.</span></div></article>`);
 }
 
 async function loadNotifications() {

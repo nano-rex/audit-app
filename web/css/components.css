@@ -28,14 +28,11 @@
   .loading-spinner { animation-duration: 1.8s; }
 }
 
-.stats article,
-.outlets article,
-.unit-card {
+.stats article {
   padding: 18px;
 }
 
-.stats span,
-.outlets b {
+.stats span {
   display: block;
   margin-bottom: 10px;
   color: var(--muted);
@@ -44,8 +41,7 @@
   text-transform: uppercase;
 }
 
-.stats strong,
-.outlets strong {
+.stats strong {
   display: block;
   color: var(--green);
   font-size: 26px;
@@ -55,13 +51,8 @@
   color: var(--orange);
 }
 
-.outlets strong,
 .list strong {
   color: var(--blue);
-}
-
-.outlets strong {
-  font-size: 24px;
 }
 
 .excellent,
@@ -71,23 +62,6 @@
 
 .monitor {
   color: var(--orange);
-}
-
-.unit-card {
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.unit-card.active {
-  background: var(--green-soft);
-  border-color: var(--green);
-}
-
-.unit-card.active strong,
-.unit-card.active b {
-  color: var(--green);
 }
 
 .list {
@@ -144,11 +118,6 @@
   color: var(--on-accent);
   font-style: normal;
   font-weight: 700;
-}
-
-.flow-list {
-  display: grid;
-  gap: 12px;
 }
 
 .admin-list {
@@ -276,24 +245,6 @@
   font-size: 12px;
 }
 
-.flow-list span {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 10px;
-  align-items: center;
-  color: var(--text);
-}
-
-.flow-list b {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: var(--on-accent);
-  background: var(--green);
-}
-
 .filter {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -334,10 +285,6 @@ dialog label {
   background: var(--blue);
   text-align: right;
   font-weight: 700;
-}
-
-.bars .excellent-bar {
-  background: var(--success);
 }
 
 .legend {
@@ -437,12 +384,6 @@ dialog label {
   font-size: 12px;
 }
 
-[data-database-management] > p {
-  max-width: 720px;
-  margin-bottom: 16px;
-}
-
-[data-database-message],
 [data-account-message] {
   min-height: 18px;
   color: var(--muted);
@@ -515,12 +456,6 @@ dialog label {
   height: 10px;
   margin-right: 5px;
   border-radius: 50%;
-}
-
-.empty p {
-  padding: 72px 0;
-  text-align: center;
-  color: var(--muted);
 }
 
 dialog {
@@ -614,8 +549,7 @@ dialog header button {
   opacity: 0.72;
 }
 
-fieldset,
-.guide {
+fieldset {
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -624,20 +558,6 @@ fieldset {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-}
-
-.guide {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  background: var(--green-soft);
-  font-size: 12px;
-}
-
-.question-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
 }
 
 .help-block {
@@ -1031,4 +951,15 @@ dialog header h2 {
   min-height: 34px;
   padding: 0 12px;
   font-size: 13px;
+}
+
+#change-password-dialog[data-forced="true"] [data-close-dialog],
+#change-password-dialog:not([data-forced="true"]) [data-forced-logout] {
+  display: none;
+}
+
+.signature-strip [data-sign-with-saved],
+.signature-strip [data-signature-message] {
+  grid-column: 1 / -1;
+  justify-self: start;
 }

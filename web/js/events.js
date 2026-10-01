@@ -102,9 +102,6 @@ document.addEventListener("click", async (event) => {
   const deleteInspectionButton = event.target.closest("[data-delete-inspection-session]");
   if (deleteInspectionButton && confirm("Delete this inspection history item?")) {
     await requestJson(`/api/inspection-sessions/${deleteInspectionButton.dataset.deleteInspectionSession}`, "DELETE");
-    if (localStorage.getItem(lastInspectionSessionKey) === deleteInspectionButton.dataset.deleteInspectionSession) {
-      localStorage.removeItem(lastInspectionSessionKey);
-    }
     loadInspectionHistory();
     return;
   }
@@ -233,6 +230,18 @@ document.addEventListener("click", async (event) => {
   if (auditTypeButton && confirm("Delete this audit type?")) {
     await requestJson(`/api/setup/audit-types/${auditTypeButton.dataset.deleteAuditType}`, "DELETE");
     loadApp();
+    return;
+  }
+
+  const openNotificationButton = event.target.closest("[data-open-notification]");
+  if (openNotificationButton) {
+    const row = notificationCache.find((item) => String(item.id) === openNotificationButton.dataset.openNotification);
+    const target = row && notificationTarget(row);
+    if (!target) return;
+    if (row.status === "Unread") await requestJson(`/api/notifications/${row.id}`, "PATCH", {});
+    if (target.type === "user") showTab("users");
+    else await openAttentionItem(target.type, target.id).catch(showLoadError);
+    loadAttention().catch(() => {});
     return;
   }
 
@@ -501,8 +510,49 @@ document.querySelector("[data-save-inspection-signatures]")?.addEventListener("c
   try {
     await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures: inspectionSignatures() });
     await openInspectionSession(id);
-    alert("Signatures saved.");
-  } catch (error) { alert(error.message); }
+    setText("[data-signature-message]", "Signatures saved.");
+    document.querySelector("[data-signature-message]")?.classList.add("success");
+    loadAttention().catch(() => {});
+  } catch (error) {
+    setText("[data-signature-message]", error.message);
+    document.querySelector("[data-signature-message]")?.classList.remove("success");
+  }
+});
+
+// One step for the common case: apply the signature kept on the account to every role this user may sign.
+document.querySelector("[data-sign-with-saved]")?.addEventListener("click", async () => {
+  const form = document.getElementById("inspection-form");
+  const id = form.elements.inspectionSessionId.value;
+  const message = (text, ok = false) => {
+    setText("[data-signature-message]", text);
+    document.querySelector("[data-signature-message]")?.classList.toggle("success", ok);
+  };
+  const saved = currentUser?.signatureImage;
+  if (!imageSource(saved)) {
+    message("No signature is saved on your account. Add one under Account, or draw one with the buttons above.");
+    return;
+  }
+  const roles = { auditedBy: ["auditor", "auditor"], verifiedBy: ["verifier", "verifier"], acknowledgedBy: ["acknowledger", "acknowledger"] };
+  const capabilities = currentUser?.inspectionPermissions || [];
+  const signatures = inspectionSignatures();
+  const signed = [];
+  for (const [key, [capability, label]] of Object.entries(roles)) {
+    if (!capabilities.includes(capability) || imageSource(signatures[key])) continue;
+    // The auditor's signature belongs to whoever ran the inspection.
+    if (key === "auditedBy" && form.dataset.ownerId && form.dataset.ownerId !== String(currentUser.id)) continue;
+    signatures[key] = { ...saved, name: currentUser.name, signedAt: todayIsoDate() };
+    signed.push(label);
+  }
+  if (!signed.length) {
+    message("There is nothing left for you to sign on this inspection.");
+    return;
+  }
+  try {
+    await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures });
+    await openInspectionSession(id);
+    message(`Signed as ${signed.join(", ")}.`, true);
+    loadAttention().catch(() => {});
+  } catch (error) { message(error.message); }
 });
 
 document.querySelector("[data-signature-canvas]")?.addEventListener("pointerdown", (event) => {
@@ -878,11 +928,6 @@ document.getElementById("work-order-filter-status")?.addEventListener("change", 
   renderWorkOrders();
 });
 
-["corrective-search", "corrective-filter-outlet", "corrective-filter-department", "corrective-filter-status"].forEach((id) => {
-  document.getElementById(id)?.addEventListener("input", renderCorrectiveActions);
-  document.getElementById(id)?.addEventListener("change", renderCorrectiveActions);
-});
-
 document.getElementById("notification-search")?.addEventListener("input", (event) => {
   notificationFilters.search = event.target.value;
   renderNotifications();
@@ -894,6 +939,10 @@ document.getElementById("notification-filter-status")?.addEventListener("change"
 });
 
 document.querySelector("[data-refresh-notifications]")?.addEventListener("click", loadNotifications);
+document.querySelector("[data-read-all-notifications]")?.addEventListener("click", async () => {
+  await requestJson("/api/notifications/all", "PATCH", {});
+  loadNotifications();
+});
 
 document.querySelector("[data-add-work-order-comment]")?.addEventListener("click", async () => {
   const form = document.getElementById("work-order-form");

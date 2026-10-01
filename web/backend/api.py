@@ -12,7 +12,7 @@ from backend import config
 from backend.accounts import is_company_admin_user, branding_settings, is_super_user, public_user
 from backend.catalog import user_login_activity, equipment_items, locations, role_items, setup_records, users, zones
 from backend.database_manager import list_databases
-from backend.common import checklist, inspection_name, read_setting
+from backend.common import inspection_name, read_setting
 from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
 from backend.http_support import api_errors, static_content, static_fingerprint
@@ -132,8 +132,12 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             self.json({"ok": False, "error": "Login required"}, status=401)
             return False
+        if user.get("resetRequired") and not (self.command == "GET" and parsed.path == "/api/account"):
+            # The account holds a temporary or default password; nothing else is available until it is replaced.
+            self.json({"ok": False, "error": "Change your password to continue", "resetRequired": True}, status=403)
+            return False
         route = parsed.path.removeprefix("/api/").split("/", 1)[0]
-        if ((route in {"audits", "inspections"} and self.command == "POST") or
+        if ((route == "audits" and self.command == "POST") or
                 (route == "inspection-sessions" and self.command == "DELETE")) and "auditor" not in user.get("inspectionPermissions", []):
             self.json({"error": "Auditor permission is required"}, 403)
             return False
@@ -151,21 +155,18 @@ class Handler(BaseHTTPRequestHandler):
             "dashboard": {"today", "reports"},
             "reports": {"reports"},
             "inspection-sessions": {"inspections"},
-            "inspections": {"inspections"},
             "audits": {"inspections"},
-            "checklist": {"inspections"},
             "equipment": {"equipment"},
             "users": {"users"},
             "roles": {"roles"},
             "settings": {"settings"},
             "schedules": {"today", "inspections"},
-            "captain-logins": {"today"},
             "findings": {"findings", "inspections"},
-            "work-orders": {"work-orders", "corrective-actions"},
+            "work-orders": {"work-orders"},
             "notifications": {"notifications"},
             "locations": {"outlets"},
             "zones": {"outlets"},
-            "comments": {"findings", "work-orders", "corrective-actions", "inspections"},
+            "comments": {"findings", "work-orders", "inspections"},
         }
         if route == "setup":
             section = parsed.path.split("/")[3:4]
@@ -233,10 +234,6 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/todo":
             self.json(todo_items(self.current_user()))
-            return
-        if parsed.path == "/api/checklist":
-            unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json({"items": checklist(unit)})
             return
         if parsed.path == "/api/schedules":
             self.json(schedule_items())
@@ -344,8 +341,6 @@ class Handler(BaseHTTPRequestHandler):
         if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
-        if parsed.path in {"/api/audits", "/api/inspections"}:
-            payload["auditor"] = self.current_user()["name"]
         if parsed.path == "/api/media":
             if not isinstance(payload.get("image"), dict) or not payload["image"].get("url"):
                 self.json({"error": "An image is required"}, 400)
@@ -380,7 +375,7 @@ class Handler(BaseHTTPRequestHandler):
     def static_file(self, request_path):
         path = "index.html" if request_path in ("", "/") else unquote(request_path).lstrip("/")
         target = (ROOT / path).resolve()
-        allowed = (path in {"index.html", "login.html", "register.html", "styles.css"}
+        allowed = (path in {"index.html", "login.html", "register.html"}
                    or (path.startswith("js/") and target.is_relative_to(ROOT / "js") and target.suffix == ".js")
                    or (path.startswith("css/") and target.is_relative_to(ROOT / "css") and target.suffix == ".css"))
         if not allowed or not target.is_relative_to(ROOT) or not target.is_file():

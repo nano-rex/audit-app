@@ -18,7 +18,6 @@ def dashboard(unit, filters=None, include_room_trends=False):
     audit_where = f"{audit_where} AND audits.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed' AND audit_id IS NOT NULL)"
     schedule_where, schedule_params = report_scope(unit, "schedules", filters)
     work_order_where, work_order_params = report_scope(unit, "work_orders", filters)
-    equipment_where, equipment_params = report_scope(unit, "equipment", filters)
     finding_where, finding_params = report_scope(unit, "findings", filters)
     session_where, session_params = report_scope(unit, "inspection_sessions", filters)
     with connect() as db:
@@ -80,39 +79,6 @@ def dashboard(unit, filters=None, include_room_trends=False):
             LIMIT 5
             """,
             schedule_params,
-        ).fetchall()
-        work_orders = db.execute(
-            f"""
-            SELECT id, work_order_ref, outlet, zone, request_type, category, priority, title,
-                   description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo_data_id, verified_by, verified_at,
-                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
-                   outlet_confirmed, created_at
-            FROM work_orders
-            WHERE {work_order_where}
-            ORDER BY
-                CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
-                created_at DESC
-            LIMIT 8
-            """,
-            work_order_params,
-        ).fetchall()
-        equipment_rows = db.execute(
-            f"""
-            SELECT id, asset_id, qr_code, outlet, zone, equipment_type, health_status,
-                   last_checked, replacement_flag, notes, name, description, type,
-                   operational_status, code, model, serial_number, brand, location,
-                   installation_date, temporary_relocation, warranty_date, calibration_date,
-                   expiry_date, photos_data_id, inverter_model, motor_capacity, source_file,
-                   source_sheet, inspection_criteria_data_id
-            FROM equipment
-            WHERE {equipment_where}
-            ORDER BY
-                CASE health_status WHEN 'Replace' THEN 1 WHEN 'Monitor' THEN 2 ELSE 3 END,
-                last_checked DESC
-            LIMIT 12
-            """,
-            equipment_params,
         ).fetchall()
         all_work_orders = [dict(row) for row in db.execute(
             f"""
@@ -220,13 +186,10 @@ def dashboard(unit, filters=None, include_room_trends=False):
         },
         "today": {
             "scheduled": [dict(row) for row in schedules],
-            "pendingUploads": 0,
             "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
         },
-        "workOrders": hydrate_many(work_orders),
-        "equipment": hydrate_many(equipment_rows),
         "charts": {
             "auditScores": [{"label": row["outlet"], "score": row["average"]} for row in outlets],
             "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],

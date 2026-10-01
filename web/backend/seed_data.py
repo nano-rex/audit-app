@@ -176,10 +176,10 @@ def seed_roles(db):
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
         ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
-        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
+        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
-        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
-        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
+        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "notifications"]),
+        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "notifications"]),
         ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "findings", "work-orders", "notifications"]),
         ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "findings", "work-orders", "notifications"]),
     ]
@@ -222,6 +222,23 @@ def seed_roles(db):
     if auditor and set(load_value(auditor["permissions_data_id"])) == {"today", "inspections", "equipment", "reports"}:
         db.execute("UPDATE roles SET permissions_data_id = ? WHERE name = 'Auditor'",
                    (save_value(db, ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
+
+
+def retire_corrective_actions_page(db):
+    """Corrective Actions was a second view of Work Orders with the same access; fold its permission into Work Orders."""
+    def merged(permissions):
+        return list(dict.fromkeys("work-orders" if page == "corrective-actions" else page for page in permissions))
+
+    for role in db.execute("SELECT id, permissions_data_id FROM roles WHERE permissions_data_id IS NOT NULL").fetchall():
+        permissions = load_value(role["permissions_data_id"]) or []
+        if "corrective-actions" in permissions:
+            db.execute("UPDATE roles SET permissions_data_id = ? WHERE id = ?", (save_value(db, merged(permissions)), role["id"]))
+    for user in db.execute("SELECT id, permission_overrides_data_id FROM users WHERE permission_overrides_data_id IS NOT NULL").fetchall():
+        overrides = load_value(user["permission_overrides_data_id"]) or {}
+        if "corrective-actions" in overrides.get("permissions", []):
+            overrides["permissions"] = merged(overrides["permissions"])
+            db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides), user["id"]))
+    db.execute("DELETE FROM app_settings WHERE key = 'system.correctiveActionsEnabled'")
 
 
 def seed_priority_levels(db):

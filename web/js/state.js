@@ -4,7 +4,6 @@ const brandingDefaults = {
   appTitle: "Audit App",
   appSubtitle: "Facilities audit workspace",
   businessUnitLabel: "Facilities",
-  todayHeading: "inspections for today",
   reportHeading: "audit report",
   loginTitle: "Audit App",
 };
@@ -17,7 +16,6 @@ const allTabs = [
   { id: "work-orders", label: "Work Orders" },
   { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
-  { id: "corrective-actions", label: "Corrective Actions" },
   { id: "notifications", label: "Notifications" },
   { id: "categories", label: "Assets" },
   { id: "departments", label: "Departments" },
@@ -32,7 +30,7 @@ const superTabs = [
   { id: "super-dashboard", label: "Super Dashboard" },
   { id: "super-settings", label: "Super Settings" },
 ];
-const contextParents = { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" };
+const contextParents = { reports: "today", findings: "inspections", equipment: "categories" };
 // Opening a page from the bar or menu lands on this sub-page when the user may see it.
 const defaultContextChild = { categories: "equipment" };
 // Mirrors TRANSITIONS in web/backend/workflow.py, which remains the authority.
@@ -82,7 +80,6 @@ let inspectionHistoryCache = [];
 let inspectionHistorySearch = "";
 let photoMarkState = null;
 let signatureState = null;
-const lastInspectionSessionKey = "ottotree:lastInspectionSessionId";
 const departmentFilters = { search: "" };
 const categoryFilters = { search: "" };
 const outletFilters = { search: "" };

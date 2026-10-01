@@ -15,8 +15,6 @@
   --border: #d3d9d5;
   --border-strong: #b4bdb8;
   --blue: #2b6fdb;
-  --purple: #7c37e8;
-  --brown: #86694a;
   --orange: #b96100;
   --orange-soft: #fdefd9;
   --red: #c9303a;
@@ -49,8 +47,6 @@ html[data-theme="dark"] {
   --border: #33423c;
   --border-strong: #4a5c54;
   --blue: #7fb0ff;
-  --purple: #b48cff;
-  --brown: #c9a77f;
   --orange: #f0a64a;
   --orange-soft: #3d2c14;
   --red: #ff8a90;
@@ -127,14 +123,6 @@ a {
   white-space: nowrap;
 }
 
-.auth-locked main,
-.auth-locked .app-header .nav-row,
-.auth-locked .account-strip {
-  filter: blur(2px);
-  pointer-events: none;
-  user-select: none;
-}
-
 .nav-row {
   display: flex;
   flex: 1 1 520px;
@@ -172,8 +160,6 @@ dialog form > p {
 
 .app-header p,
 label,
-.unit-card span,
-.outlets span,
 .list span,
 small {
   color: var(--muted);
@@ -347,28 +333,18 @@ textarea {
   font-weight: 600;
 }
 
-.primary,
-.brown,
-.purple {
+.primary {
   color: var(--on-accent);
   border-color: transparent;
 }
 
 .primary { background: var(--green); }
 .primary:hover:not(:disabled) { background: var(--green-strong); }
-.brown { background: var(--brown); }
-.purple { background: var(--purple); }
 
 /* Secondary text. (This class once doubled as a grey button colour, which painted paragraphs as grey bars.) */
 .muted {
   color: var(--muted);
   font-size: 13px;
-}
-
-.soft {
-  background: var(--green-soft);
-  color: var(--green);
-  border-color: transparent;
 }
 
 .outline {
@@ -385,12 +361,6 @@ textarea {
 .danger:hover:not(:disabled) {
   background: var(--red-soft);
   border-color: var(--red);
-}
-
-.unit-select {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .tabs button {

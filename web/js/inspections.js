@@ -39,10 +39,6 @@ function showInspectionSubtab(tabId) {
     panel.classList.toggle("active", panel.dataset.inspectionPanel === tabId);
   });
 }
-async function loadChecklist() {
-  await updateInspectionLocationSelect();
-}
-
 async function loadInspectionItems() {
   const form = document.getElementById("inspection-form");
   if (!form || !checklistContainer) return;
@@ -180,20 +176,6 @@ function renderInspectionLocationItems(location) {
       if (row && draft.images) { row.dataset.savedImages = JSON.stringify(draft.images); row.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(draft.images); }
     });
   });
-}
-
-function inspectionLocationCard(location, items) {
-  return `
-    <section class="inspection-location" data-inspection-location="${escapeAttr(location)}" hidden>
-      <header>
-        <h4>${escapeHtml(location)}</h4>
-        <span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span>
-      </header>
-      ${items.length
-        ? items.map(inspectionItemCard).join("")
-        : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`}
-    </section>
-  `;
 }
 
 function inspectionItemCard(item) {
@@ -700,7 +682,10 @@ function updateInspectionActions(progress, payload) {
   checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
   if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
   const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
-  if (signaturesButton) signaturesButton.disabled = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
+  const cannotSign = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
+  if (signaturesButton) signaturesButton.disabled = cannotSign;
+  const savedSignatureButton = document.querySelector("[data-sign-with-saved]");
+  if (savedSignatureButton) savedSignatureButton.disabled = cannotSign;
   const link = document.querySelector("[data-export-inspection-pdf]");
   if (!link) return;
   if (id) {
@@ -761,6 +746,8 @@ async function openInspectionSession(id) {
   form.elements.inspectionSessionId.value = session.id;
   form.dataset.completed = String(session.status === "Completed");
   form.dataset.closed = String(Boolean(session.closed_at));
+  form.dataset.ownerId = session.owner_user_id ? String(session.owner_user_id) : "";
+  setText("[data-signature-message]", "");
   setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
   setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
@@ -782,14 +769,4 @@ async function openInspectionSession(id) {
   showTab("inspections");
   showInspectionSubtab("guided");
   showGuidedContent(true);
-}
-
-async function restoreLastInspectionSession() {
-  const id = localStorage.getItem(lastInspectionSessionKey);
-  if (!id) return;
-  try {
-    await openInspectionSession(id);
-  } catch (error) {
-    localStorage.removeItem(lastInspectionSessionKey);
-  }
 }

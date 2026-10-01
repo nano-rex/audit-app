@@ -3,7 +3,6 @@
         <button class="active" type="button" data-context-tab="inspections">Guided Inspection</button>
         <button type="button" data-context-tab="history">History</button>
         <button type="button" data-context-tab="findings" data-feature-section="findings">Findings</button>
-        <button type="button" data-context-tab="corrective-actions" data-feature-section="corrective-actions">Corrective Actions</button>
       </nav>
       <section class="inspection-subpanel active" data-inspection-panel="guided">
         <section class="panel" data-guided-schedules-panel>
@@ -40,6 +39,8 @@
               <button class="outline" type="button" data-open-signature="acknowledgedBy">Acknowledged By</button>
               <button class="outline" type="button" data-save-inspection-signatures>Save Signatures</button>
               <div data-signature-status></div>
+              <button class="primary" type="button" data-sign-with-saved>Sign with my saved signature</button>
+              <p class="form-message" data-signature-message role="status"></p>
             </section>
             <footer class="form-actions">
               <button class="outline" type="button" data-back-to-schedules>Back to Scheduled Work</button>
