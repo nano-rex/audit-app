@@ -44,6 +44,18 @@
 }
 
 @media (max-width: 920px) {
+  /* The header wraps to several rows here; keeping it pinned would cover the page. */
+  .app-header {
+    position: static;
+  }
+
+  .admin-group li > .row-actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
   main {
     padding: 18px 24px;
   }
@@ -276,7 +288,7 @@
   }
 
   .donut {
-    width: min(240px, 78vw);
+    width: min(220px, 100%);
   }
 
   dialog {
@@ -296,7 +308,7 @@
     z-index: 1;
     margin: -18px -18px 2px;
     padding: 14px 18px;
-    background: #fff;
+    background: var(--surface);
   }
 
   .mark-toolbar {

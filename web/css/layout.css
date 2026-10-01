@@ -39,7 +39,7 @@
 .outlets article,
 .question-card {
   min-width: 0;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
 }
@@ -150,7 +150,7 @@
 
 .criteria-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(180px, 1fr);
+  grid-template-columns: minmax(200px, 1.2fr) auto minmax(180px, 1fr);
   gap: 10px;
   align-items: center;
   padding-top: 10px;
@@ -160,9 +160,10 @@
 .criteria-row label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   color: var(--text);
+  font-size: 14px;
 }
 
 .criteria-row input[type="radio"] {
@@ -178,7 +179,7 @@
 }
 
 .criteria-row.passed input[disabled] {
-  background: #eef1f4;
+  background: var(--surface-sunken);
   color: var(--muted);
 }
 
@@ -200,7 +201,7 @@
   padding: 4px 4px 4px 8px;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: #f8fafc;
+  background: var(--surface-alt);
   color: var(--text);
   vertical-align: middle;
 }
@@ -213,7 +214,7 @@
   padding: 0 6px;
   border: 0;
   border-radius: 50%;
-  background: #e8edf2;
+  background: var(--surface-sunken);
   color: var(--muted);
 }
 
@@ -260,6 +261,7 @@
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 8px;
+  /* Always white: the ink is dark and the drawing is stored as an image for the printed report. */
   background: #fff;
   touch-action: none;
 }
@@ -276,7 +278,7 @@
 
 .auth-page {
   min-height: 100vh;
-  background: #eef3f1;
+  background: var(--bg);
 }
 
 .auth-shell {
@@ -293,13 +295,19 @@
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
+}
+
+.auth-card h2 {
+  margin-bottom: 4px;
 }
 
 .plain-link {
   min-height: 0;
   padding: 0;
   border: 0;
+  justify-self: start;
+  font-weight: 500;
   background: transparent;
   color: var(--blue);
   text-align: left;
@@ -328,7 +336,7 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 [data-open-inspection-session] {
@@ -404,7 +412,7 @@
   padding: 24px;
   margin-bottom: 18px;
   color: #fff;
-  background: var(--green);
+  background: var(--hero);
   border-radius: 8px;
 }
 
@@ -434,7 +442,13 @@
   background: transparent;
 }
 
+.today-hero p {
+  margin-top: 6px;
+  opacity: .9;
+  font-size: 14px;
+}
+
 .today-hero .primary {
   background: #fff;
-  color: var(--green);
+  color: var(--hero);
 }

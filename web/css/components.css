@@ -1,6 +1,6 @@
 .loading-state {
   align-items: center;
-  color: var(--muted, #66736c);
+  color: var(--muted);
   display: flex;
   gap: .65rem;
   justify-content: center;
@@ -66,7 +66,7 @@
 
 .excellent,
 .list .excellent {
-  color: #24c362;
+  color: var(--success);
 }
 
 .monitor {
@@ -140,8 +140,8 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #f8ac30;
-  color: #fff;
+  background: var(--orange);
+  color: var(--on-accent);
   font-style: normal;
   font-weight: 700;
 }
@@ -184,7 +184,7 @@
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface, #fff);
+  background: var(--surface);
 }
 
 .department-card-heading {
@@ -236,11 +236,32 @@
   list-style: none;
 }
 
+/* Title and detail lines stack on the left; the actions stay on the right, centred against the whole row. */
 .admin-group li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px;
-  align-items: start;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-group li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-group li:last-child {
+  padding-bottom: 0;
+}
+
+.admin-group li > * {
+  grid-column: 1;
+}
+
+.admin-group li > .row-actions {
+  grid-column: 2;
+  grid-row: 1 / span 4;
 }
 
 .admin-group li > b,
@@ -269,7 +290,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--green);
 }
 
@@ -309,14 +330,14 @@ dialog label {
   max-width: 100%;
   padding: 10px;
   border-radius: 7px;
-  color: #fff;
+  color: var(--on-accent);
   background: var(--blue);
   text-align: right;
   font-weight: 700;
 }
 
 .bars .excellent-bar {
-  background: #24c362;
+  background: var(--success);
 }
 
 .legend {
@@ -329,7 +350,7 @@ dialog label {
 }
 
 .donut {
-  width: min(280px, 72vw);
+  width: min(240px, 100%);
   aspect-ratio: 1;
   margin: 0 auto;
   border-radius: 50%;
@@ -342,7 +363,7 @@ dialog label {
   position: absolute;
   inset: 30%;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
 }
 
 .donut[hidden] {
@@ -367,7 +388,7 @@ dialog label {
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 .account-photo-row > div {
@@ -387,7 +408,7 @@ dialog label {
   width: 100%;
   min-height: 42px;
   padding: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .account-signature {
@@ -398,7 +419,7 @@ dialog label {
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 .account-signature h3,
@@ -432,9 +453,20 @@ dialog label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 16px 0;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 0 0;
   width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.list-pager button,
+.list-pager input,
+.list-pager select {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
 }
 
 .list-pager label {
@@ -466,9 +498,15 @@ dialog label {
   display: none;
 }
 
+.sub-tabs button {
+  font-weight: 500;
+}
+
 .sub-tabs button.active {
   color: var(--green);
   background: var(--green-soft);
+  border-color: var(--green);
+  font-weight: 700;
 }
 
 .legend-swatch {
@@ -487,9 +525,13 @@ dialog label {
 
 dialog {
   width: min(680px, 94vw);
-  border: 0;
+  max-height: calc(100dvh - 32px);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
 
 dialog::backdrop {
@@ -506,16 +548,27 @@ dialog header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
   margin: -22px -24px 4px;
-  padding: 18px 24px;
+  padding: 14px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+dialog header h2 {
+  margin: 0;
 }
 
 dialog header button {
   border: 0;
-  min-height: 0;
+  min-height: 32px;
+  min-width: 32px;
   padding: 4px;
   color: var(--muted);
+  font-size: 16px;
 }
 
 .zone-location-picker {
@@ -537,7 +590,7 @@ dialog header button {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 .zone-location-option {
@@ -548,7 +601,7 @@ dialog header button {
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .zone-location-option small {
@@ -557,7 +610,7 @@ dialog header button {
 
 .zone-location-option.disabled {
   color: var(--muted);
-  background: #eef1f5;
+  background: var(--surface-sunken);
   opacity: 0.72;
 }
 
@@ -591,7 +644,7 @@ fieldset {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-  color: #3f4b45;
+  color: var(--text-soft);
 }
 
 .help-block h3 {
@@ -602,7 +655,7 @@ fieldset {
 .help-block p,
 .help-block dd,
 .help-block li {
-  color: #637169;
+  color: var(--text-soft);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -640,7 +693,7 @@ fieldset {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #f8fafc;
+  background: var(--surface-alt);
   color: var(--blue);
   font-size: 14px;
   font-weight: 800;
@@ -653,7 +706,7 @@ fieldset {
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .inspection-zone-tabs {
@@ -679,7 +732,7 @@ fieldset {
 
 .inspection-zone {
   margin-bottom: 14px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 .inspection-location-nav {
@@ -696,8 +749,8 @@ fieldset {
   min-height: 48px;
   padding: 8px 10px;
   border-color: var(--border);
-  background: #fff;
-  color: var(--ink);
+  background: var(--surface);
+  color: var(--text);
   text-align: left;
 }
 
@@ -742,14 +795,19 @@ fieldset {
   font-weight: 800;
 }
 
+.status-none {
+  color: var(--muted);
+  background: var(--surface-sunken);
+}
+
 .status-untouched {
   color: var(--red);
-  background: #ffe8e8;
+  background: var(--red-soft);
 }
 
 .status-progress {
   color: var(--orange);
-  background: #fff1dc;
+  background: var(--orange-soft);
 }
 
 .status-complete {
@@ -802,3 +860,111 @@ fieldset {
 .audit-chart-label strong { flex-shrink: 0; }
 .audit-chart-track { height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; }
 .audit-chart-track span { display: block; height: 100%; background: var(--blue); }
+
+#work-order-form[data-mode="finding"] [data-work-order-only] { display: none; }
+.criteria-row.passed [data-record-finding] { visibility: hidden; }
+.finding-summary { grid-column: 1 / -1; color: var(--muted); }
+.finding-summary[hidden] { display: none; }
+
+/* Row actions are compact and the same size in cards, lists, and tables. */
+.row-actions button,
+.row-actions .button-link {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.users-table .row-actions {
+  flex-wrap: nowrap;
+}
+
+/* Buttons that follow a card's intro text, and the intro line of a page. */
+.panel:not(.filter) > button,
+.panel:not(.filter) > .button-link {
+  margin: 0 8px 14px 0;
+}
+
+.list-pager label {
+  white-space: nowrap;
+}
+
+.list-pager label > input,
+.list-pager label > select {
+  width: 72px;
+}
+
+.tab-panel > p,
+.tab-panel > section > p {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.audit-chart-label {
+  font-size: 13px;
+}
+
+.inline-form > button,
+.inline-form > .button-link {
+  justify-self: start;
+}
+
+.settings-grid .detail-list,
+.detail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.detail-list dt {
+  color: var(--muted);
+}
+
+.detail-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+[data-current-audit-reference] {
+  display: block;
+  margin: 2px 0 10px;
+}
+
+.inspection-item > label {
+  margin-top: 8px;
+}
+
+dialog header h2 {
+  color: var(--text);
+}
+
+/* Settings cards hold whole forms; give them room and let their contents wrap instead of spilling out. */
+.settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.settings-grid .form-grid {
+  grid-template-columns: 1fr;
+}
+
+.form-actions {
+  flex-wrap: wrap;
+}
+
+.compact-list article {
+  flex-wrap: wrap;
+}
+
+.compact-list article > div {
+  flex: 1 1 160px;
+}

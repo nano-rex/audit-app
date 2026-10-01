@@ -12,10 +12,17 @@ function setTheme(theme) {
   applyTheme(value);
 }
 
-applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || "light");
+// Without a saved choice, follow the device setting.
+function preferredTheme() {
+  const saved = localStorage.getItem(THEME_STORAGE_KEY);
+  if (saved) return saved;
+  return typeof matchMedia === "function" && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+applyTheme(preferredTheme());
 document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-theme-toggle]").forEach((toggle) => {
     toggle.addEventListener("change", () => setTheme(toggle.checked ? "dark" : "light"));
   });
-  applyTheme(localStorage.getItem(THEME_STORAGE_KEY) || "light");
+  applyTheme(preferredTheme());
 });
