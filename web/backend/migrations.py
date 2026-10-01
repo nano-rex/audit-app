@@ -461,6 +461,7 @@ def init_db():
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")
         ensure_column(db, "notifications", "recipient_user_id", "INTEGER")
         db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_user_id, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_related ON notifications(related_type, related_id)")
         db.execute("UPDATE equipment SET location = zone WHERE location IS NULL OR location = ''")
         db.execute("UPDATE equipment SET installation_date = last_checked WHERE installation_date IS NULL OR installation_date = ''")
         db.execute("DELETE FROM audits WHERE auditor = 'Sample Auditor'")

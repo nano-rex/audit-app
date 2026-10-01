@@ -19,8 +19,13 @@ def notify_inspection(db, session_id, actor, payload, previous=None, changed=Fal
             caps = set(INSPECTION_PERMISSIONS) if user["role"] == SUPER_ROLE else set(overrides.get("inspectionPermissions", [])) if overrides is not None else roles.get(user["role"], set())
             if caps.intersection({"verifier", "acknowledger"}):
                 recipients.add(user["id"])
+        message = f"{actor['name']} saved {session['inspection_name']}: {session['progress']}% complete."
+        # A draft is saved many times. Refresh the reviewer's unread notice instead of adding one per save.
+        waiting = {row[0] for row in db.execute("SELECT recipient_user_id FROM notifications WHERE related_type = 'inspection' AND related_id = ? AND title = 'Audit progress updated' AND status = 'Unread'", (session_id,))}
+        db.executemany("UPDATE notifications SET message = ?, created_at = ? WHERE related_type = 'inspection' AND related_id = ? AND title = 'Audit progress updated' AND status = 'Unread' AND recipient_user_id = ?",
+                       [(message, now, session_id, recipient) for recipient in sorted(recipients & waiting)])
         db.executemany("INSERT INTO notifications(title,message,channel,status,related_type,related_id,created_at,recipient_user_id) VALUES (?,?,'In-App','Unread','inspection',?,?,?)",
-                       [("Audit progress updated", f"{actor['name']} saved {session['inspection_name']}: {session['progress']}% complete.", session_id, now, recipient) for recipient in recipients])
+                       [("Audit progress updated", message, session_id, now, recipient) for recipient in sorted(recipients - waiting)])
     prior = load_value(previous["signatures_data_id"] or "{}") if previous else {}
     verified = (payload.get("signatures") or {}).get("verifiedBy")
     owner_id = session["owner_user_id"]
