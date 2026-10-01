@@ -33,7 +33,9 @@ All persistent records and image bytes are stored in SQLite.
 | New Audit, then open it from a list | The checklist opens as soon as the audit is created | One step fewer |
 | Verify, then close, as two separate edits | A verifier may close a completed work order directly; the verification is still recorded | One step fewer |
 | A fixed list of statuses on every work order | Only the statuses allowed from the current one are offered | Prevents choosing a step the server would refuse |
-| Separate Findings, Corrective Actions, Reports, and Fixed Assets menu entries | Sub-pages of Inspections, Dashboard, and Assets | Fits the navigation bar on a phone |
+| Separate Findings, Reports, and Fixed Assets menu entries | Sub-pages of Inspections, Dashboard, and Assets | Fits the navigation bar on a phone |
+| A Corrective Actions page beside Work Orders | One Work Orders page; the old page's permission was folded into it on upgrade | Both listed the same records with the same access |
+| A signature drawn for each role | One step signs every role you hold with the signature saved on your account; drawing is still available | Most signers hold a saved signature |
 | Email reset link for forgotten passwords | A reset request that an administrator reviews | No email integration |
 | Photo of every inspected asset | The default, but an administrator can limit it to assets with a failed check | Large outlets have thousands of assets |
 

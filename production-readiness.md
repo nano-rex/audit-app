@@ -31,7 +31,9 @@ python3 web/server.py
   `Referrer-Policy: same-origin`.
 - **Passwords and sessions:** PBKDF2-SHA256 with 600,000 iterations; older hashes are upgraded
   at sign-in. Sessions are stored as token hashes in SQLite and survive restarts. Deactivation,
-  password reset, and password change revoke sessions.
+  password reset, and password change revoke sessions. An account flagged to change its
+  password (created on the default password, or reset by an administrator) is refused every
+  request except reading its own account, changing the password, and signing out.
 - **Sign-in limit:** five failed attempts for one identifier from one client address within 15
   minutes return HTTP 429 with `Retry-After`. Every attempt performs one password hash, so
   response time does not reveal which accounts exist. The limiter is held in memory: it
@@ -83,11 +85,10 @@ The load tool (`tools/load_test.py --users 100`) starts a loopback server on a t
 database with 2,500 assets and 300 draft inspections, then has 100 already-authenticated
 clients each request the page shell, dashboard, and asset list and save a draft.
 
-Latest run on this shared ARM64 host (four CPUs, about 2.7 GiB RAM), on 2 October 2026 before
-that day's interface changes: all 400
-requests succeeded and all 100 drafts were stored. The 95th-percentile times were about 1.4 s
-for the page shell, 1.4 s for the dashboard, 1.3 s for the asset list, and 3.3 s for saving a
-draft. Draft saves therefore miss a two-second target.
+Latest run on this shared ARM64 host (four CPUs, about 2.7 GiB RAM), on 2 October 2026 with
+the current code: all 400 requests succeeded and all 100 drafts were stored. The
+95th-percentile times were about 1.0 s for the page shell, 1.0 s for the dashboard, 1.2 s for
+the asset list, and 3.2 s for saving a draft. Draft saves therefore miss a two-second target.
 
 These figures exclude sign-in hashing, TLS, network latency, image uploads, PDF generation,
 sustained traffic, and browser rendering, and the client shares the machine with the server.
@@ -95,7 +96,7 @@ They are a regression signal, not a capacity guarantee.
 
 ## Verified, and not
 
-- 59 backend tests and 14 frontend tests pass; pyflakes and `git diff --check` pass.
+- 62 backend tests and 15 frontend tests pass; pyflakes and `git diff --check` pass.
 - The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
   Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
   from outside the repository and is not an automated test here.
@@ -107,8 +108,6 @@ They are a regression signal, not a capacity guarantee.
 
 - **Committed data:** `web/data/ottotree_audit_web.db` is tracked in git with user rows and
   password hashes, and the seeded accounts' passwords are in `web/backend/seed_data.py`.
-- **Forced password change** is enforced by the browser dialog only; the API accepts other
-  requests from an account flagged for reset.
 - **Photo evidence** is required by the browser only; the API accepts a completed inspection
   without photos.
 - **Company database selection** is process state. A restart returns to

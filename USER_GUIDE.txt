@@ -14,6 +14,9 @@ permissions assigned to your account.
    the auditor; you do not need to type your name into an inspection.
 3. If you cannot sign in, use Forgot Password to send a reset request. An
    administrator must review the request and reset the password.
+4. If your account was created without a password of its own, or an
+   administrator reset it, you are asked to choose a new password as soon as
+   you sign in. Nothing else is available until you do.
 
 2. COMPLETE FIRST-TIME ADMIN SETUP
 ----------------------------------
@@ -74,9 +77,11 @@ An administrator should configure these records before staff begin auditing:
 
 5. ADD SIGNATURES AND REVIEW HISTORY
 ------------------------------------
-1. In the inspection, use Audited By, Verified By, or Acknowledged By to add
-   the signatures your workflow requires. Select Save Signatures. Your identity
-   and timestamp are recorded with the signature.
+1. In the inspection, choose Sign with my saved signature to sign every role
+   you hold (auditor, verifier, acknowledger) in one step, using the signature
+   saved under Account. To draw or upload a signature instead, use Audited By,
+   Verified By, or Acknowledged By, then Save Signatures. Your identity and
+   timestamp are recorded with each signature.
 2. Open History & Findings to browse completed inspections and their findings.
    Use search and filters to narrow the list.
 3. Open an inspection and use Export PDF to download its report. The PDF
@@ -99,11 +104,14 @@ An administrator should configure these records before staff begin auditing:
    as "Verify corrective action"). With a verification remark the verifier can
    choose Closed to accept and close in one step, Verified to accept and close
    later, or In Progress to return the work for correction.
-5. Closed records are retained for audit history and open read-only. If a step is refused (for example a
-   missing completion photo), the reason is shown at the bottom of the dialog.
+5. Closed records are retained for audit history and open read-only. If a
+   step is refused (for example a missing completion photo), the reason is
+   shown at the bottom of the dialog.
 6. The Notifications page shows relevant progress, assignment, verification,
-   due-soon, and overdue notices. The number of unread notices is shown on the
-   Notifications button, or on the page menu when that button does not fit.
+   due-soon, and overdue notices. Open goes to the inspection or work order a
+   notice is about and marks it read; Mark all read clears the rest. The
+   number of unread notices is shown on the Notifications button, or on the
+   page menu when that button does not fit.
 
 7. CLOSE AN AUDIT AND REVIEW REPORTS
 -----------------------------------

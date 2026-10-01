@@ -13,7 +13,6 @@ see the [repository README](../README.md); for server modules, see
 - `html/tabs/` — one file per page; `html/dialogs/` — dialog forms.
 - `js/` — browser scripts, loaded as plain globals in the order listed in `index.html`.
 - `css/` — stylesheets. Colours are tokens in `base.css`, with a light and a dark set.
-  `styles.css` is a compatibility entry point that imports them.
 - `data/` — the SQLite database and its backups (override with `AUDIT_DATA_DIR`).
 
 ## Pages
@@ -21,7 +20,7 @@ see the [repository README](../README.md); for server modules, see
 | Page | Sub-pages | Use |
 | --- | --- | --- |
 | Dashboard | Reports | What is waiting on you, scheduled audits, overview figures and charts; filtered reports and exports |
-| Inspections | History, Findings, Corrective Actions | Guided checklist; past inspections, PDFs, and audit closure; findings and their follow-up |
+| Inspections | History, Findings | Guided checklist; past inspections, PDFs, and audit closure; findings raised by audits |
 | Work Orders | | Corrective actions and manually raised issues |
 | Notifications | | In-app notices addressed to you |
 | Assets | Fixed Assets, Categories | The asset register with inspection criteria; finding categories |
