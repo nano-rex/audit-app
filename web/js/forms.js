@@ -212,6 +212,8 @@ async function openWorkOrderEditor(row = null) {
   const form = document.getElementById("work-order-form");
   const isEdit = Boolean(row?.id);
   form.reset();
+  form.dataset.mode = "work-order";
+  setText("[data-work-order-message]", "");
   form.querySelector("[data-corrective-fields]").hidden = false;
   form.querySelector("[data-verification-fields]").hidden = false;
   form.dataset.savedImages = JSON.stringify(parseStoredImages(row?.images_json || "[]"));
@@ -251,6 +253,9 @@ async function openWorkOrderEditor(row = null) {
     form.querySelector("h2").textContent = "Create Work Order";
     form.querySelector('button[type="submit"]').textContent = "Save Work Order";
   }
+  const closed = row?.status === "Closed";
+  form.querySelector('button[type="submit"]').hidden = closed;
+  if (closed) form.querySelector("h2").textContent = "Closed Work Order";
   setWorkOrderCompletionPhotos(parseStoredImages(row?.completion_photo || "[]"));
   await loadWorkOrderComments(row?.id || "");
   dialog.showModal();
@@ -480,12 +485,17 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     verificationRemark: formValue(form, "verificationRemark", ""),
   };
   if (activeFindingRow) {
+    if (!payload.description.trim()) {
+      setText("[data-work-order-message]", "Describe what is wrong before saving the finding.");
+      return;
+    }
     activeFindingRow.dataset.findingDetails = JSON.stringify({
-      priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
+      category: payload.category, priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
       cause: payload.cause, recommendation: payload.recommendation, requiredAction: payload.requiredAction,
     });
-    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description;
-    activeFindingRow.querySelector('select[name*="-category-"]').value = payload.category;
+    // The remark is a single-line field; keep the description readable there.
+    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description.replace(/\s*\n+\s*/g, "; ").trim();
+    renderFindingSummary(activeFindingRow);
     const asset = activeFindingRow.closest("[data-equipment-id]");
     asset.dataset.savedImages = JSON.stringify(payload.images);
     asset.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(payload.images);
@@ -494,7 +504,13 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     updateInspectionProgress();
     return;
   }
-  await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
+  try {
+    await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
+  } catch (error) {
+    // Workflow rules (missing completion evidence, verifier permission) are explained in the dialog.
+    setText("[data-work-order-message]", error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });

@@ -3,20 +3,20 @@
       <header><h2>Create Work Order</h2><button type="button" data-close-dialog>x</button></header>
       <input name="workOrderId" type="hidden">
       <div class="form-grid">
-        <label>Outlet<select name="outlet"></select></label>
-        <label>Location<select name="zone"></select></label>
+        <label data-work-order-only>Outlet<select name="outlet"></select></label>
+        <label data-work-order-only>Location<select name="zone"></select></label>
         <label>Department<select name="requestType"></select></label>
         <label>Category<select name="category"></select></label>
         <label>Priority<select name="priority"></select></label>
-        <label>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
-        <label>Assignee<input name="assignee" placeholder="Technical Support"></label>
+        <label data-work-order-only>Status<select name="status"><option>Open</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Completed</option><option>Verified</option><option>Closed</option></select></label>
+        <label data-work-order-only>Assignee<input name="assignee" placeholder="Technical Support"></label>
         <label>PIC<input name="pic" placeholder="Person in charge"></label>
-        <label>Due Date<input name="dueDate" type="date"></label>
-        <label>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
-        <label>SLA Status<select name="slaStatus"><option value="">Auto</option><option>On Track</option><option>Due Soon</option><option>Overdue</option><option>Completed</option></select></label>
-        <label>Cost<input name="cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label data-work-order-only>Due Date<input name="dueDate" type="date"></label>
+        <label data-work-order-only>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
+        <label data-work-order-only>SLA Status<select name="slaStatus"><option value="">Auto</option><option>On Track</option><option>Due Soon</option><option>Overdue</option><option>Completed</option></select></label>
+        <label data-work-order-only>Cost<input name="cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
       </div>
-      <label>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
+      <label data-work-order-only>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
       <label>Description<textarea name="description" placeholder="Troubleshooting detail, photo note, or outlet confirmation needed"></textarea></label>
       <label>Cause<textarea name="cause" placeholder="Known or suspected cause"></textarea></label>
       <label>Recommendation<textarea name="recommendation" placeholder="Suggested correction"></textarea></label>
@@ -50,6 +50,7 @@
         <label>Add Comment<textarea name="timelineComment" placeholder="Add a follow-up note"></textarea></label>
         <button class="outline" type="button" data-add-work-order-comment>Add Comment</button>
       </section>
+      <p class="form-message" data-work-order-message role="alert"></p>
       <button class="primary" type="submit" value="default">Save Work Order</button>
     </form>
   </dialog>

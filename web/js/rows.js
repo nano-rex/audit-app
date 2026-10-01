@@ -176,7 +176,9 @@ function equipmentRow(row) {
 }
 
 function workOrderRow(row) {
+  const closed = row.status === "Closed";
   const confirmation = row.outlet_confirmed ? "Outlet confirmed" : "Awaiting outlet confirmation";
+  const state = closed || row.status === "Verified" ? row.status : `${row.status} - ${confirmation}`;
   const reference = row.work_order_ref || `#${row.id}`;
   const pic = row.pic || row.assignee || "No PIC";
   const completion = row.completion_date ? `Completed ${row.completion_date}` : "No completion date";
@@ -191,9 +193,9 @@ function workOrderRow(row) {
         <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(sla)} | ${escapeHtml(completion)}${verification ? ` | ${escapeHtml(verification)}` : ""}${row.action_taken ? ` | ${escapeHtml(row.action_taken)}` : ""}</span>
       </div>
       <span class="row-actions">
-        <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)} - ${confirmation}</small></strong>
-        <button type="button" class="outline" data-edit-work-order='${escapeAttr(JSON.stringify(row))}'>Edit</button>
-        <button type="button" class="danger" data-delete-work-order="${row.id}">Delete</button>
+        <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(state)}</small></strong>
+        <button type="button" class="outline" data-edit-work-order='${escapeAttr(JSON.stringify(row))}'>${closed ? "View" : "Edit"}</button>
+        ${closed ? "" : `<button type="button" class="danger" data-delete-work-order="${row.id}">Delete</button>`}
       </span>
     </article>
   `;

@@ -31,7 +31,7 @@ def build_report(session, brand, summary, media, settings=None):
     def paragraph(text, style="BodyText"):
         return Paragraph(escape(str(text or "")).replace("\n", "<br/>"), styles[style])
 
-    def images(values, caption):
+    def images(values, caption, max_height=230):
         for value in values or []:
             if not isinstance(value, dict):
                 story.append(paragraph(f"{caption}: {value} (legacy filename only)"))
@@ -41,7 +41,7 @@ def build_report(session, brand, summary, media, settings=None):
                 if not content:
                     continue
                 image = Image(BytesIO(content))
-                ratio = min(460 / image.imageWidth, 230 / image.imageHeight, 1)
+                ratio = min(460 / image.imageWidth, max_height / image.imageHeight, 1)
                 image.drawWidth, image.drawHeight = image.imageWidth * ratio, image.imageHeight * ratio
                 label = f"{'Marked' if marked else caption}: {value.get('markedName' if marked else 'name', 'Photo')}"
                 story.append(KeepTogether([paragraph(label, "Caption"), image, Spacer(1, 8)]))
@@ -118,7 +118,7 @@ def build_report(session, brand, summary, media, settings=None):
         signature = (session.get("signatures") or {}).get(key)
         story.append(paragraph(f"{label}: {(signature or {}).get('name') or 'Unsigned'}", "Heading3"))
         if signature:
-            images([signature], label)
+            images([{**signature, "name": str(signature.get("signedAt") or "")[:10] or "date not recorded"}], "Signed", max_height=90)
 
     def footer(canvas, document):
         canvas.saveState()

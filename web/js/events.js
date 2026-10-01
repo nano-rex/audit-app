@@ -602,33 +602,38 @@ checklistContainer?.addEventListener("change", async (event) => {
   }
   updateInspectionProgress();
   if (input.checked) return;
-  const detail = JSON.parse(input.dataset.inspectionCheck);
-  const department = setupOptions.departments[0] || "";
-  const category = setupOptions.categories[0] || "";
+  await openFindingEditor(row);
+});
+
+// A failed criterion is recorded with the work-order form, limited to the fields a finding keeps.
+async function openFindingEditor(row) {
+  const detail = JSON.parse(row.querySelector("[data-inspection-check]").dataset.inspectionCheck);
+  const saved = parseStoredObject(row.dataset.findingDetails);
+  const notes = row.querySelector('input[name*="-notes-"]');
   await openWorkOrderEditor({
     outlet: detail.outlet,
     zone: detail.location,
-    request_type: department,
-    category,
-    priority: "High",
+    request_type: saved.assignedDepartment || setupOptions.departments[0] || "",
+    category: saved.category || setupOptions.categories[0] || "",
+    priority: saved.priority || "High",
     status: "Assigned",
     assignee: "Technical Support",
+    pic: saved.pic || "",
     title: `${detail.name} - ${detail.criterion}`,
-    description: [
-      `Fixed asset: ${detail.name}`,
-      detail.code ? `Code: ${detail.code}` : "",
-      `Type: ${detail.type}`,
-      `Failed check: ${detail.criterion}`,
-    ].filter(Boolean).join("\n"),
+    description: notes?.value.trim() || `Failed check: ${detail.criterion}`,
+    cause: saved.cause || "",
+    recommendation: saved.recommendation || "",
+    required_action: saved.requiredAction || "",
     images_json: row.closest("[data-equipment-id]").dataset.savedImages || "[]",
   });
   activeFindingRow = row;
   const findingForm = document.getElementById("work-order-form");
+  findingForm.dataset.mode = "finding";
   findingForm.querySelector("h2").textContent = "Record Audit Finding";
   findingForm.querySelector('button[type="submit"]').textContent = "Save Finding to Draft";
   findingForm.querySelector("[data-corrective-fields]").hidden = true;
   findingForm.querySelector("[data-verification-fields]").hidden = true;
-});
+}
 
 document.querySelector("[data-work-order-evidence-upload]").addEventListener("change", async (event) => {
   const input = event.target;
@@ -691,6 +696,12 @@ checklistContainer?.addEventListener("click", (event) => {
     const savedImages = itemRow?.querySelector("[data-saved-images]");
     if (savedImages) savedImages.innerHTML = renderInspectionImages(images);
     updateInspectionProgress();
+    return;
+  }
+
+  const findingButton = event.target.closest("[data-record-finding]");
+  if (findingButton) {
+    openFindingEditor(findingButton.closest(".criteria-row")).catch(showLoadError);
     return;
   }
 

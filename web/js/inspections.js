@@ -216,11 +216,22 @@ function inspectionItemCard(item) {
             location: item.location || item.zone || "",
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
-          <input name="equipment-${item.id}-notes-${index}" placeholder="Required when unchecked">
+          <button class="outline" type="button" data-record-finding>Finding details</button>
+          <input name="equipment-${item.id}-notes-${index}" placeholder="Remark (required when not passed)">
+          <small class="finding-summary" data-finding-summary hidden></small>
         </div>
       `).join("")}
     </article>
   `;
+}
+
+function renderFindingSummary(criterionRow) {
+  const summary = criterionRow?.querySelector("[data-finding-summary]");
+  if (!summary) return;
+  const details = parseStoredObject(criterionRow.dataset.findingDetails);
+  const parts = [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean);
+  summary.textContent = parts.length ? `Finding: ${parts.join(" · ")}` : "";
+  summary.hidden = !parts.length;
 }
 
 function renderInspectionImages(images) {
@@ -450,13 +461,14 @@ function collectInspectionPayload(complete = false) {
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const criterion = criterionRow.dataset.criterion;
       const passed = formData.get(`equipment-${row.dataset.equipmentId}-criterion-${index}`) === "pass";
+      const details = parseStoredObject(criterionRow.dataset.findingDetails);
       items.push({
-        ...parseStoredObject(criterionRow.dataset.findingDetails),
+        ...details,
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
-        category: "",
+        category: passed ? "" : details.category || "",
         passed,
         notApplicable: false,
         score: passed ? 100 : 0,
@@ -593,14 +605,17 @@ function updateInspectionStatusPills(payload) {
     const status = statusForProgress(done, items.length);
     const progress = inspectionProgress({ items });
     const pill = section.querySelector("[data-location-status]");
+    // A location without fixed assets has nothing to inspect; do not show it as outstanding.
+    const className = items.length ? status.className : "status-none";
+    const label = items.length ? `(${progress}%)` : "No assets";
     if (pill) {
-      pill.className = `status-pill ${status.className}`;
-      pill.textContent = `(${progress}%)`;
+      pill.className = `status-pill ${className}`;
+      pill.textContent = label;
     }
     document.querySelectorAll("[data-location-nav-status]").forEach((navPill) => {
       if (navPill.dataset.locationNavStatus !== location) return;
-      navPill.className = `status-pill ${status.className}`;
-      navPill.textContent = `(${progress}%)`;
+      navPill.className = `status-pill ${className}`;
+      navPill.textContent = label;
     });
   });
   document.querySelectorAll("[data-inspection-zone]").forEach((section) => {
@@ -668,11 +683,15 @@ function isInspectionReadyToComplete(payload) {
 
 function updateInspectionActions(progress, payload) {
   const button = document.querySelector("[data-save-inspection-progress]");
-  if (button) button.textContent = isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
   const form = document.getElementById("inspection-form");
+  const completed = form?.dataset.completed === "true";
+  if (button) button.textContent = completed ? "Inspection Completed" : isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
   const id = form ? formValue(form, "inspectionSessionId", "") : "";
-  const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && form?.dataset.completed !== "true";
+  const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && !completed;
   if (button) button.disabled = !editable;
+  // A completed or view-only checklist is shown as recorded.
+  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
+  if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
   const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
   if (signaturesButton) signaturesButton.disabled = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
   const link = document.querySelector("[data-export-inspection-pdf]");
@@ -710,9 +729,10 @@ function applyInspectionSessionItems() {
       const item = saved.find((entry) => entry.item === criterionRow.dataset.criterion) || saved[index];
       if (!item) return;
       criterionRow.dataset.findingDetails = JSON.stringify({
-        priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
+        category: item.category, priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
         cause: item.cause, recommendation: item.recommendation, requiredAction: item.requiredAction,
       });
+      renderFindingSummary(criterionRow);
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
       checkbox.checked = Boolean(item.passed);
