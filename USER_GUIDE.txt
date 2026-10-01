@@ -47,19 +47,22 @@ An administrator should configure these records before staff begin auditing:
 2. Select the scheduled work item. The app creates or resumes its inspection
    and displays the inspection reference and details.
 3. Work through each listed location and fixed-asset criterion.
-4. Mark each criterion as passed or N/A when appropriate. For a failed
-   criterion, leave it unchecked and enter the required remark.
-5. Add a photo for each applicable asset. You can add multiple photos, remove
-   a photo, or open Mark to annotate it before saving the mark.
-6. When a criterion is failed, the Record Audit Finding dialog opens. Select
-   its category, priority, department, and PIC as appropriate; add the cause,
-   recommendation, required action, remarks, and evidence. Choose Save Finding
-   to Draft to keep these details with the inspection. The finding and linked
-   work order are created when the inspection is completed.
+4. Tick each criterion that passes. For a failed criterion, leave it unticked
+   and enter a remark, or select Finding details beside it.
+5. Add a photo for each asset. You can add multiple photos, remove a photo, or
+   open Mark to annotate it before saving the mark.
+6. Finding details opens the Record Audit Finding dialog (it also opens when
+   you untick a criterion). Select the category, priority, department, and PIC;
+   describe the problem; add the cause, recommendation, required action, and
+   evidence. Choose Save Finding to Draft to keep these details with the
+   inspection; a summary appears under the criterion. A failed criterion with
+   only a remark uses the default category, priority, and department. The
+   finding and linked work order are created when the inspection is completed.
 7. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
-8. When every applicable criterion is resolved and has evidence, the button
-   changes to Complete Inspection. Select it to submit. The app validates the
+8. When every criterion is ticked or has a remark, and every asset has a
+   photo, the button changes to Complete Inspection. Locations without fixed
+   assets show "No assets" and do not count. Select the button to submit. The app validates the
    checklist, calculates the configured score, saves the audit and its findings,
    and updates the dashboard.
 
@@ -86,7 +89,8 @@ An administrator should configure these records before staff begin auditing:
    with a verification remark, or return the work to In Progress with a remark
    explaining what still needs attention.
 5. After verification, close the work order. Closed records are retained for
-   audit history.
+   audit history and open read-only. If a step is refused (for example a
+   missing completion photo), the reason is shown at the bottom of the dialog.
 6. The Notifications page shows relevant progress, assignment, verification,
    due-soon, and overdue notices.
 
@@ -100,10 +104,20 @@ An administrator should configure these records before staff begin auditing:
 3. Use Export PDF on an inspection for its detailed audit report. Use the
    Reports page export actions for CSV, Excel, or JSON report data.
 
+8. SUPER ACCOUNT
+----------------
+The built-in Super account has every page above, plus two restricted pages
+under the page menu: Super Dashboard (users, roles, assets, open findings, and
+the active company database) and Super Settings (company databases, priority
+levels, audit types, scoring, and report settings). Switching the company
+database signs every user out.
+
 IMPORTANT NOTES
 ---------------
+- Dark mode and items per page are under Settings. Until you choose, the app
+  follows your device's light or dark setting.
 - Save Progress frequently when working in the field.
-- A failed criterion needs a remark. Applicable inspection items need photo
+- A failed criterion needs a remark. Every inspected asset needs photo
   evidence before the inspection can be completed.
 - Priority due dates come from the priority-level setup. The app sends in-app
   assignment and due-date reminders while the server is running.

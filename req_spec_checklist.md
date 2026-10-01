@@ -401,7 +401,7 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 - [x] Predefined equipment inspection criteria
 - [x] PASS/FAIL style criteria through checkbox and remark
-- [x] N/A option
+- [~] N/A option (the API and reports accept it; the web checklist control was removed on 29 September 2026)
 - [x] Failed item opens work order request
 - [x] Failed item flow includes take photo
 - [x] Failed item flow includes mark issue

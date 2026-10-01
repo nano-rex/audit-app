@@ -127,3 +127,25 @@ Still open:
 - A required password change is enforced only by the browser dialog. The API accepts other requests from an account flagged for reset.
 - The selected company database is process state. A restart returns to `ottotree_audit_web.db`, and a database created by an older release is not migrated when it is selected.
 - The seeded accounts use short published passwords and are not flagged for change. Rotate them before any deployment that is reachable by others.
+
+## Workflow and interface review — 2 October 2026
+
+The web workflow in `USER_GUIDE.txt` was driven end to end in headless Chromium against a temporary database: admin setup (location, fixed asset), New Audit, guided inspection with a photo and one failed criterion, signatures, corrective action by the assigned person, verification, work-order and audit closure, PDF and report exports, and database create/switch as Super. Pages were also checked in dark mode and at phone width.
+
+| Problem | Result |
+| --- | --- |
+| Saving a finding from a failed criterion threw a script error (it wrote to a category control that no longer exists), so the dialog never closed and findings could not be recorded | The finding saves to the draft, keeps its category, shows a summary under the criterion, and reopens with its saved details; each failed criterion has a Finding details button |
+| The Super account's pages resolved to panels that do not exist: Super Dashboard was blank, Super Settings showed the personal settings page, and the bar had no buttons for the other pages | Super has every regular page plus Super Dashboard and Super Settings, matching the list the server validates, so saving the page order works for Super |
+| The Super account's role list contained only the Super role | Super lists and manages every role; other accounts still never see the Super role |
+| Any save reloaded the app onto the parent page (for example Fixed Assets back to Categories) with the wrong sub-tab highlighted | The active page and sub-page are restored |
+| Work-order rule failures (missing completion evidence, verifier permission) produced no message | The reason is shown in the dialog |
+| Closed work orders offered Edit and Delete and read "Closed - Awaiting outlet confirmation" | Closed orders show View only and open without a save button |
+| A completed inspection still offered a disabled "Complete Inspection" and editable-looking controls | The button reads "Inspection Completed" and the checklist is disabled |
+| Locations without fixed assets showed a red 0% | They show "No assets" |
+| Finished schedules were mixed in date order with open ones | Open schedules are listed first |
+| The PDF repeated each signer line and drew signatures large enough to push one onto a new page | One signer line with the signing date; signatures share a page |
+| Secondary text (`.muted`) was painted as a grey bar; labels sat beside their fields outside dialogs; admin list rows, dialog headers, pagers, and settings cards were misaligned or overflowing | Fixed in the stylesheets |
+| Dark mode was a list of per-component overrides and missed dialogs, pills, and several panels; sign-in pages ignored the theme | Colours are tokens in `web/css/base.css` with one dark set; all pages follow the saved theme, or the device setting when none is saved |
+| Eight of the eleven frontend tests had been failing since the navigation and pagination changes | All pass again, with two added for the fixes above |
+
+Verification: 57 backend tests and 13 frontend tests pass; pyflakes and `git diff --check` pass. The browser walk is not an automated test in this repository; it was run by hand with Playwright from outside the project. Not covered: the photo marking tool, QR scanning, real phone cameras, the Android app, and browsers other than Chromium.
