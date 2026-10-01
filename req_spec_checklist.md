@@ -2,6 +2,10 @@
 
 Source: `/home/user/Downloads/codex/req_spec.md`
 
+This checklist records what the original specification asked for. It is a reference, not the
+design authority: where the specification conflicts with a simpler or faster workflow, the
+workflow wins and the difference is noted on the item.
+
 Status legend:
 - `[x]` Implemented and verified for the stated scope
 - `[~]` Partially implemented or verification still incomplete
@@ -401,7 +405,7 @@ Verification evidence and remaining limitations are recorded in `requirements-pr
 
 - [x] Predefined equipment inspection criteria
 - [x] PASS/FAIL style criteria through checkbox and remark
-- [~] N/A option (the API and reports accept it; the web checklist control was removed on 29 September 2026)
+- [ ] N/A option (dropped from the web checklist on 29 September 2026 as unnecessary; the API and reports still accept it)
 - [x] Failed item opens work order request
 - [x] Failed item flow includes take photo
 - [x] Failed item flow includes mark issue

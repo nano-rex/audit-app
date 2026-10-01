@@ -23,9 +23,10 @@ An administrator should configure these records before staff begin auditing:
    Configure role permissions and inspection capabilities as required.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed.
-3. In Fixed Assets, add the equipment and assign it to the correct outlet and
+3. In Assets (Fixed Assets), add the equipment and assign it to the correct outlet and
    location. Configure the inspection criteria for each asset.
-4. In Settings, configure audit types, finding categories, and priority levels.
+4. Configure finding categories under Assets > Categories. Audit types and
+   priority levels are managed by the Super account in Super Settings.
    Each priority level has a classification and a due-day target.
 5. In Settings, review audit scoring, pass mark, rating bands, and category
    weights. Configure the company name, facilities header, and report logo if
@@ -37,18 +38,21 @@ An administrator should configure these records before staff begin auditing:
 2. Select the outlet and location, set the date and auditor, and add any
    scheduling remarks. Save the schedule.
 3. For an audit that is ready to start immediately, use + New Audit. Enter the
-   outlet, audit date and time, audit type, and remarks. The signed-in account
-   is recorded as the auditor. The app creates a scheduled draft and reserves
-   an audit reference.
+   outlet, audit date and time, audit type, and remarks, then choose Create and
+   Start. The signed-in account is recorded as the auditor, an audit reference
+   is reserved, and the checklist opens straight away.
 
 4. START OR RESUME THE GUIDED INSPECTION
 ----------------------------------------
-1. Open Inspections. Guided Inspection initially shows Scheduled Work.
-2. Select the scheduled work item. The app creates or resumes its inspection
-   and displays the inspection reference and details.
+1. An audit created with + New Audit is already open. Otherwise open
+   Inspections; Guided Inspection shows Scheduled Work.
+2. Select the scheduled work item, or choose Open beside "Continue inspection"
+   under Waiting on you on the Dashboard. The app creates or resumes the
+   inspection and displays its reference and details.
 3. Work through each listed location and fixed-asset criterion.
-4. Tick each criterion that passes. For a failed criterion, leave it unticked
-   and enter a remark, or select Finding details beside it.
+4. Tick each criterion that passes, or choose Pass all on an asset to tick
+   every criterion that has no remark. For a failed criterion, leave it
+   unticked and enter a remark, or select Finding details beside it.
 5. Add a photo for each asset. You can add multiple photos, remove a photo, or
    open Mark to annotate it before saving the mark.
 6. Finding details opens the Record Audit Finding dialog (it also opens when
@@ -60,8 +64,10 @@ An administrator should configure these records before staff begin auditing:
    finding and linked work order are created when the inspection is completed.
 7. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
-8. When every criterion is ticked or has a remark, and every asset has a
-   photo, the button changes to Complete Inspection. Locations without fixed
+8. When every criterion is ticked or has a remark, and the required photos
+   are attached, the button changes to Complete Inspection. An asset with a
+   failed criterion always needs a photo; whether every other asset needs one
+   is set by an administrator under Settings > Workflow options. Locations without fixed
    assets show "No assets" and do not count. Select the button to submit. The app validates the
    checklist, calculates the configured score, saves the audit and its findings,
    and updates the dashboard.
@@ -79,26 +85,33 @@ An administrator should configure these records before staff begin auditing:
 
 6. HANDLE CORRECTIVE ACTIONS
 ----------------------------
-1. Open Work Orders to review assigned findings and other work orders. A
-   Department/PIC account sees only records assigned to that PIC or department.
+1. The Dashboard lists the work orders assigned to you or your department
+   under Waiting on you; choose Open to go straight to one. Work Orders shows
+   the full list. A Department/PIC account sees only records assigned to that
+   PIC or department.
 2. Open a work order to review the issue, evidence, due date, priority, and
    assignment. Add comments to its timeline as work progresses.
-3. The assigned PIC records the action taken, completion date, completion
-   remark, and completion photo before setting the work to Completed.
-4. A permitted verifier reviews the evidence. The verifier can set Verified
-   with a verification remark, or return the work to In Progress with a remark
-   explaining what still needs attention.
-5. After verification, close the work order. Closed records are retained for
-   audit history and open read-only. If a step is refused (for example a
+3. The Status list offers only the steps allowed from the current status. The
+   assigned PIC chooses Completed and records the action taken, completion
+   remark, and completion photo; the completion date and PIC are filled in with
+   today and your name if empty.
+4. A permitted verifier reviews the evidence (it appears under Waiting on you
+   as "Verify corrective action"). With a verification remark the verifier can
+   choose Closed to accept and close in one step, Verified to accept and close
+   later, or In Progress to return the work for correction.
+5. Closed records are retained for audit history and open read-only. If a step is refused (for example a
    missing completion photo), the reason is shown at the bottom of the dialog.
 6. The Notifications page shows relevant progress, assignment, verification,
-   due-soon, and overdue notices.
+   due-soon, and overdue notices. The number of unread notices is shown on the
+   Notifications button, or on the page menu when that button does not fit.
 
 7. CLOSE AN AUDIT AND REVIEW REPORTS
 -----------------------------------
 1. A verifier can close a completed audit from its history record after all
    required signatures are present and every linked finding/work order is
-   closed. A closed audit is read-only.
+   closed. It appears under Waiting on you as "Close audit" when it is ready,
+   and as "Sign as ..." while your signature is missing. A closed audit is
+   read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
    and charts. Use the date and outlet filters to narrow the report.
 3. Use Export PDF on an inspection for its detailed audit report. Use the

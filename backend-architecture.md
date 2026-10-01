@@ -30,6 +30,7 @@ The web root remains `web/`, and the database remains under the configured `web/
 | `web/backend/response_cache.py` | Bounded response cache and pre-encoded JSON |
 | `web/backend/location_integrity.py` | Hierarchy validation, membership updates, and audit-history retention |
 | `web/backend/audit_closure.py` | Final audit closure and immutable completion records |
+| `web/backend/todo.py` | Per-user next steps for the dashboard and the unread notification count |
 | `web/backend/reminders.py` | Targeted assignment notifications and daily due reminders |
 | `web/backend/common.py` | Shared date, identifier, password, and workflow helpers |
 

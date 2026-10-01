@@ -148,4 +148,21 @@ The web workflow in `USER_GUIDE.txt` was driven end to end in headless Chromium 
 | Dark mode was a list of per-component overrides and missed dialogs, pills, and several panels; sign-in pages ignored the theme | Colours are tokens in `web/css/base.css` with one dark set; all pages follow the saved theme, or the device setting when none is saved |
 | Eight of the eleven frontend tests had been failing since the navigation and pagination changes | All pass again, with two added for the fixes above |
 
-Verification: 57 backend tests and 13 frontend tests pass; pyflakes and `git diff --check` pass. The browser walk is not an automated test in this repository; it was run by hand with Playwright from outside the project. Not covered: the photo marking tool, QR scanning, real phone cameras, the Android app, and browsers other than Chromium.
+Verification (including the redesign below): 59 backend tests and 14 frontend tests pass; pyflakes and `git diff --check` pass. The browser walk is not an automated test in this repository; it was run by hand with Playwright from outside the project. Not covered: the photo marking tool, QR scanning, real phone cameras, the Android app, and browsers other than Chromium.
+
+## Workflow redesign — 2 October 2026
+
+Changes made for speed and clarity rather than to match the specification, each verified in the same browser walk:
+
+| Before | Now |
+| --- | --- |
+| + New Audit created a scheduled draft that then had to be found in the list and opened | The checklist opens as soon as the audit is created |
+| Every criterion of every passing asset was ticked one by one | Pass all ticks an asset's criteria, leaving any with a remark untouched |
+| Every asset needed a photo before an inspection could be completed | Unchanged by default. Admins can switch off "Require a photo of every inspected asset" under Settings > Workflow options; assets with a failed check always need one |
+| The dashboard showed all-time figures and a static "On-site Flow" card | "Waiting on you" lists the signed-in user's next steps (continue or sign an inspection, complete or verify a corrective action, close an audit) with an Open button, from `GET /api/todo` |
+| The work order dialog offered all seven statuses and every section at every stage | Only allowed next statuses are offered; corrective and verification sections appear when the order reaches them; the completion date and PIC are prefilled |
+| A verifier had to set Verified, reopen the order, then set Closed | Completed can go straight to Closed; the verifier and date are recorded as before |
+| Fixed Assets was a sub-page of Categories | The page is named Assets and opens on Fixed Assets; Categories is its second sub-page |
+| Unread notifications were visible only on the Notifications page | The unread count is shown on the bar |
+
+The photo rule is enforced in the browser only, as before; the API accepts a completed inspection without photos.
