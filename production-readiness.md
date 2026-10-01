@@ -108,8 +108,6 @@ They are a regression signal, not a capacity guarantee.
 
 - **Committed data:** `web/data/ottotree_audit_web.db` is tracked in git with user rows and
   password hashes, and the seeded accounts' passwords are in `web/backend/seed_data.py`.
-- **Photo evidence** is required by the browser only; the API accepts a completed inspection
-  without photos.
 - **Company database selection** is process state. A restart returns to
   `ottotree_audit_web.db`, and a database created by an older release is not migrated when it
   is selected.

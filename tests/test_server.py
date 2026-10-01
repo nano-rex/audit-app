@@ -57,9 +57,17 @@ class ServerTests(unittest.TestCase):
         connection.close()
         return result
 
+    def evidence(self):
+        """One stored photo, reused wherever a completed inspection needs evidence."""
+        if not getattr(type(self), "_evidence", None):
+            from test_media_reports import photo_data_url
+            _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
+            type(self)._evidence = json.loads(body)["image"]
+        return dict(type(self)._evidence)
+
     def test_audit_closure_requires_signatures_and_closed_actions_and_is_immutable(self):
         from test_media_reports import photo_data_url
-        payload = {"outlet": "STP", "auditDate": "2026-09-18", "items": [{"section": "Safety", "item": "Door", "passed": True}]}
+        payload = {"outlet": "STP", "auditDate": "2026-09-18", "items": [{"section": "Safety", "item": "Door", "passed": True, "images": [self.evidence()]}]}
         status, _, body = self.request("/api/inspection-sessions", "POST", payload)
         self.assertEqual(status, 200, body)
         session_id = json.loads(body)["id"]
@@ -333,6 +341,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         session_id = json.loads(body)["id"]
         payload["complete"] = True
+        for item in payload["items"]:
+            item["images"] = [self.evidence()]
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
             statuses = list(pool.map(lambda _: self.request(f"/api/inspection-sessions/{session_id}", "PATCH", payload)[0], range(8)))
         self.assertEqual(statuses.count(200), 1, statuses)
@@ -361,7 +371,7 @@ class ServerTests(unittest.TestCase):
             configured = {"scoring.weighting": "Weighted", "scoring.weights": {"Safety": 3, "Other": 1}, "scoring.passMark": 0}
             self.assertEqual(self.request("/api/settings", "POST", {"settings": configured})[0], 200)
             # A failed criterion requires notes but retains the weighted score snapshot.
-            status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": [{"category": "Safety", "passed": True}, {"category": "Other", "passed": False, "notes": "Repair"}], "complete": True})
+            status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": [{"category": "Safety", "passed": True, "images": [self.evidence()]}, {"category": "Other", "passed": False, "notes": "Repair", "images": [self.evidence()]}], "complete": True})
             self.assertEqual(status, 200, body)
             session = json.loads(self.request(f"/api/inspection-sessions/{json.loads(body)['id']}")[2])
             self.assertEqual(session["scoring"]["score"], 75)
@@ -412,7 +422,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(saved["schedule_id"], record["scheduleId"])
         self.assertEqual(saved["status"], "Draft")
         self.assertEqual(self.request(path, "PATCH", {"auditTime": "99:99"})[0], 400)
-        status, _, body = self.request(path, "PATCH", {"items": [{"passed": True}], "complete": True})
+        status, _, body = self.request(path, "PATCH", {"items": [{"passed": True, "images": [self.evidence()]}], "complete": True})
         self.assertEqual(status, 200, body)
         with app.connect() as db:
             audit = db.execute("SELECT * FROM audits WHERE id = ?", (json.loads(body)["auditId"],)).fetchone()
@@ -616,6 +626,8 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(path, "PATCH", {"items": []}, token="reviewer")[0], 403)
         payload["items"][1]["passed"] = True
         payload["complete"] = True
+        for item in payload["items"]:
+            item["images"] = [self.evidence()]
         self.assertEqual(self.request(path, "PATCH", payload, token="author")[0], 200)
         _, _, body = self.request("/api/media", "POST", {"image": {"name": "signature.png", "dataUrl": photo_data_url()}}, token="reviewer")
         signature = json.loads(body)["image"]
@@ -672,7 +684,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(session["schedule_id"], schedule["id"])
         self.assertNotEqual(session["auditor"], "Assigned auditor")
         self.assertTrue(session["inspection_name"].endswith(f"_{session_id}"))
-        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [{"passed": True}], "complete": True})[0], 200)
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [{"passed": True, "images": [self.evidence()]}], "complete": True})[0], 200)
         _, _, body = self.request("/api/schedules")
         saved = next(row for row in json.loads(body)["items"] if row["id"] == schedule["id"])
         self.assertEqual((saved["inspection_id"], saved["status"], saved["progress"]), (session_id, "Completed", 100))

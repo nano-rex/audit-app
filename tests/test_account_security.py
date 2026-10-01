@@ -286,6 +286,25 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request("/api/work-orders", token="legacy-override")[0], 200)
         self.assertEqual(self.request("/api/roles", "POST", {"name": "Uses retired page", "permissions": ["corrective-actions"]})[0], 400)
 
+    def test_completing_an_inspection_requires_photo_evidence(self):
+        from test_media_reports import photo_data_url
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
+        image = json.loads(body)["image"]
+        complete = lambda items: self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items, "complete": True})
+        passed, failed = {"section": "Speaker", "item": "Works", "passed": True}, {"section": "Screen", "item": "Clean", "notes": "Cracked", "priority": "High", "pic": "Photo Rule Owner"}
+        status, _, body = complete([passed])
+        self.assertEqual(status, 409, body)
+        self.assertIn("Add a photo for Speaker", json.loads(body)["error"])
+        # A draft may be saved without photos.
+        self.assertEqual(self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": [passed]})[0], 200)
+        self.assertEqual(self.request("/api/settings", "POST", {"settings": {"system.requirePhotoEveryAsset": False}})[0], 200)
+        try:
+            self.assertEqual(complete([passed])[0], 200)
+            self.assertIn("Add a photo for Screen", json.loads(complete([passed, failed])[2])["error"])
+            self.assertEqual(complete([passed, failed | {"images": [image]}])[0], 200)
+        finally:
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": {"system.requirePhotoEveryAsset": True}})[0], 200)
+
     def test_admin_can_change_the_photo_evidence_option(self):
         with app.connect() as db:
             admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
@@ -335,11 +354,12 @@ class AccountSecurityTests(unittest.TestCase):
 
     def test_repeated_draft_saves_refresh_one_unread_progress_notice(self):
         notices = lambda: json.loads(self.request("/api/notifications", token="reviewer")[2])["items"]
-        progress = lambda: [row for row in notices() if row["title"] == "Audit progress updated"]
+        progress = lambda: [row for row in notices() if row["title"] == "Audit progress updated" and row["related_id"] == session_id]
         payload = {"outlet": "STP", "items": [{"item": "First", "passed": True}, {"item": "Second"}, {"item": "Third"}]}
         status, _, body = self.request("/api/inspection-sessions", "POST", payload)
         self.assertEqual(status, 200, body)
-        path = f"/api/inspection-sessions/{json.loads(body)['id']}"
+        session_id = json.loads(body)["id"]
+        path = f"/api/inspection-sessions/{session_id}"
         payload["items"][1]["passed"] = True
         self.assertEqual(self.request(path, "PATCH", payload)[0], 200)
         unread = progress()

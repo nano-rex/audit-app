@@ -5,12 +5,25 @@ from backend.scoring import summarize as summarize_score
 from backend.audit_metadata import allocate_reference
 from backend.reminders import notify_work_order
 from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
+from backend.workflow import WorkflowError
 from backend.database import connect, first_category, first_department, first_outlet, insert_record
+
+
+def require_photo_evidence(items, settings):
+    """A failed check always needs a photo; a passed one only when every inspected asset must have one."""
+    every_asset = settings.get("system.requirePhotoEveryAsset") is not False
+    for item in items:
+        if item.get("notApplicable") or item.get("images"):
+            continue
+        if every_asset or not item.get("passed"):
+            name = item.get("section") or item.get("item") or "each inspected asset"
+            raise WorkflowError(f"Add a photo for {name} before completing the inspection")
 
 
 def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
     settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
+    require_photo_evidence(items, settings)
     summary = summarize_score(items, settings)
     audit_date = normalize_audit_date(payload.get("auditDate"))
     outlet = payload.get("outlet") or first_outlet(db)
