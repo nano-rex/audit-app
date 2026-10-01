@@ -16,17 +16,26 @@ document.querySelectorAll("[data-outlet-subtab]").forEach((button) => {
   button.addEventListener("click", () => showOutletSubtab(button.dataset.outletSubtab));
 });
 
+let activeTabId = null;
+let activeContextTab = null;
+
 function showTab(tabId) {
-  const resolvedTabId = superTabTargets[tabId] || tabId;
-  const userSection = ["departments", "roles"].includes(resolvedTabId) ? resolvedTabId : null;
+  const userSection = ["departments", "roles"].includes(tabId) ? tabId : null;
   if (userSection) tabId = "users";
   const allowedTabs = allowedAppTabs();
   if (!allowedTabs.some((tab) => tab.id === tabId)) {
     tabId = allowedTabs[0]?.id || defaultNavbarTabs[0];
   }
-  const panelId = superTabTargets[tabId] || tabId;
+  const panelId = tabId;
+  activeTabId = tabId;
+  activeContextTab = null;
+  // A contextual child page keeps its parent selected on the bar.
+  const barTabId = contextParents[tabId] || tabId;
   document.querySelectorAll("[data-tab]").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.tab === tabId);
+    tab.classList.toggle("active", tab.dataset.tab === barTabId);
+  });
+  document.querySelectorAll("[data-context-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.contextTab === panelId);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     const active = panel.id === panelId || contextParents[panelId] === panel.id;
@@ -48,13 +57,13 @@ function showTab(tabId) {
 function showContextTab(tabId) {
   if (["history", "findings"].includes(tabId)) {
     showTab("findings");
+    if (activeTabId !== "findings") return;
     showHistoryFindingsSection(tabId);
-    document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
-      button.classList.toggle("active", button.dataset.contextTab === tabId);
-    });
-    return;
+  } else {
+    showTab(tabId);
+    if (activeTabId !== tabId) return;
   }
-  showTab(tabId);
+  activeContextTab = tabId;
   document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
     button.classList.toggle("active", button.dataset.contextTab === tabId);
   });
@@ -168,7 +177,7 @@ function applyNavbarTabs() {
     tab.hidden = tab.hasAttribute("data-nested-only") || !allowedIds.has(tab.dataset.tab);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.hidden = !allowedIds.has(panel.id) && ![...allowedIds].some((id) => superTabTargets[id] === panel.id);
+    panel.hidden = !allowedIds.has(panel.id);
   });
   const findingsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.findingsEnabled"] !== false;
   const correctiveActionsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.correctiveActionsEnabled"] !== false;
@@ -200,9 +209,9 @@ if (typeof window !== "undefined") {
 }
 
 function allowedAppTabs() {
-  if (currentUser?.role === "Super") return superTabs;
-  const findingsEnabled = setupOptions.settings["system.findingsEnabled"] !== false;
-  const correctiveActionsEnabled = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
+  const isSuper = currentUser?.role === "Super";
+  const findingsEnabled = isSuper || setupOptions.settings["system.findingsEnabled"] !== false;
+  const correctiveActionsEnabled = isSuper || setupOptions.settings["system.correctiveActionsEnabled"] !== false;
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
@@ -216,7 +225,7 @@ function allowedAppTabs() {
   if (!findingsEnabled) allowedIds.delete("findings");
   if (!correctiveActionsEnabled) allowedIds.delete("corrective-actions");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
-  return currentUser?.role === "Super" ? [...superTabs, ...regular] : regular;
+  return isSuper ? [...regular, ...superTabs] : regular;
 }
 
 let activeUserSection = "users";

@@ -4,7 +4,7 @@ let inspectionsInitialized = false;
 const tabLoads = new Map();
 
 function showTabLoading(tabId) {
-  const targetTabId = superTabTargets[tabId] || tabId;
+  const targetTabId = tabId;
   const targets = {
     today: [["[data-outlets]", "Loading dashboard…"], ["[data-recent]", "Loading recent audits…"], ["[data-rankings]", "Loading rankings…"], ["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
     reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
@@ -62,12 +62,8 @@ async function loadTabData(tabId) {
       await Promise.all([loadGuidedSchedules(), loadInspectionHistory()]);
     },
   };
-  if (tabId.startsWith("super-")) {
-    const target = superTabTargets[tabId];
-    if (target === "dashboard") loaders[tabId] = loadSuperDashboard;
-    else if (target === "settings") loaders[tabId] = loadSuperSettings;
-    else loaders[tabId] = loaders[target];
-  }
+  loaders["super-dashboard"] = loadSuperDashboard;
+  loaders["super-settings"] = loadSuperSettings;
   if (!loaders[tabId]) return;
   const pending = Promise.resolve().then(loaders[tabId]).then(() => {
     document.getElementById("load-error")?.remove();
@@ -85,15 +81,17 @@ function loadApp() {
 async function initializeApp() {
   appReady = false;
   if (!await requireLogin()) return;
-  const activeTab = document.querySelector(".tab-panel.active")?.id;
+  const activeTab = activeTabId || document.querySelector(".tab-panel.active")?.id;
+  const contextTab = activeContextTab;
   await Promise.all([loadBranding(), loadSetup()]);
   applyNavbarTabs();
   updateSetupSelects();
   setInspectionSignatures(inspectionSignatures());
   appReady = true;
   const tab = allowedAppTabs().some((item) => item.id === activeTab) ? activeTab : allowedAppTabs()[0]?.id || "today";
-  showTab(tab);
-  await loadTabData(tab);
+  if (contextTab && tab === activeTab) showContextTab(contextTab);
+  else showTab(tab);
+  await loadTabData(activeTabId || tab);
 }
 
 wireAuth();

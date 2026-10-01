@@ -20,9 +20,9 @@ def setup_records(include_super=False):
             "SELECT id, name, description, sequence, active FROM categories ORDER BY sequence, name"
         ).fetchall()]
         role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
-        role_query += " WHERE name = ?" if include_super else " WHERE name != ?"
+        role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
-            role_query + " ORDER BY protected DESC, name", (SUPER_ROLE,)
+            role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)
         ).fetchall()]
         priorities = [dict(row) for row in db.execute(
             "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
@@ -52,8 +52,8 @@ def setup_records(include_super=False):
 def role_items(include_super=False):
     with connect() as db:
         role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
-        role_query += " WHERE name = ?" if include_super else " WHERE name != ?"
-        rows = db.execute(role_query + " ORDER BY protected DESC, name", (SUPER_ROLE,)).fetchall()
+        role_query += "" if include_super else " WHERE name != ?"
+        rows = db.execute(role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)).fetchall()
     items = []
     for row in rows:
         item = dict(row)
