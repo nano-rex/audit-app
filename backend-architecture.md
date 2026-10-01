@@ -17,6 +17,8 @@ The web root remains `web/`, and the database remains under the configured `web/
 | `web/backend/routes.py` | Explicit method/path registry for mutations |
 | `web/backend/routes_*.py` | Account, asset, inspection, location, setup, and work-order mutations |
 | `web/backend/accounts.py`, `web/backend/catalog.py`, `web/backend/work_orders.py` | Account projection, catalog queries, finding/work-order queries |
+| `web/backend/login_throttle.py`, `web/backend/session_store.py` | Failed sign-in limits held in memory; durable hashed session tokens |
+| `web/backend/database_manager.py` | Creating, switching, and removing company databases without redirecting other requests |
 | `web/backend/permissions.py` | Role inheritance, per-user overrides, inspection action/signature permissions |
 | `web/backend/workflow.py` | Work-order state transitions, completion evidence, verification identity |
 | `web/backend/inspection_notifications.py` | Notifications addressed to effective verifier/acknowledger permissions and audit creators |

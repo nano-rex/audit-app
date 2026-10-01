@@ -70,11 +70,12 @@ Configuration supported now:
 AUDIT_DATA_DIR=/absolute/path/to/audit-data \
 AUDIT_WORKERS=8 \
 AUDIT_SECURE_COOKIES=1 \
+AUDIT_TRUST_PROXY=1 \
 PORT=41883 \
 python3 web/server.py
 ```
 
-Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send the session cookie over HTTP. The default database remains under `web/data/`. No external dependency was added to the Python server.
+Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send the session cookie over HTTP. Set `AUDIT_TRUST_PROXY=1` only when a reverse proxy that you control appends `X-Forwarded-For`; the sign-in limiter then counts failures per client address instead of treating every request as coming from the proxy. The default database remains under `web/data/`. No external dependency was added to the Python server.
 
 ## Remaining correctness and release risks
 
@@ -98,3 +99,31 @@ Retain the previous code release and a verified database backup. After successfu
 - Android Manager/Director role switching now opens a registered dashboard tab, and its audit-area cards switch the active area.
 - Verification: 43 backend tests pass; pyflakes and `git diff --check` pass. The 100-user harness completed 400 requests with no HTTP/server errors and persisted all 100 drafts. Latest measured p95s were 1.21 s for the HTML shell, 1.29 s for dashboard, 1.53 s for the full asset list, and 3.03 s for saving a draft; the four-request client flow had a 6.91 s p95. Authentication reuse and batched relational hydration improved the burst flow, while SQLite draft writes still exceed a two-second target. This is a synthetic regression/load signal, not a production guarantee.
 - The current workspace lacks Node.js and the Android SDK/JDK executables are x86-64 on ARM64, so frontend and Android build/device checks could not be rerun here.
+
+## Reliability and sign-in review — 2 October 2026
+
+| Problem | Result |
+| --- | --- |
+| Switching the company database dropped the connection after the switch had already happened | The switch returns normally, signs out sessions stored in the target database, and refuses files that are not initialized audit databases |
+| Creating a database pointed every concurrent request at the new, empty database while it was being initialized | Only the creating request sees the new database; other users stay signed in |
+| Removing a database left its WAL and shared-memory files behind | The sidecar files are removed with the database |
+| Unexpected route faults closed the connection without a response | The fault is logged and the client receives a JSON 500 |
+| No limit on failed sign-ins; unknown accounts answered about twenty times faster than real ones | Five failures per client address and identifier within 15 minutes return HTTP 429 with `Retry-After`; every attempt performs one password hash |
+| Request bodies up to 20 MiB were read before authentication | Unauthenticated requests are refused first; sign-in bodies are capped at 64 KiB |
+| "Reset password" in User Setup reactivated deactivated accounts and did not require a password change | The account keeps its activation state and must change the temporary password |
+| The username typed in User Setup was never sent | The form sends it; a blank value keeps the current username |
+| Administrator-created accounts accepted any field values; malformed values dropped the connection | Name, email, role, department, username, and password length are validated; duplicates return 409; accounts created with the shared default password must change it |
+| Accounts whose address has no dotted domain, including the built-in Super account, could not save their own profile | Only a changed email or username is format-checked |
+| Every notification read took the database write lock to look for due reminders | The check reads first and locks only when a reminder is owed |
+| Each draft save added another "Audit progress updated" notification per reviewer | An unread notice is refreshed in place; a new one is added after the reviewer has read the previous one |
+| HTML and API responses lacked framing and referrer headers | All responses send `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, and `Referrer-Policy: same-origin` |
+
+The sign-in limiter is held in memory by the single application process: it resets on restart and is not shared between processes. Without `AUDIT_TRUST_PROXY=1` behind a reverse proxy, all clients share the proxy's address, so five failures for one identifier lock that identifier for everyone until the window passes. Keep proxy-level rate limiting for registration and password-reset requests, which are not limited here.
+
+Verification: 55 backend tests pass (12 new, in `tests/test_account_security.py`; 11 of them fail against the previous commit); pyflakes and `git diff --check` pass. The 100-user harness completed 400 requests with no errors and persisted all 100 drafts; its timings were unchanged within run-to-run variation (draft save p95 3.26 s against 3.22 s for the previous commit on the same machine), so the two-second target for draft saves is still not met. Node.js is not installed in this workspace, so the frontend tests were not run; the one frontend change is the added `username` field in the User Setup payload.
+
+Still open:
+
+- A required password change is enforced only by the browser dialog. The API accepts other requests from an account flagged for reset.
+- The selected company database is process state. A restart returns to `ottotree_audit_web.db`, and a database created by an older release is not migrated when it is selected.
+- The seeded accounts use short published passwords and are not flagged for change. Rotate them before any deployment that is reachable by others.
