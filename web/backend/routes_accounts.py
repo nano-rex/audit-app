@@ -10,16 +10,36 @@ from datetime import datetime
 from backend.accounts import is_company_admin_user, is_super_user, public_user
 from backend.common import hash_password, verify_password
 from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
-from backend.database import connect, first_department
+from backend.database import connect, first_department, insert_record
 from backend.workflow import WorkflowError
 from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
 from backend.database_manager import create_database, remove_database, switch_database
+from backend.login_throttle import LOGIN_THROTTLE, client_address
+
+EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
+USERNAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9._-]{2,63}")
+MIN_PASSWORD_LENGTH = 8
+_unknown_account_hash = None
+
+
+def unknown_account_hash():
+    """A hash nobody can match, so a sign-in for a missing account costs the same as a real one."""
+    global _unknown_account_hash
+    if _unknown_account_hash is None:
+        _unknown_account_hash = hash_password(secrets.token_urlsafe(32))
+    return _unknown_account_hash
 
 
 def post_auth_login(self, parsed, payload=None):
-    identifier = (payload.get("identifier") or payload.get("email") or payload.get("username") or "").strip().lower()
-    password = payload.get("password") or ""
+    identifier = str(payload.get("identifier") or payload.get("email") or payload.get("username") or "").strip().lower()
+    password = payload.get("password") if isinstance(payload.get("password"), str) else ""
     remember = bool(payload.get("remember"))
+    throttle_key = (client_address(self), identifier)
+    wait = LOGIN_THROTTLE.retry_after(throttle_key)
+    if wait:
+        self.json({"ok": False, "error": f"Too many failed sign-in attempts. Try again in {(wait + 59) // 60} minute(s)."},
+                  status=429, headers=(("Retry-After", str(wait)),))
+        return
     with connect() as db:
         row = db.execute(
             """
@@ -30,9 +50,14 @@ def post_auth_login(self, parsed, payload=None):
             """,
             (identifier, identifier),
         ).fetchone()
-        if not row or not row["active"] or not verify_password(password, row["password_hash"]):
+        stored_hash = row["password_hash"] if row and row["active"] else None
+        # Always hash: response time must not reveal which accounts exist.
+        matches = verify_password(password, stored_hash or unknown_account_hash())
+        if not stored_hash or not matches:
+            LOGIN_THROTTLE.failure(throttle_key)
             self.json({"ok": False, "error": "Invalid email or password"}, status=401)
             return
+        LOGIN_THROTTLE.success(throttle_key)
         if not row["password_hash"].startswith("pbkdf2_sha256$"):
             db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (hash_password(password), row["id"]))
         token = secrets.token_urlsafe(32)
@@ -90,7 +115,11 @@ def patch_account(self, parsed, payload=None):
         username = str(payload.get("username") or existing["username"] or email.split("@", 1)[0] or "").strip().lower()
         role = payload.get("role", existing["role"])
         department = payload.get("department", existing["department"])
-        if not name or len(name) > 100 or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{2,63}", username) or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        # Only a changed value is checked, so accounts with older addresses or login names can still save their profile.
+        unchanged_email = email == str(existing["email"] or "").strip().lower()
+        unchanged_username = username == str(existing["username"] or "").strip().lower()
+        if (not name or len(name) > 100 or not (unchanged_username or USERNAME_PATTERN.fullmatch(username))
+                or not (unchanged_email or EMAIL_PATTERN.fullmatch(email))):
             self.json({"error": "Enter a valid display name, username, and email address"}, 400)
             return
         if not is_company_admin_user(user) and (role != existing["role"] or department != existing["department"]):
@@ -148,7 +177,7 @@ def post_auth_register(self, parsed, payload=None):
     name = (payload.get("name") or "").strip()
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
-    if not name or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email) or len(password) < 8:
+    if not name or len(name) > 100 or not EMAIL_PATTERN.fullmatch(email) or len(password) < MIN_PASSWORD_LENGTH:
         self.json({"ok": False, "error": "Name, email, and an 8-character password are required"}, status=400)
         return
     with connect() as db:
@@ -175,7 +204,7 @@ def post_auth_change_password(self, parsed, payload=None):
         return
     old_password = payload.get("oldPassword") or ""
     new_password = payload.get("newPassword") or ""
-    if len(new_password) < 8:
+    if not isinstance(new_password, str) or len(new_password) < MIN_PASSWORD_LENGTH:
         self.json({"ok": False, "error": "New password must be at least 8 characters"}, status=400)
         return
     with connect() as db:
@@ -193,39 +222,66 @@ def post_auth_change_password(self, parsed, payload=None):
     return
 
 
+def account_fields(db, payload, existing=None):
+    """Validated account columns shared by administrator create and edit.
+
+    Role, department, and email format are checked only when they change, so a partial edit of an
+    older account (for example deactivating it) is not blocked by values that were valid when saved.
+    """
+    def text(key, label, limit, fallback=""):
+        value = payload.get(key)
+        value = fallback if value is None else value
+        if not isinstance(value, str) or len(value.strip()) > limit:
+            raise ValueError(f"{label} must be text of at most {limit} characters")
+        return value.strip()
+
+    name = text("name", "Name", 100)
+    if not name:
+        raise ValueError("Enter a name")
+    email = text("email", "Email", 254).lower()
+    if email != str(existing["email"] if existing else "").strip().lower() and not EMAIL_PATTERN.fullmatch(email):
+        raise ValueError("Enter a valid email address")
+    username = text("username", "Username", 64).lower() or email.split("@", 1)[0]
+    role = text("role", "Role", 100)
+    if role and role != (existing["role"] if existing else None) and not db.execute("SELECT 1 FROM roles WHERE name = ?", (role,)).fetchone():
+        raise ValueError("Select an existing role")
+    department = text("department", "Department", 100) or first_department(db)
+    if department and department != (existing["department"] if existing else None) and not db.execute("SELECT 1 FROM departments WHERE code = ?", (department,)).fetchone():
+        raise ValueError("Select an existing department")
+    password = payload.get("password") or ""
+    if not isinstance(password, str) or password and len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(f"Passwords must be at least {MIN_PASSWORD_LENGTH} characters")
+    user_id = existing["id"] if existing else 0
+    if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user_id)).fetchone():
+        raise WorkflowError("That email address belongs to another account")
+    if db.execute("SELECT 1 FROM users WHERE lower(username) = ? AND id != ?", (username, user_id)).fetchone():
+        raise WorkflowError("That username belongs to another account")
+    return {
+        "name": name, "username": username, "role": role, "email": email, "department": department,
+        "active": 1 if payload.get("active", True) else 0,
+        "reset_required": 1 if payload.get("resetRequired", False) else 0,
+        "title": text("title", "Title", 200), "responsibilities": text("responsibilities", "Responsibilities", 4000),
+    }, password
+
+
 def post_users(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
-        default_department = first_department(db)
         if not is_company_admin_user(self.current_user()):
             self.json({"ok": False, "error": "Admin access required"}, status=403)
             return
         if not is_super_user(self.current_user()) and payload.get("role") == SUPER_ROLE:
             self.json({"ok": False, "error": "Super role assignment requires Super access"}, status=403)
             return
-        password = payload.get("password") or DEFAULT_PASSWORD
-        cursor = db.execute(
-            """
-            INSERT INTO users
-            (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                payload.get("name", "New User"),
-                (payload.get("username") or str(payload.get("email", "")).split("@", 1)[0]).strip().lower(),
-                payload.get("role", ""),
-                payload.get("email", "user@example.com"),
-                payload.get("department") or default_department,
-                hash_password(password),
-                1 if payload.get("active", True) else 0,
-                1 if payload.get("resetRequired", False) else 0,
-                payload.get("title", ""),
-                payload.get("responsibilities", ""),
-                now,
-            ),
-        )
+        fields, password = account_fields(db, payload)
+        if not password:
+            # The shared default is known to every administrator; the owner must replace it.
+            fields["reset_required"] = 1
         overrides = validate_overrides(payload.get("permissionOverrides"))
-        db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides) if overrides is not None else None, cursor.lastrowid))
+        # Hash before the first write so the slow derivation never holds the database write lock.
+        fields.update(password_hash=hash_password(password or DEFAULT_PASSWORD), created_at=now)
+        fields["permission_overrides_data_id"] = save_value(db, overrides) if overrides is not None else None
+        insert_record(db, "users", fields)
     self.json({"ok": True})
 
 
@@ -269,44 +325,20 @@ def patch_users(self, parsed, payload=None):
         if not existing_user:
             raise WorkflowError("User not found", 404)
         fields = {"name": "name", "username": "username", "role": "role", "email": "email", "department": "department", "active": "active", "resetRequired": "reset_required", "title": "title", "responsibilities": "responsibilities"}
-        payload = {key: existing_user[column] for key, column in fields.items()} | payload
+        payload = {key: existing_user[column] for key, column in fields.items()} | {key: value for key, value in payload.items() if key != "username" or value}
         if existing_user["role"] == SUPER_ROLE and existing_user["active"] and (payload["role"] != SUPER_ROLE or not payload["active"]):
             protect_last_super(db, int(user_id))
         if not is_super_user(self.current_user()) and (payload.get("role") == SUPER_ROLE or (existing_user and existing_user["role"] == SUPER_ROLE)):
             self.json({"ok": False, "error": "Super users require Super access"}, status=403)
             return
-        password = payload.get("password") or ""
+        values, password = account_fields(db, payload, existing_user)
         reset_password = bool(payload.get("resetPassword"))
-        updates = [
-            payload.get("name", "New User"),
-            str(payload.get("username") or str(payload.get("email", "")).split("@", 1)[0] or "").strip().lower(),
-            payload.get("role", ""),
-            payload.get("email", "user@example.com"),
-            payload.get("department") or first_department(db),
-            1 if payload.get("active", True) else 0,
-            1 if payload.get("resetRequired", False) else 0,
-            payload.get("title", ""),
-            payload.get("responsibilities", ""),
-        ]
-        password_sql = ""
         if reset_password or password:
-            password_sql = ", password_hash = ?"
-            updates.append(hash_password(password or DEFAULT_PASSWORD))
+            values["password_hash"] = hash_password(password or DEFAULT_PASSWORD)
             if reset_password:
-                updates[5] = 1
-        updates.append(int(user_id))
-        cursor = db.execute(
-            f"""
-            UPDATE users
-            SET name = ?, username = ?, role = ?, email = ?, department = ?, active = ?, reset_required = ?,
-                title = ?, responsibilities = ?{password_sql}
-            WHERE id = ?
-            """,
-            tuple(updates),
-        )
-        if cursor.rowcount == 0:
-            self.send_error(404)
-            return
+                # A password chosen by an administrator is temporary.
+                values["reset_required"] = 1
+        db.execute(f"UPDATE users SET {', '.join(f'{column} = ?' for column in values)} WHERE id = ?", (*values.values(), int(user_id)))
         if not payload["active"] or reset_password or password:
             db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
         if reset_password or password:

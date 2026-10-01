@@ -589,6 +589,7 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
   const id = formValue(form, "userId", "");
   const payload = {
     name: formValue(form, "name", "New User"),
+    username: formValue(form, "username", ""),
     email: formValue(form, "email", "user@example.com"),
     role: formValue(form, "role", ""),
     department: formValue(form, "department", ""),
