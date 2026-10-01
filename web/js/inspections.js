@@ -204,6 +204,7 @@ function inspectionItemCard(item) {
         <span>${escapeHtml(item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
         <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
       </div>
+      <button class="outline pass-all" type="button" data-pass-all>Pass all</button>
       <label>Images<input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images><small data-saved-images></small></label>
       ${criteria.map((criterion, index) => `
         <div class="criteria-row" data-criterion="${escapeAttr(criterion)}">
@@ -677,8 +678,14 @@ function openFirstInspectionLocation() {
   if (first) openInspectionLocation(first.dataset.openInspectionLocation);
 }
 
+// Failed checks always need photo evidence; passed ones only when the workflow option asks for every asset.
+function inspectionItemNeedsPhoto(item) {
+  if (item.notApplicable) return false;
+  return !item.passed || setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
+}
+
 function isInspectionReadyToComplete(payload) {
-  return Boolean(payload.items.length && payload.items.every((item) => (item.notApplicable || (item.images || []).length) && isInspectionItemComplete(item)));
+  return Boolean(payload.items.length && payload.items.every((item) => (!inspectionItemNeedsPhoto(item) || (item.images || []).length) && isInspectionItemComplete(item)));
 }
 
 function updateInspectionActions(progress, payload) {
@@ -690,7 +697,7 @@ function updateInspectionActions(progress, payload) {
   const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && !completed;
   if (button) button.disabled = !editable;
   // A completed or view-only checklist is shown as recorded.
-  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
+  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
   if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
   const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
   if (signaturesButton) signaturesButton.disabled = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
@@ -707,7 +714,7 @@ function updateInspectionActions(progress, payload) {
 
 function validateInspectionComplete(payload) {
   if (!payload.items.length) return "No inspection items are loaded for this location.";
-  const missingImage = payload.items.find((item) => !item.notApplicable && !item.images.length);
+  const missingImage = payload.items.find((item) => inspectionItemNeedsPhoto(item) && !item.images.length);
   if (missingImage) return `Upload image(s) for ${missingImage.section}.`;
   const missingRemark = payload.items.find((item) => !item.passed && !item.notApplicable && !item.notes.trim());
   if (missingRemark) return `Enter a remark for unchecked criterion: ${missingRemark.section} - ${missingRemark.item}.`;

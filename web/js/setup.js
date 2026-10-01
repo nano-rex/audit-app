@@ -191,6 +191,7 @@ function populateSettingsForms() {
   if (featureForm) {
     featureForm.elements.findingsEnabled.checked = setupOptions.settings["system.findingsEnabled"] !== false;
     featureForm.elements.correctiveActionsEnabled.checked = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
+    featureForm.elements.requirePhotoEveryAsset.checked = setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
   }
 }
 

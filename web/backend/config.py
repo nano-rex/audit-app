@@ -93,6 +93,8 @@ DEFAULT_REPORT_SETTINGS = {
 DEFAULT_SYSTEM_SETTINGS = {
     "findingsEnabled": True,
     "correctiveActionsEnabled": True,
+    # When off, only assets with a failed check need photo evidence before an inspection can be completed.
+    "requirePhotoEveryAsset": True,
     "emailEnabled": False,
     "whatsappEnabled": False,
     "pushEnabled": False,

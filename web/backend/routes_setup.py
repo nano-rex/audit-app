@@ -91,7 +91,7 @@ def post_settings(self, parsed, payload=None):
         incoming = payload.get("settings") or {}
         if not is_super_user(user):
             incoming = {key: value for key, value in incoming.items()
-                        if key in {"system.findingsEnabled", "system.correctiveActionsEnabled"}}
+                        if key in {"system.findingsEnabled", "system.correctiveActionsEnabled", "system.requirePhotoEveryAsset"}}
         if any(key.startswith("scoring.") for key in incoming):
             saved = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT * FROM app_settings WHERE key LIKE 'scoring.%'")}
             validate_settings(saved | incoming)

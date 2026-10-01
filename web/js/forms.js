@@ -206,6 +206,31 @@ async function loadWorkOrderComments(workOrderId = "") {
     : `<article><div><b>No comments</b><span>Add the first follow-up note.</span></div></article>`;
 }
 
+// Show the corrective and verification sections when the order has reached them.
+function updateWorkOrderStage() {
+  const form = document.getElementById("work-order-form");
+  if (!form || form.dataset.mode === "finding") return;
+  const current = form.dataset.currentStatus || "";
+  const selected = form.elements.status.value;
+  const reviewed = ["Completed", "Verified", "Closed"];
+  form.querySelector("[data-corrective-fields]").hidden = !current;
+  form.querySelector("[data-verification-fields]").hidden = !(reviewed.includes(current) || ["Verified", "Closed"].includes(selected));
+  const hints = {
+    Completed: "Completing needs the action taken, PIC, completion date, remark, and a completion photo.",
+    Verified: "Verifying needs a verification remark.",
+    Closed: current === "Completed" ? "Closing from Completed also records your verification; add a verification remark." : "Closing needs a verification remark. A closed work order cannot be edited.",
+    "In Progress": reviewed.includes(current) ? "Returning the work for correction needs a remark explaining what is still required." : "",
+  };
+  setText("[data-work-order-stage-hint]", selected !== current ? hints[selected] || "" : "");
+  if (selected === "Completed" && selected !== current) {
+    // Completing is usually done today by the person filling this in.
+    if (!form.elements.completionDate.value) form.elements.completionDate.value = todayIsoDate();
+    if (!form.elements.pic.value.trim()) form.elements.pic.value = currentUser?.name || "";
+  }
+}
+
+document.querySelector('#work-order-form [name="status"]')?.addEventListener("change", updateWorkOrderStage);
+
 async function openWorkOrderEditor(row = null) {
   activeFindingRow = null;
   const dialog = document.getElementById("work-order-dialog");
@@ -256,6 +281,12 @@ async function openWorkOrderEditor(row = null) {
   const closed = row?.status === "Closed";
   form.querySelector('button[type="submit"]').hidden = closed;
   if (closed) form.querySelector("h2").textContent = "Closed Work Order";
+  // Offer only the steps the workflow allows from here.
+  const current = isEdit ? row.status || "Assigned" : "";
+  form.dataset.currentStatus = current;
+  updateSelectOptions(form.elements.status, isEdit ? [current, ...(workOrderTransitions[current] || [])] : ["Assigned", "Open"]);
+  form.elements.status.value = current || (row?.status === "Open" ? "Open" : "Assigned");
+  updateWorkOrderStage();
   setWorkOrderCompletionPhotos(parseStoredImages(row?.completion_photo || "[]"));
   await loadWorkOrderComments(row?.id || "");
   dialog.showModal();
@@ -365,9 +396,9 @@ document.getElementById("new-audit-form")?.addEventListener("submit", async (eve
       auditType: form.elements.auditType.value, remarks: form.elements.remarks.value,
     });
     document.getElementById("new-audit").close();
-    showTab("inspections");
-    await loadGuidedSchedules();
-    setText("[data-current-audit-reference]", result.auditRef);
+    // Go straight to the checklist; the draft also stays listed under Scheduled Work.
+    await openInspectionSession(result.id);
+    loadGuidedSchedules().catch(showLoadError);
   } catch (error) {
     message.textContent = `Unable to create audit: ${error.message}`;
   } finally {
@@ -731,8 +762,9 @@ document.getElementById("feature-visibility-form")?.addEventListener("submit", a
     await requestJson("/api/settings", "POST", { settings: {
       "system.findingsEnabled": Boolean(form.elements.findingsEnabled.checked),
       "system.correctiveActionsEnabled": Boolean(form.elements.correctiveActionsEnabled.checked),
+      "system.requirePhotoEveryAsset": Boolean(form.elements.requirePhotoEveryAsset.checked),
     } });
-    setText("[data-feature-visibility-message]", "Section visibility saved.");
+    setText("[data-feature-visibility-message]", "Workflow options saved.");
     await loadApp();
   } catch (error) {
     setText("[data-feature-visibility-message]", error.message);

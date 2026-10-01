@@ -17,7 +17,8 @@ TRANSITIONS = {
     "Assigned": {"In Progress", "Pending", "Completed"},
     "In Progress": {"Pending", "Completed"},
     "Pending": {"Assigned", "In Progress"},
-    "Completed": {"Verified", "In Progress"},
+    # A verifier may accept and close in one step; the verification is recorded either way.
+    "Completed": {"Verified", "Closed", "In Progress"},
     "Verified": {"Closed", "In Progress"},
     "Closed": set(),
 }
@@ -102,7 +103,7 @@ def validate_update(payload, existing, user):
     merged["verifiedBy"] = existing.get("verified_by", "") if existing else ""
     merged["verifiedAt"] = existing.get("verified_at", "") if existing else ""
     merged["closedAt"] = ""
-    if status == "Verified" and status != previous:
+    if status != previous and (status == "Verified" or status == "Closed" and previous == "Completed"):
         merged["verifiedBy"] = user["name"]
         merged["verifiedAt"] = today_date()
     if status == "Closed":

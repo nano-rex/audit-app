@@ -10,12 +10,14 @@
           <p class="muted">This preference is saved on this device and applies to pages.</p>
         </article>
         <article class="panel" data-company-admin-setting hidden>
-          <h2>Optional sections</h2>
+          <h2>Workflow options</h2>
           <p class="muted">Choose whether users can access these operational sections. Super users always retain access.</p>
           <form id="feature-visibility-form" class="inline-form">
             <label class="checkbox-line"><input name="findingsEnabled" type="checkbox"> History &amp; Findings</label>
             <label class="checkbox-line"><input name="correctiveActionsEnabled" type="checkbox"> Corrective Actions</label>
-            <button class="primary" type="submit">Save section visibility</button>
+            <label class="checkbox-line"><input name="requirePhotoEveryAsset" type="checkbox"> Require a photo of every inspected asset</label>
+            <p class="muted">When this is off, only assets with a failed check need a photo before an inspection can be completed.</p>
+            <button class="primary" type="submit">Save workflow options</button>
             <p data-feature-visibility-message role="status"></p>
           </form>
         </article>

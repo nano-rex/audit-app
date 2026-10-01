@@ -1,7 +1,7 @@
   <dialog id="new-audit">
     <form method="dialog" id="new-audit-form">
       <header><h2>New Audit</h2><button type="button" data-close-dialog aria-label="Close">x</button></header>
-      <p>Create a scheduled draft, then open it from Scheduled Work to begin the checklist. An audit reference is assigned when you create it.</p>
+      <p>The checklist opens as soon as you create the audit, and an audit reference is assigned. You can leave and resume it from Scheduled Work.</p>
       <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
       <label>Audit Date<input name="auditDate" type="date" required></label>
       <label>Audit Time<input name="auditTime" type="time" required></label>
@@ -10,6 +10,6 @@
       <small>Audit types are managed in Settings.</small>
       <label>Remarks<textarea name="remarks" maxlength="5000" rows="3"></textarea></label>
       <p data-new-audit-message role="status"></p>
-      <button class="primary" type="submit">Create Audit</button>
+      <button class="primary" type="submit">Create and Start</button>
     </form>
   </dialog>
