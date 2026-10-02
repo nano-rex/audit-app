@@ -32,6 +32,9 @@ def initialize(db):
         PRIMARY KEY(set_id, node_id),
         FOREIGN KEY(set_id, parent_id) REFERENCES value_nodes(set_id, node_id)
     )""")
+    # Deleting a value set checks each node for children through this self-reference. Without the
+    # index every deleted node scanned the whole table, which made each draft save take seconds.
+    db.execute("CREATE INDEX IF NOT EXISTS idx_value_nodes_parent ON value_nodes(set_id, parent_id)")
 
 
 def save_value(db, value):

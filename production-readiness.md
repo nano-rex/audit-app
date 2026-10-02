@@ -93,8 +93,9 @@ clients each request the page shell, dashboard, and asset list and save a draft.
 
 Latest run on this shared ARM64 host (four CPUs, about 2.7 GiB RAM), on 2 October 2026 with
 the current code: all 400 requests succeeded and all 100 drafts were stored. The
-95th-percentile times were about 1.0 s for the page shell, 1.0 s for the dashboard, 1.2 s for
-the asset list, and 3.2 s for saving a draft. Draft saves therefore miss a two-second target.
+95th-percentile times were about 1.6 s for the page shell, 1.3 s for the dashboard, 1.4 s for
+the asset list, and 3.6 s for saving a draft; runs on this host vary by several tenths of a
+second. Draft saves therefore miss a two-second target in this burst test.
 
 These figures exclude sign-in hashing, TLS, network latency, image uploads, PDF generation,
 sustained traffic, and browser rendering, and the client shares the machine with the server.
@@ -122,5 +123,9 @@ They are a regression signal, not a capacity guarantee.
   own work orders and findings; other roles see every outlet.
 - **Lists are paginated in the browser.** The API returns the full asset, finding, work-order,
   and history lists.
-- **Draft saves** rewrite the whole checklist on every save, which is the main cost in the
-  load test.
+- **Draft saves** rewrite the whole checklist on every save. Re-saving a 400-check draft
+  takes about 0.3 s here (2.1 s before the `value_nodes` parent index was added) and a
+  2,000-check draft about 1.1 s. The load test does not exercise this: its 100 simultaneous
+  saves are small new drafts, and their time is commit and file-close cost on this host's
+  disk, queued one writer at a time. Keeping an idle connection open and
+  `synchronous=NORMAL` were both tried and made no measurable difference here.
