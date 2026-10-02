@@ -22,8 +22,8 @@ python3 -m venv .venv
 
 Then open `http://127.0.0.1:41883`. The repository includes a database in `web/data/`; when
 none exists, the first start creates one with seed records (outlets, roles, sample accounts).
-The sample accounts and their passwords are defined in `web/backend/seed_data.py`; change them
-before anyone else can reach the server.
+The starter accounts and their passwords are defined in `web/backend/seed_data.py`; in a newly
+created database each must choose a new password at first sign-in.
 
 Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SECURE_COOKIES`,
 `AUDIT_TRUST_PROXY`, and `PORT`. They are described in

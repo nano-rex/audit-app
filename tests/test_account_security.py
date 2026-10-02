@@ -11,7 +11,7 @@ from unittest import mock
 
 from test_server import QuietHandler, app
 from backend import config, routes, routes_accounts
-from backend.login_throttle import LOGIN_THROTTLE, LoginThrottle
+from backend.login_throttle import LOGIN_THROTTLE, REGISTRATION_THROTTLE, LoginThrottle
 from backend.relational_values import save_value
 from backend.reminders import deliver_due_reminders
 
@@ -24,6 +24,8 @@ class AccountSecurityTests(unittest.TestCase):
         app.configure_data_directory(cls.storage.name)
         app.init_db()
         with app.connect() as db:
+            # Starter accounts must change their password before using the API; these tests act as them directly.
+            db.execute("UPDATE users SET reset_required = 0")
             cls.super_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
             override = save_value(db, {"permissions": ["notifications"], "inspectionPermissions": ["verifier"]})
             cls.reviewer_id = db.execute("INSERT INTO users(name,role,email,active,created_at,permission_overrides_data_id) VALUES ('Reviewer','Auditor','reviewer@example.test',1,0,?)", (override,)).lastrowid
@@ -43,6 +45,7 @@ class AccountSecurityTests(unittest.TestCase):
 
     def setUp(self):
         LOGIN_THROTTLE.clear()
+        REGISTRATION_THROTTLE.clear()
 
     def request(self, path, method="GET", payload=None, token="super", headers=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=10)
@@ -73,6 +76,27 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(login("gavin", "123456")[0], 200)
         self.assertEqual(login("gavin", "wrong-password")[0], 401)
         self.assertEqual(login("gavin", "123456")[0], 200)
+
+    def test_registration_is_limited_per_address(self):
+        register = lambda number: self.request("/api/auth/register", "POST", {"name": "Sign Up", "email": f"signup{number}@example.test", "password": "a-long-password"}, token=None)
+        with mock.patch.object(routes_accounts, "hash_password", return_value="pbkdf2_sha256$1$salt$digest"):
+            for number in range(10):
+                self.assertEqual(register(number)[0], 200)
+            status, headers, body = register(10)
+        self.assertEqual(status, 429, body)
+        self.assertGreater(int(headers["Retry-After"]), 0)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM users WHERE email LIKE 'signup%@example.test'").fetchone()[0], 10)
+
+    def test_new_databases_start_with_accounts_that_must_change_their_password(self):
+        from backend.database_manager import create_database, remove_database
+        create_database("fresh")
+        try:
+            with sqlite3.connect(config.DATA_DIR / "fresh.db") as db:
+                flags = {row[0] for row in db.execute("SELECT reset_required FROM users")}
+            self.assertEqual(flags, {1})
+        finally:
+            remove_database("fresh")
 
     def test_throttle_window_expires_and_memory_is_bounded(self):
         now = [0.0]
@@ -394,6 +418,11 @@ class AccountSecurityTests(unittest.TestCase):
             status, _, body = self.request("/api/account/databases", "PATCH", {"name": "second"})
             self.assertEqual(status, 200, body)
             self.assertTrue(json.loads(body)["database"]["requiresLogin"])
+            self.assertEqual(config.DB_PATH, second.resolve())
+            # The choice is recorded so that a restart returns to it.
+            from backend.database_manager import restore_active_database
+            config.DB_PATH = original
+            self.assertTrue(restore_active_database())
             self.assertEqual(config.DB_PATH, second.resolve())
             self.assertEqual(self.request("/api/auth/me")[0], 401)
             with app.connect() as db:

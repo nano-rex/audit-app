@@ -38,6 +38,9 @@ python3 web/server.py
   minutes return HTTP 429 with `Retry-After`. Every attempt performs one password hash, so
   response time does not reveal which accounts exist. The limiter is held in memory: it
   resets on restart and is not shared between processes.
+- **Company databases:** the Super account can create, switch, and remove databases. The
+  selected one is recorded in the data directory and reopened after a restart; a database is
+  brought up to the current schema when it is selected.
 - **Requests:** authentication is checked before a request body is read. Bodies are capped at
   20 MiB (64 KiB for sign-in routes) and must be JSON objects.
 - **Access:** page permissions are enforced by the API, not only by the interface. Work-order
@@ -59,8 +62,11 @@ python3 web/server.py
    `AUDIT_TRUST_PROXY=1`. Do not expose the repository or data directory through the proxy.
    Without `AUDIT_TRUST_PROXY=1`, every client appears to come from the proxy, so five failed
    sign-ins for one username lock that username for everyone for 15 minutes.
-3. Rate-limit registration and password-reset requests at the proxy; the application does not.
-4. Rotate the seeded accounts' passwords before anyone else can reach the server.
+3. The application limits registrations to ten per hour per client address, and password-reset
+   requests to one per account per 15 minutes. Add proxy rate limits if you need tighter ones.
+4. In a database created by this release, each starter account must change its password at
+   first sign-in. A database created earlier keeps whatever passwords its accounts have;
+   change any that are still the published ones.
 5. Before a public launch, move HTTP handling to a maintained WSGI/ASGI server. The code uses
    `http.server`, which Python [does not recommend for production](https://docs.python.org/3/library/http.server.html).
 6. Keep SQLite on local storage while the workload is modest. WAL allows one writer at a time
@@ -96,7 +102,7 @@ They are a regression signal, not a capacity guarantee.
 
 ## Verified, and not
 
-- 62 backend tests and 15 frontend tests pass; pyflakes and `git diff --check` pass.
+- 68 backend tests and 16 frontend tests pass; pyflakes and `git diff --check` pass.
 - The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
   Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
   from outside the repository and is not an automated test here.
@@ -107,10 +113,11 @@ They are a regression signal, not a capacity guarantee.
 ## Open items
 
 - **Committed data:** `web/data/ottotree_audit_web.db` is tracked in git with user rows and
-  password hashes, and the seeded accounts' passwords are in `web/backend/seed_data.py`.
-- **Company database selection** is process state. A restart returns to
-  `ottotree_audit_web.db`, and a database created by an older release is not migrated when it
-  is selected.
+  password hashes. Its accounts were created before starter accounts were required to change
+  their passwords, and those starter passwords are published in `web/backend/seed_data.py`.
+- **One intermittent test failure** was seen once in about ten full runs of the backend suite
+  on 2 October 2026: after the database create/switch test, every later request in that test
+  class was answered 401. It did not recur in repeated runs and its cause was not found.
 - **Access scope** is by page, not by outlet or tenant. Department/PIC accounts see only their
   own work orders and findings; other roles see every outlet.
 - **Lists are paginated in the browser.** The API returns the full asset, finding, work-order,

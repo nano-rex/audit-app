@@ -30,6 +30,8 @@ class ServerTests(unittest.TestCase):
         app.configure_data_directory(cls.storage.name)
         app.init_db()
         with app.connect() as db:
+            # Starter accounts must change their password before using the API; these tests act as them directly.
+            db.execute("UPDATE users SET reset_required = 0")
             cls.user_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
             db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Restricted', 'Auditor', 'restricted@test', 1, 0)")
             limited_id = db.execute("SELECT id FROM users WHERE email = 'restricted@test'").fetchone()[0]

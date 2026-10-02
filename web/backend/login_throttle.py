@@ -55,6 +55,8 @@ class LoginThrottle:
 
 
 LOGIN_THROTTLE = LoginThrottle()
+# Accounts created per client address: each costs a password hash and a row awaiting review.
+REGISTRATION_THROTTLE = LoginThrottle(limit=10, window=60 * 60)
 
 
 def client_address(handler):

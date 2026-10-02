@@ -9,6 +9,7 @@ from backend import config
 DATABASE_LOCK = threading.RLock()
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 REQUIRED_TABLES = {"users", "roles", "auth_sessions"}
+ACTIVE_MARKER = "active-database"
 
 
 def _path(name):
@@ -67,9 +68,30 @@ def switch_database(name):
         if not path.is_file():
             raise ValueError("Database not found")
         _require_audit_database(path)
+        # A database last used by an older release is upgraded before anyone is sent to it.
+        from backend.migrations import init_db
+        token = config.DB_PATH_OVERRIDE.set(path)
+        try:
+            init_db()
+        finally:
+            config.DB_PATH_OVERRIDE.reset(token)
         config.DB_PATH = path.resolve()
         config.EQUIPMENT_CACHE.clear()
+        (config.DATA_DIR / ACTIVE_MARKER).write_text(path.stem, encoding="utf-8")
     return {"name": path.stem, "active": True, "requiresLogin": True}
+
+
+def restore_active_database():
+    """At startup, return to the database that was selected before the restart."""
+    marker = config.DATA_DIR / ACTIVE_MARKER
+    try:
+        path = _path(marker.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return False
+    if not path.is_file():
+        return False
+    config.DB_PATH = path.resolve()
+    return True
 
 
 def remove_database(name):

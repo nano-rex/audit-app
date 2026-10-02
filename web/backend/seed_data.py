@@ -145,6 +145,7 @@ def add_locations_to_default_zone(db, outlet, now=None):
 
 
 def seed_users(db):
+    """Starter accounts for a new database. Their passwords are in this file, so each must be changed at first sign-in."""
     now = int(time.time() * 1000)
     db.execute("UPDATE OR IGNORE users SET email = 'super@sudo' WHERE lower(email) = 'super@audit-app.local'")
     db.execute("DELETE FROM users WHERE lower(email) = 'super@audit-app.local'")
@@ -162,7 +163,7 @@ def seed_users(db):
         db.execute(
             """
             INSERT INTO users (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET username = COALESCE(users.username, excluded.username)
             """,
             (row[0], row[1], row[2], row[3], row[4], hash_password(row[7]), row[5], row[6], now),

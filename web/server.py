@@ -11,6 +11,7 @@ from backend.api import Handler
 from backend.reminders import reminder_loop
 from backend.http_support import AuditHTTPServer
 from backend.database import connect
+from backend.database_manager import restore_active_database
 from backend.migrations import init_db
 from backend.common import hash_password, verify_password, inspection_progress
 from backend.response_cache import cached_response
@@ -32,11 +33,12 @@ def configure_data_directory(directory):
 
 
 if __name__ == "__main__":
+    restore_active_database()
     init_db()
     port = int(os.environ.get("PORT", "41883"))
     server = AuditHTTPServer(("127.0.0.1", port), Handler)
-    print(f"Serving Ottotree Audit at http://127.0.0.1:{port}")
-    print(f"SQLite database: {config.DB_PATH}")
+    print(f"Serving Audit App at http://127.0.0.1:{port}", flush=True)
+    print(f"SQLite database: {config.DB_PATH}", flush=True)
     stop = threading.Event()
     threading.Thread(target=reminder_loop, args=(stop,), daemon=True).start()
     try:

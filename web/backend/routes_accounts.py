@@ -14,7 +14,7 @@ from backend.database import connect, first_department, insert_record
 from backend.workflow import WorkflowError
 from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
 from backend.database_manager import create_database, remove_database, switch_database
-from backend.login_throttle import LOGIN_THROTTLE, client_address
+from backend.login_throttle import LOGIN_THROTTLE, REGISTRATION_THROTTLE, client_address
 
 EMAIL_PATTERN = re.compile(r"[^@\s]+@[^@\s]+\.[^@\s]+")
 USERNAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9._-]{2,63}")
@@ -177,6 +177,11 @@ def post_auth_register(self, parsed, payload=None):
     name = (payload.get("name") or "").strip()
     email = (payload.get("email") or "").strip().lower()
     password = payload.get("password") or ""
+    address = client_address(self)
+    wait = REGISTRATION_THROTTLE.retry_after(address)
+    if wait:
+        self.json({"ok": False, "error": "Too many registrations from this address. Try again later."}, status=429, headers=(("Retry-After", str(wait)),))
+        return
     if not name or len(name) > 100 or not EMAIL_PATTERN.fullmatch(email) or len(password) < MIN_PASSWORD_LENGTH:
         self.json({"ok": False, "error": "Name, email, and an 8-character password are required"}, status=400)
         return
@@ -193,6 +198,7 @@ def post_auth_register(self, parsed, payload=None):
         except sqlite3.IntegrityError:
             self.json({"ok": False, "error": "An account with this email already exists"}, status=409)
             return
+    REGISTRATION_THROTTLE.failure(address)  # Each created account counts toward the limit.
     self.json({"ok": True, "message": "Account registered. A Super user must activate it and assign a role before login."})
     return
 
