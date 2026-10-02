@@ -189,19 +189,27 @@
 .image-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 100%;
   min-height: 28px;
   margin: 4px 4px 0 0;
-  padding: 4px 4px 4px 8px;
+  padding: 4px 6px 4px 4px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--surface-alt);
   color: var(--text);
   vertical-align: middle;
 }
 
-.image-pill button {
+.image-pill-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.image-pill button:not(.photo-thumb) {
   display: inline-grid;
   place-items: center;
   min-width: 22px;

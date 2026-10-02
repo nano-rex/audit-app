@@ -182,11 +182,18 @@ function equipmentRow(row) {
       </div>
       <span class="row-actions">
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>
+        ${photoSetButton(parseStoredImages(row.photos || "[]"), "Photos")}
         <button type="button" class="outline" data-edit-equipment='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-equipment="${row.id}">Delete</button>
       </span>
     </article>
   `;
+}
+
+// Evidence recorded with the finding, then the photos taken when the work was completed.
+function workOrderPhotos(row) {
+  const caption = (images, text) => parseStoredImages(images || "[]").map((image) => ({ ...image, caption: text }));
+  return [...caption(row.images_json, "Finding evidence"), ...caption(row.completion_photo, "Completion photo")];
 }
 
 function workOrderRow(row) {
@@ -206,6 +213,7 @@ function workOrderRow(row) {
       </div>
       <span class="row-actions">
         <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
+        ${photoSetButton(workOrderPhotos(row), "Photos")}
         <button type="button" class="outline" data-edit-work-order='${escapeAttr(JSON.stringify(row))}'>${closed ? "View" : "Edit"}</button>
         ${closed ? "" : `<button type="button" class="danger" data-delete-work-order="${row.id}">Delete</button>`}
       </span>
@@ -228,6 +236,7 @@ function findingRow(row) {
       </div>
       <span class="row-actions">
         <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
+        ${photoSetButton(workOrderPhotos(row), "Photos")}
       </span>
     </article>
   `;

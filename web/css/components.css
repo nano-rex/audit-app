@@ -997,3 +997,126 @@ dialog header h2 {
 .inspection-filter p {
   margin: 0;
 }
+
+/* Evidence thumbnails open the photo viewer. */
+.photo-thumb {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-sunken);
+  cursor: zoom-in;
+}
+
+.photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-viewer {
+  width: min(1100px, 96vw);
+  height: min(820px, calc(100dvh - 32px));
+  overflow: hidden;
+}
+
+.photo-viewer[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.photo-viewer header,
+.photo-viewer footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px 16px;
+  position: static;
+}
+
+.photo-viewer footer {
+  border-top: 1px solid var(--border);
+}
+
+.photo-viewer footer p {
+  flex: 1 1 200px;
+  margin: 0;
+  text-align: center;
+}
+
+.photo-viewer header h2 {
+  min-width: 0;
+  flex: 1 1 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+}
+
+.photo-viewer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.photo-viewer-tools button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.photo-viewer-tools output {
+  min-width: 52px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.photo-viewer-stage {
+  position: relative;
+  overflow: hidden;
+  background: #10161b;
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+}
+
+.photo-viewer-stage.zoomed {
+  cursor: grab;
+}
+
+.photo-viewer-stage.zoomed:active {
+  cursor: grabbing;
+}
+
+.photo-viewer-stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
+  -webkit-user-drag: none;
+}
+
+/* Inside a checklist card, generic span rules would stack the parts of an evidence chip. */
+.check-item .image-pill {
+  display: inline-flex;
+}
+
+.check-item .image-pill-name,
+.check-item .image-pill time {
+  display: inline;
+  color: var(--text);
+}

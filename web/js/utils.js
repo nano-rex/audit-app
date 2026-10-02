@@ -122,9 +122,9 @@ function renderSavedImageList(images, deleteAttribute = "data-delete-inspection-
   if (!images.length) return "";
   return images.map((image, index) => `
     <span class="image-pill">
-      ${escapeHtml(imageLabel(image))}
+      ${photoThumbnailButton(image)}
+      <span class="image-pill-name">${escapeHtml(imageLabel(image))}</span>
       ${image?.uploadedAt ? `<time datetime="${escapeAttr(image.uploadedAt)}">${escapeHtml(new Date(image.uploadedAt).toLocaleString())}</time>` : ""}
-      ${imageSource(image) ? `<a href="${escapeAttr(imageSource(image))}" target="_blank" rel="noopener">View</a>` : ""}
       ${markAttribute && imageSource(image) ? `<button type="button" ${markAttribute}="${index}" aria-label="Mark ${escapeAttr(imageLabel(image))}">Mark</button>` : ""}
       <button type="button" ${deleteAttribute}="${index}" aria-label="Remove ${escapeAttr(imageLabel(image))}">x</button>
     </span>

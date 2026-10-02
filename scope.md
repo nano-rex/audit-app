@@ -13,6 +13,7 @@ For how to use the application, see [USER_GUIDE.txt](USER_GUIDE.txt).
 | Administration | Users, departments, roles with page access and inspection capabilities (auditor, verifier, acknowledger), per-user overrides, login activity |
 | Master data | Outlets, locations (floor, area, order, QR code), zones, fixed assets and fixtures & finishes (parts of the building) with their inspection criteria, categories with a responsible department, priority levels with due days, audit types |
 | Auditing | A checklist that can be narrowed to one kind of item or one category; scheduled visits, + New Audit with an automatic `AUD-YYYY-NNNN` reference, guided checklist by zone and location, photos with marking tools, draft saving and resuming |
+| Evidence | Photo thumbnails throughout; a viewer with zoom, pan, stepping through a set, and marked-versus-original comparison |
 | Findings | One finding and one linked work order per failed criterion, with category, priority, department, PIC, cause, recommendation, required action, and evidence |
 | Corrective action | Work orders with enforced status steps, completion evidence, verifier identity, comments timeline, due dates, vendor and cost |
 | Sign-off | Auditor, verifier, and acknowledger signatures; audit closure once signed and all linked work is closed; closed audits are read-only |

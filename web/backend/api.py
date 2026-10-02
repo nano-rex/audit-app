@@ -213,7 +213,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/media/"):
             try:
-                stored = MediaStore(config.DB_PATH).read(parsed.path.removeprefix("/api/media/"))
+                store, identifier = MediaStore(config.DB_PATH), parsed.path.removeprefix("/api/media/")
+                if parse_qs(parsed.query).get("thumb"):
+                    thumbnail = store.thumbnail(identifier)
+                    stored = (thumbnail, "image/jpeg") if thumbnail is not None else None
+                else:
+                    stored = store.read(identifier)
             except ValueError:
                 self.send_error(404)
                 return

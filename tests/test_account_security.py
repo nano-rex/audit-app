@@ -363,6 +363,26 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "DELETE")[0], 200)
         self.assertEqual(sink()["category"], "")
 
+    def test_photo_thumbnails_are_small_jpegs_and_need_a_session(self):
+        from io import BytesIO
+        import base64
+        from PIL import Image
+        picture = BytesIO()
+        Image.effect_noise((1600, 900), 60).convert("RGB").save(picture, "PNG")
+        data_url = "data:image/png;base64," + base64.b64encode(picture.getvalue()).decode()
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": data_url, "name": "wide.png"}})
+        url = json.loads(body)["image"]["url"]
+        status, headers, full = self.request(url)
+        self.assertEqual((status, headers["Content-Type"]), (200, "image/png"))
+        status, headers, thumb = self.request(url + "?thumb=1")
+        self.assertEqual((status, headers["Content-Type"]), (200, "image/jpeg"))
+        self.assertLess(len(thumb), len(full) // 10)
+        with Image.open(BytesIO(thumb)) as small:
+            self.assertEqual(small.size, (240, 135))
+        self.assertEqual(self.request(url + "?thumb=1")[2], thumb)
+        self.assertEqual(self.request(url + "?thumb=1", token=None)[0], 401)
+        self.assertEqual(self.request("/api/media/" + "0" * 64 + ".png?thumb=1")[0], 404)
+
     def test_completing_an_inspection_requires_photo_evidence(self):
         from test_media_reports import photo_data_url
         _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})

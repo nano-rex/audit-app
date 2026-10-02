@@ -68,7 +68,12 @@ An administrator should configure these records before staff begin auditing:
    every criterion that has no remark. For a failed criterion, leave it
    unticked and enter a remark, or select Finding details beside it.
 6. Add a photo for each asset. You can add multiple photos, remove a photo, or
-   open Mark to annotate it before saving the mark.
+   open Mark to annotate it before saving the mark. Select a photo's thumbnail
+   to view it: scroll, pinch, or use + and − to zoom, drag to move around, and
+   double-click to zoom in or back out. Previous and Next step through the
+   photos shown together, and a marked photo can be compared with its original.
+   The same viewer opens from the Photos button on work orders, findings, and
+   the asset register.
 7. Finding details opens the Record Audit Finding dialog (it also opens when
    you untick a criterion). Select the category, priority, department, and PIC;
    describe the problem; add the cause, recommendation, required action, and

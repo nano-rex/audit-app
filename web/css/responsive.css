@@ -195,6 +195,14 @@
     grid-template-columns: 1fr;
   }
 
+  .photo-viewer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
   /* Figures stay two to a row on a phone so the page is not a long column of single numbers. */
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));

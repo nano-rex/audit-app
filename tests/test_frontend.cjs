@@ -360,3 +360,30 @@ test("the checklist filter narrows items by kind and category", () => {
   context.inspectionFilter.category = "";
   assert.equal(shown(), "2", "an item without a kind is a fixed asset");
 });
+
+test("the photo viewer zooms about a point and keeps the photo in view", () => {
+  const image = { naturalWidth: 2000, naturalHeight: 1000, style: {} };
+  const stage = { clientWidth: 1000, clientHeight: 600, classList: { toggle() {} } };
+  const context = vm.createContext({ ...shared(), setText() {},
+    imageSource: (picture, marked = false) => picture?.[marked ? "markedUrl" : "url"] || "",
+    document: { ...emptyDocument(), querySelector: (selector) => selector.includes("stage") ? stage : image } });
+  vm.runInContext(source("photo-viewer.js"), context);
+  const view = () => vm.runInContext("photoViewer", context);
+  context.fitPhoto();
+  assert.equal(view().scale, 0.5, "the whole photo fits the stage");
+  assert.equal(view().y, 50, "and is centred where it is smaller than the stage");
+  context.zoomPhoto(2, 250, 300);
+  assert.equal(view().scale, 1);
+  assert.equal(view().x, -250, "the point under the cursor stays put");
+  view().x += 5000;
+  context.applyPhotoTransform();
+  assert.equal(view().x, 0, "it cannot be dragged past its left edge");
+  view().x -= 50000;
+  context.applyPhotoTransform();
+  assert.equal(view().x, -1000, "or past its right edge");
+  for (let step = 0; step < 20; step++) context.zoomPhoto(2);
+  assert.equal(view().scale, 4, "zoom stops at eight times the fitted size");
+  for (let step = 0; step < 20; step++) context.zoomPhoto(0.5);
+  assert.equal(view().scale, 0.5, "and never goes below the fitted size");
+  assert.equal(context.photoThumbnail({ url: "/api/media/a.jpg", markedUrl: "/api/media/b.png" }), "/api/media/b.png?thumb=1");
+});
