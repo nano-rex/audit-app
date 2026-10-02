@@ -237,7 +237,7 @@ function inspectionItemCard(item) {
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
           <button class="outline" type="button" data-record-finding>Finding details</button>
-          <input name="equipment-${item.id}-notes-${index}" placeholder="Remark (required when not passed)">
+          <input name="equipment-${item.id}-notes-${index}" placeholder="Remark if not passed">
           <small class="finding-summary" data-finding-summary hidden></small>
         </div>
       `).join("")}

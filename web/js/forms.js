@@ -790,7 +790,7 @@ document.getElementById("location-form").addEventListener("submit", async (event
     area: formValue(form, "area", ""),
     displayOrder: Number(formValue(form, "displayOrder", "0")) || 0,
     size: formValue(form, "size", ""),
-    equipmentIds: [...form.elements.equipmentIds.selectedOptions].map((option) => Number(option.value)),
+    equipmentIds: [...form.querySelectorAll('[data-location-asset-options] input:checked')].map((input) => Number(input.value)),
   };
   try {
     await requestJson(id ? `/api/locations/${id}` : "/api/locations", id ? "PATCH" : "POST", payload);

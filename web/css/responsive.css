@@ -30,16 +30,24 @@
 }
 
 @media (max-width: 900px) {
-  .users-table { min-width: 620px; }
   .users-table .user-email,
   .users-table .user-login { display: none; }
 }
 
 @media (max-width: 600px) {
-  .users-table { min-width: 500px; }
-  .users-table .user-department { display: none; }
-  .users-table th,
-  .users-table td { padding: 9px 8px; }
+  /* A table of seven columns cannot fit a phone: show each user as a card with every field. */
+  .users-table thead { display: none; }
+  .users-table,
+  .users-table tbody,
+  .users-table tr,
+  .users-table td { display: block; width: 100%; }
+  .users-table tr { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .users-table tbody tr:last-child { border-bottom: 0; }
+  .users-table td { padding: 2px 0; border: 0; }
+  .users-table .user-email,
+  .users-table .user-login,
+  .users-table .user-department { display: block; color: var(--muted); font-size: 13px; }
+  .users-table td.row-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding-top: 8px; white-space: normal; }
 }
 
 @media (max-width: 920px) {
@@ -195,6 +203,11 @@
     grid-template-columns: 1fr;
   }
 
+  /* Give each criterion the full width so its wording is not cut. */
+  .criterion-edit-row {
+    grid-template-columns: 1fr;
+  }
+
   .photo-viewer {
     width: 100vw;
     max-width: 100vw;
@@ -269,8 +282,9 @@
     flex-direction: column;
   }
 
+  /* One location per row on a phone, so a long name reads on one or two lines. */
   .inspection-location-nav {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .inspection-location-nav button {

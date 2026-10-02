@@ -48,12 +48,31 @@ async function populateLocationEquipmentSelect(locationName = "") {
   const form = document.getElementById("location-form");
   const response = await authFetch(`/api/equipment?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
-  form.elements.equipmentIds.innerHTML = data.items.map((item) => {
-    const selected = (item.location || item.zone || "") === locationName ? " selected" : "";
-    const label = item.name || item.asset_id || item.code || `Fixed Asset ${item.id}`;
-    return `<option value="${item.id}"${selected}>${escapeHtml(label)}</option>`;
-  }).join("");
+  const here = (item) => (item.location || item.zone || "") === locationName;
+  // Items already in this location first, then the rest by name.
+  const items = [...data.items].sort((a, b) => Number(here(b)) - Number(here(a)) || String(a.name || "").localeCompare(String(b.name || "")));
+  form.querySelector("[data-location-asset-filter]").value = "";
+  setHtml("[data-location-asset-options]", items.length ? items.map((item) => {
+    const label = item.name || item.asset_id || item.code || `Item ${item.id}`;
+    const elsewhere = !here(item) && (item.location || item.zone) ? `Now in ${item.location || item.zone}` : "";
+    return `<label class="zone-location-option"><input type="checkbox" name="equipmentIds" value="${item.id}"${here(item) && locationName ? " checked" : ""}>
+      <span>${escapeHtml(label)}</span><small>${escapeHtml([item.code || item.asset_id || "", elsewhere].filter(Boolean).join(" · "))}</small></label>`;
+  }).join("") : `<p class="muted">No assets or fixtures are registered for this outlet.</p>`);
+  updateLocationAssetCount();
 }
+
+function updateLocationAssetCount() {
+  const form = document.getElementById("location-form");
+  setText("[data-location-asset-count]", String(form.querySelectorAll('[data-location-asset-options] input:checked').length));
+}
+
+document.querySelector("[data-location-asset-filter]")?.addEventListener("input", (event) => {
+  const text = event.target.value.trim().toLowerCase();
+  document.querySelectorAll("[data-location-asset-options] label").forEach((label) => {
+    label.hidden = Boolean(text) && !label.textContent.toLowerCase().includes(text);
+  });
+});
+document.querySelector("[data-location-asset-options]")?.addEventListener("change", updateLocationAssetCount);
 
 async function populateZoneLocationSelect(selectedLocations = []) {
   const form = document.getElementById("zone-form");

@@ -63,5 +63,10 @@ def assign_equipment(db, outlet, name, identifiers):
         row = db.execute("SELECT outlet FROM equipment WHERE id = ?", (int(identifier),)).fetchone()
         if not row or row["outlet"] != outlet:
             raise ValueError("Select equipment from this outlet; relocate other equipment in the asset editor first")
-    for identifier in identifiers:
-        db.execute("UPDATE equipment SET location = ?, zone = ? WHERE id = ?", (name, name, int(identifier)))
+    chosen = {int(identifier) for identifier in identifiers}
+    for identifier in chosen:
+        db.execute("UPDATE equipment SET location = ?, zone = ? WHERE id = ?", (name, name, identifier))
+    # The list is the location's full membership: an item left out is no longer here.
+    for row in db.execute("SELECT id FROM equipment WHERE outlet = ? AND location = ?", (outlet, name)).fetchall():
+        if row["id"] not in chosen:
+            db.execute("UPDATE equipment SET location = '', zone = 'Unassigned' WHERE id = ?", (row["id"],))

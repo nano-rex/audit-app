@@ -25,7 +25,9 @@ An administrator should configure these records before staff begin auditing:
 1. In Users, create accounts and assign each person's role and department.
    Configure role permissions and inspection capabilities as required.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
-   zones. Set display order where needed.
+   zones. Set display order where needed. When editing a location, tick the
+   assets and fixtures that belong in it (use the filter to find them);
+   unticking one removes it from the location.
 3. In Assets, register what will be inspected at each outlet and location:
    - Add Fixed Asset for equipment that has a code and serial details
      (speakers, screens, amplifiers).

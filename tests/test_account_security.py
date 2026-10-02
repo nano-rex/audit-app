@@ -383,6 +383,20 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request(url + "?thumb=1", token=None)[0], 401)
         self.assertEqual(self.request("/api/media/" + "0" * 64 + ".png?thumb=1")[0], 404)
 
+    def test_location_item_list_is_its_full_membership(self):
+        ids = [json.loads(self.request("/api/equipment", "POST", {"name": f"Member {n}", "outlet": "STP"})[2])["id"] for n in range(3)]
+        self.assertEqual(self.request("/api/locations", "POST", {"outlet": "STP", "name": "Membership room", "equipmentIds": ids})[0], 200)
+        location = next(row for row in json.loads(self.request("/api/locations?outlet=STP")[2])["items"] if row["name"] == "Membership room")
+        placed = lambda: {row["id"]: row["location"] for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"] if row["id"] in ids}
+        self.assertEqual(set(placed().values()), {"Membership room"})
+        path = f"/api/locations/{location['id']}"
+        # Leaving an item out of the list removes it from the location.
+        self.assertEqual(self.request(path, "PATCH", {"name": "Membership room", "equipmentIds": ids[:2]})[0], 200)
+        self.assertEqual(placed(), {ids[0]: "Membership room", ids[1]: "Membership room", ids[2]: ""})
+        # An edit that does not mention the items leaves them where they are.
+        self.assertEqual(self.request(path, "PATCH", {"name": "Membership room", "floor": "Level 2"})[0], 200)
+        self.assertEqual(placed()[ids[0]], "Membership room")
+
     def test_completing_an_inspection_requires_photo_evidence(self):
         from test_media_reports import photo_data_url
         _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})

@@ -126,16 +126,18 @@
 }
 
 .users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-.users-table { border-collapse: collapse; min-width: 760px; width: 100%; }
+.users-table { border-collapse: collapse; width: 100%; }
 .users-table th,
-.users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; white-space: nowrap; }
+.users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; }
+.users-table th { white-space: nowrap; }
+/* Names, addresses, and roles wrap inside their cells so the whole table fits without cutting text. */
+.users-table td { overflow-wrap: break-word; }
 .users-table th { background: var(--green-soft); color: var(--muted); font-size: 11px; text-transform: uppercase; }
 .users-table tbody tr:last-child td { border-bottom: 0; }
 .users-table tbody tr:hover { background: var(--green-soft); }
-.users-table .user-name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
 .users-table .user-name strong,
 .users-table .user-name small,
-.users-table .user-alert { display: block; overflow: hidden; text-overflow: ellipsis; }
+.users-table .user-alert { display: block; }
 .users-table .user-name small,
 .users-table .user-alert { color: var(--muted); font-size: 11px; margin-top: 3px; }
 .users-table .user-alert { color: var(--orange); }
@@ -516,9 +518,10 @@ dialog header button {
   font-size: 15px;
 }
 
-.zone-location-picker [data-zone-location-options] {
+.zone-location-picker [data-zone-location-options],
+.asset-picker [data-location-asset-options] {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
   max-height: min(420px, 52vh);
   overflow: auto;
@@ -657,7 +660,7 @@ fieldset {
 
 .inspection-location-nav {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 8px;
 }
 
@@ -672,6 +675,14 @@ fieldset {
   background: var(--surface);
   color: var(--text);
   text-align: left;
+  /* Location names can be long; show all of the name on as many lines as it needs. */
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.inspection-location-nav button .status-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .inspection-location-nav button.active {
@@ -682,6 +693,7 @@ fieldset {
 .inspection-location-nav button span {
   min-width: 0;
   font-weight: 800;
+  overflow-wrap: break-word;
 }
 
 .inspection-location[hidden] {
@@ -795,8 +807,14 @@ fieldset {
   font-size: 13px;
 }
 
-.users-table .row-actions {
-  flex-wrap: nowrap;
+.users-table td.row-actions {
+  display: table-cell;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.users-table td.row-actions button {
+  margin: 2px 0;
 }
 
 /* Buttons that follow a card's intro text, and the intro line of a page. */
@@ -1055,9 +1073,7 @@ dialog header h2 {
 .photo-viewer header h2 {
   min-width: 0;
   flex: 1 1 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-size: 16px;
 }
 
@@ -1119,4 +1135,59 @@ dialog header h2 {
 .check-item .image-pill time {
   display: inline;
   color: var(--text);
+}
+
+/* Text that comes from records (names, codes, titles) wraps instead of being cut off. */
+h2,
+h3,
+h4,
+.inspection-name-display,
+.check-item strong,
+.department-card-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.menu-tab-row > button,
+.signature-strip button,
+.form-actions button,
+.form-actions .button-link,
+.quick-actions button,
+.quick-actions .button-link,
+.inline-form > button {
+  white-space: normal;
+  line-height: 1.25;
+  padding-block: 8px;
+}
+
+.status-pill {
+  white-space: nowrap;
+}
+
+.asset-picker input[type="search"] {
+  width: 100%;
+}
+
+.asset-picker [data-location-asset-options] {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.asset-picker .zone-location-option {
+  align-items: start;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.asset-picker .zone-location-option[hidden] {
+  display: none;
+}
+
+.zone-location-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Leave room for the Pass all button so the item's details never run underneath it. */
+.inspection-item > div:first-child {
+  padding-right: 96px;
 }

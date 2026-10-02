@@ -126,7 +126,7 @@ function userRow(row) {
       <td class="user-login">${escapeHtml(login)}</td>
       <td class="row-actions">
         <button type="button" class="outline" data-edit-user='${escapeAttr(JSON.stringify(row))}'>Edit</button>
-        <button type="button" class="outline" data-login-activity="${row.id}">Login activity</button>
+        <button type="button" class="outline" data-login-activity="${row.id}" aria-label="Login activity for ${escapeAttr(row.name)}">Activity</button>
         <button type="button" class="danger" data-delete-user="${row.id}">Delete</button>
       </td>
     </tr>

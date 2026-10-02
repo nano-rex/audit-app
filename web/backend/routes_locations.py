@@ -38,7 +38,8 @@ def post_locations(self, parsed, payload=None):
             ),
         )
         add_locations_to_default_zone(db, outlet, now)
-        assign_equipment(db, outlet, location_name, payload.get("equipmentIds") or [])
+        if "equipmentIds" in payload:  # Absent means "leave the items as they are", not "remove them all".
+            assign_equipment(db, outlet, location_name, payload.get("equipmentIds") or [])
     self.json({"ok": True})
 
 
@@ -160,7 +161,8 @@ def patch_locations(self, parsed, payload=None):
             self.send_error(404)
             return
         add_locations_to_default_zone(db, outlet)
-        assign_equipment(db, outlet, location_name, payload.get("equipmentIds") or [])
+        if "equipmentIds" in payload:  # Absent means "leave the items as they are", not "remove them all".
+            assign_equipment(db, outlet, location_name, payload.get("equipmentIds") or [])
     self.json({"ok": True})
     return
 
