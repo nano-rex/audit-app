@@ -91,11 +91,26 @@ const findingFilters = { search: "", outlet: "", location: "", department: "", c
 const workOrderFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const equipmentFilters = {
   search: "",
+  kind: "",
+  category: "",
   outlet: "",
   location: "",
   type: "",
   brand: "",
 };
+// What each kind of inspectable item is called, and the checks it starts with.
+const itemKinds = {
+  asset: { label: "Fixed Asset", plural: "fixed assets" },
+  fixture: { label: "Fixture & Finish", plural: "fixtures and finishes" },
+};
+const defaultFixtureCriteria = [
+  "Clean and free from stains or marks",
+  "Intact with no cracks, leaks, or loose parts",
+  "Works as intended",
+  "Safe with no hazard to users",
+];
+// The checklist can be narrowed to one kind of item or one category, for example one department's items.
+const inspectionFilter = { kind: "", category: "" };
 const defaultInspectionCriteria = [
   "Present and correctly placed",
   "Clean and free from visible damage",

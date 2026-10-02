@@ -28,7 +28,7 @@ function categoryRow(row) {
   return `
     <li>
       <b>${escapeHtml(row.sequence || 0)}. ${escapeHtml(row.name)}</b>
-      <span>${escapeHtml(row.description || "No description")} | ${row.active ? "Active" : "Inactive"}</span>
+      <span>${escapeHtml(row.description || "No description")} | ${row.department ? `Department: ${escapeHtml(row.department)}` : "No default department"} | ${row.active ? "Active" : "Inactive"}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-category='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-category="${row.id}">Delete</button>
@@ -166,16 +166,19 @@ function zoneRow(row) {
 function equipmentRow(row) {
   const status = row.operational_status || row.health_status || "Operational";
   const statusClass = status === "Replace" || status === "Out of Service" ? "warn" : status === "Needs Attention" || status === "Monitor" ? "monitor" : "";
+  const fixture = row.kind === "fixture";
   const name = row.name || row.asset_id || row.code || "Fixed Asset";
-  const type = row.type || row.equipment_type || "Fixed Asset";
   const code = row.code || row.asset_id || "";
   const location = row.location || row.zone || "No location";
+  const detail = fixture
+    ? row.description || "No description"
+    : `${row.type || row.equipment_type || "Fixed Asset"} | ${row.brand || "No brand"} ${row.model || ""}`;
   return `
     <article>
       <div>
-        <b>${escapeHtml(name)} - ${escapeHtml(type)}</b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | Code: ${escapeHtml(code)} | QR: ${escapeHtml(row.qr_code || code || "Not assigned")}</span>
-        <span>${escapeHtml(row.brand || "No brand")} ${escapeHtml(row.model || "")}</span>
+        <b>${escapeHtml(name)} <span class="kind-pill">${fixture ? "Fixture &amp; finish" : "Fixed asset"}</span></b>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(row.category || "No category")} | Code: ${escapeHtml(code)}</span>
+        <span>${escapeHtml(detail)}</span>
       </div>
       <span class="row-actions">
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>

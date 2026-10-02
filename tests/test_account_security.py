@@ -286,6 +286,59 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request("/api/work-orders", token="legacy-override")[0], 200)
         self.assertEqual(self.request("/api/roles", "POST", {"name": "Uses retired page", "permissions": ["corrective-actions"]})[0], 400)
 
+    def test_fixtures_and_assets_share_one_register_with_generated_codes(self):
+        fixture = {"kind": "fixture", "name": "Floor tiles", "outlet": "STP", "location": "R-01", "category": "Building",
+                   "serialNumber": "ignored for a fixture", "brand": "ignored"}
+        status, _, body = self.request("/api/equipment", "POST", fixture)
+        self.assertEqual(status, 200, body)
+        created = json.loads(body)
+        self.assertEqual(created["code"], f"FXT-{created['id']:05d}")
+        status, _, body = self.request("/api/equipment", "POST", {"name": "Amplifier", "outlet": "STP", "location": "R-01"})
+        asset = json.loads(body)
+        self.assertEqual(asset["code"], f"AST-{asset['id']:05d}")
+        rows = {row["id"]: row for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"]}
+        stored = rows[created["id"]]
+        self.assertEqual((stored["kind"], stored["category"], stored["serial_number"], stored["brand"]), ("fixture", "Building", "", ""))
+        self.assertEqual(stored["inspection_criteria"], list(config.DEFAULT_FIXTURE_CRITERIA))
+        self.assertEqual(rows[asset["id"]]["kind"], "asset")
+        compact = {row["id"]: row for row in json.loads(self.request("/api/equipment?outlet=STP&view=inspection")[2])["items"]}
+        self.assertEqual((compact[created["id"]]["kind"], compact[created["id"]]["category"]), ("fixture", "Building"))
+        # A code already in use is refused; it used to replace the other item.
+        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Clash", "code": created["code"]})[0], 409)
+        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Bad kind", "kind": "vehicle"})[0], 400)
+        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Bad category", "category": "No such category"})[0], 400)
+        self.assertEqual(self.request("/api/equipment", "POST", {"kind": "fixture"})[0], 400)
+        # Editing keeps the kind and the code unless they are sent.
+        self.assertEqual(self.request(f"/api/equipment/{created['id']}", "PATCH", {"name": "Floor tiles (lobby)", "category": "Building"})[0], 200)
+        edited = next(row for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"] if row["id"] == created["id"])
+        self.assertEqual((edited["kind"], edited["code"], edited["name"]), ("fixture", created["code"], "Floor tiles (lobby)"))
+
+    def test_findings_go_to_the_department_responsible_for_their_category(self):
+        from test_media_reports import photo_data_url
+        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
+        image = json.loads(body)["image"]
+        with app.connect() as db:
+            departments = [row[0] for row in db.execute("SELECT code FROM departments ORDER BY code")]
+        owner = departments[-1]
+        self.assertEqual(self.request("/api/setup/categories", "POST", {"name": "Routed category", "department": "No such department"})[0], 400)
+        self.assertEqual(self.request("/api/setup/categories", "POST", {"name": "Routed category", "department": owner, "sequence": 50})[0], 200)
+        category = next(row for row in json.loads(self.request("/api/setup")[2])["categories"] if row["name"] == "Routed category")
+        self.assertEqual(category["department"], owner)
+        self.assertEqual(self.request("/api/equipment", "POST", {"kind": "fixture", "name": "Routed sink", "category": "Routed category"})[0], 200)
+        base = {"section": "Routed sink", "notes": "Leaking", "priority": "High", "pic": "Routing Owner", "category": "Routed category", "images": [image]}
+        items = [base | {"item": "By category"}, base | {"item": "Chosen", "assignedDepartment": departments[0]}]
+        status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items, "complete": True})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            routed = dict(db.execute("SELECT title, request_type FROM work_orders WHERE category = 'Routed category'").fetchall())
+        self.assertEqual({title.rsplit(" - ", 1)[-1]: department for title, department in routed.items()}, {"By category": owner, "Chosen": departments[0]})
+        # Renaming the category keeps its items attached; deleting it leaves them uncategorised.
+        self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "PATCH", {"name": "Routed renamed", "department": owner})[0], 200)
+        sink = lambda: next(row for row in json.loads(self.request("/api/equipment")[2])["items"] if row["name"] == "Routed sink")
+        self.assertEqual(sink()["category"], "Routed renamed")
+        self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "DELETE")[0], 200)
+        self.assertEqual(sink()["category"], "")
+
     def test_completing_an_inspection_requires_photo_evidence(self):
         from test_media_reports import photo_data_url
         _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})

@@ -58,6 +58,7 @@ async function loadInspectionItems() {
   const zoneData = await zoneResponse.json();
   inspectionItems = equipmentData.items;
   inspectionPageDrafts = new Map();
+  renderInspectionFilter();
   const locationNames = new Set(locationData.items.map((location) => location.name));
   inspectionItems.forEach((item) => {
     const location = item.location || item.zone || "Unassigned";
@@ -124,7 +125,7 @@ function inspectionZoneCard(zoneName, locations, equipment) {
 function inspectionLocationShell(location) {
   return `<section class="inspection-location" data-inspection-location="${escapeAttr(location)}" hidden>
     <header><h4>${escapeHtml(location)}</h4><span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span></header>
-    <div data-location-items>${loadingMarkup("Loading fixed assets…")}</div>
+    <div data-location-items>${loadingMarkup("Loading items…")}</div>
   </section>`;
 }
 
@@ -143,7 +144,6 @@ function captureInspectionPageDrafts(location) {
         item: criterionRow.dataset.criterion,
         passed: formData.get(`equipment-${equipmentId}-criterion-${index}`) === "pass",
         notApplicable: false,
-        category: "",
         notes: formData.get(`equipment-${equipmentId}-notes-${index}`) || "",
         images,
       });
@@ -156,9 +156,13 @@ function renderInspectionLocationItems(location) {
   const section = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location);
   const container = section?.querySelector("[data-location-items]");
   if (!container) return;
-  const items = inspectionLocationEquipment.get(location) || [];
-  const page = paginateList(`inspection-location-${location}`, items, location, () => renderInspectionLocationItems(location));
-  container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`) + page.controls;
+  const all = inspectionLocationEquipment.get(location) || [];
+  const items = all.filter(matchesInspectionFilter);
+  const page = paginateList(`inspection-location-${location}`, items, { location, ...inspectionFilter }, () => renderInspectionLocationItems(location));
+  const empty = all.length
+    ? `<article class="check-item"><div><span>Filtered</span><strong>Nothing in this location matches the filter.</strong></div></article>`
+    : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
+  container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : empty) + page.controls;
   applyInspectionSessionItems();
   page.items.forEach((equipment) => {
     const rows = container.querySelectorAll(`[data-equipment-id="${equipment.id}"] [data-criterion]`);
@@ -166,6 +170,7 @@ function renderInspectionLocationItems(location) {
       const draft = inspectionPageDrafts.get(`${equipment.id}:${criterionRow.dataset.criterion}`);
       if (!draft) return;
       criterionRow.dataset.findingDetails = JSON.stringify(draft);
+      renderFindingSummary(criterionRow);
       const id = equipment.id;
       const index = [...criterionRow.parentElement.querySelectorAll("[data-criterion]")].indexOf(criterionRow);
       const check = criterionRow.querySelector("[data-inspection-check]");
@@ -178,12 +183,43 @@ function renderInspectionLocationItems(location) {
   });
 }
 
+function matchesInspectionFilter(item) {
+  return (!inspectionFilter.kind || (item.kind || "asset") === inspectionFilter.kind)
+    && (!inspectionFilter.category || (item.category || "") === inspectionFilter.category);
+}
+
+// Offer the categories the outlet's items actually use, and say how much of the checklist is shown.
+function renderInspectionFilter() {
+  const select = document.querySelector("[data-inspection-filter-category]");
+  if (!select) return;
+  const categories = [...new Set(inspectionItems.map((item) => item.category || "").filter(Boolean))].sort();
+  if (inspectionFilter.category && !categories.includes(inspectionFilter.category)) inspectionFilter.category = "";
+  updateSelectOptions(select, categories, true, "All categories");
+  select.value = inspectionFilter.category;
+  const kind = document.querySelector("[data-inspection-filter-kind]");
+  if (kind) kind.value = inspectionFilter.kind;
+  const shown = inspectionItems.filter(matchesInspectionFilter).length;
+  const filtered = Boolean(inspectionFilter.kind || inspectionFilter.category);
+  setText("[data-inspection-filter-summary]", filtered
+    ? `Showing ${shown} of ${inspectionItems.length} items. Progress below counts the shown items; the whole checklist must be finished to complete the inspection.`
+    : `${inspectionItems.length} items to inspect.`);
+}
+
+function applyInspectionFilter() {
+  renderInspectionFilter();
+  // Re-render the locations already opened; the others are filtered when they are opened.
+  document.querySelectorAll("[data-inspection-location]").forEach((section) => {
+    if (section.dataset.loaded) renderInspectionLocationItems(section.dataset.inspectionLocation);
+  });
+  updateInspectionProgress();
+}
+
 function inspectionItemCard(item) {
   const criteria = parseInspectionCriteria(item.inspection_criteria);
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
-        <span>${escapeHtml(item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
+        <span>${escapeHtml(item.kind === "fixture" ? "Fixture & finish" : item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.category || "No category")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
         <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
       </div>
       <button class="outline pass-all" type="button" data-pass-all>Pass all</button>
@@ -197,6 +233,7 @@ function inspectionItemCard(item) {
             type: item.type || item.equipment_type || "Fixed Asset",
             outlet: item.outlet,
             location: item.location || item.zone || "",
+            category: item.category || "",
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
           <button class="outline" type="button" data-record-finding>Finding details</button>
@@ -212,7 +249,8 @@ function renderFindingSummary(criterionRow) {
   const summary = criterionRow?.querySelector("[data-finding-summary]");
   if (!summary) return;
   const details = parseStoredObject(criterionRow.dataset.findingDetails);
-  const parts = [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean);
+  // Every item carries its category; a priority means finding details were recorded for this criterion.
+  const parts = details.priority ? [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean) : [];
   summary.textContent = parts.length ? `Finding: ${parts.join(" · ")}` : "";
   summary.hidden = !parts.length;
 }
@@ -451,7 +489,8 @@ function collectInspectionPayload(complete = false) {
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
-        category: passed ? "" : details.category || "",
+        // A finding may be given its own category; otherwise the item's category applies (it also drives weighted scoring).
+        category: details.category || equipment?.category || "",
         passed,
         notApplicable: false,
         score: passed ? 100 : 0,
@@ -476,7 +515,7 @@ function collectInspectionPayload(complete = false) {
       location: equipment.location || equipment.zone || "",
       section: equipment.name || equipment.asset_id || "Fixed Asset",
       item: criterion,
-      category: "",
+      category: equipment.category || "",
       passed: false,
       notApplicable: false,
       score: 0,
@@ -581,6 +620,10 @@ function updateInspectionProgress() {
 
 function updateInspectionStatusPills(payload) {
   const summary = [];
+  if (inspectionFilter.kind || inspectionFilter.category) {
+    const shown = new Set(inspectionItems.filter(matchesInspectionFilter).map((item) => String(item.id)));
+    payload = { ...payload, items: payload.items.filter((item) => shown.has(String(item.equipmentId))) };
+  }
   document.querySelectorAll("[data-inspection-location]").forEach((section) => {
     const location = section.dataset.inspectionLocation;
     const items = payload.items.filter((item) => item.location === location);
@@ -590,7 +633,7 @@ function updateInspectionStatusPills(payload) {
     const pill = section.querySelector("[data-location-status]");
     // A location without fixed assets has nothing to inspect; do not show it as outstanding.
     const className = items.length ? status.className : "status-none";
-    const label = items.length ? `(${progress}%)` : "No assets";
+    const label = items.length ? `(${progress}%)` : "None";
     if (pill) {
       pill.className = `status-pill ${className}`;
       pill.textContent = label;
@@ -625,7 +668,7 @@ function openInspectionLocation(location) {
   if (section && !section.dataset.loaded) {
     const items = inspectionLocationEquipment.get(location) || [];
     const container = section.querySelector("[data-location-items]");
-    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`;
+    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
     section.dataset.loaded = "true";
     if (items.length) renderInspectionLocationItems(location);
   }

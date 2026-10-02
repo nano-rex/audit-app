@@ -17,7 +17,7 @@ def setup_records(include_super=False):
             "SELECT id, outlet_code, name, locations_data_id, description FROM zones ORDER BY outlet_code, name"
         ).fetchall()]
         categories = [dict(row) for row in db.execute(
-            "SELECT id, name, description, sequence, active FROM categories ORDER BY sequence, name"
+            "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
         ).fetchall()]
         role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
@@ -141,8 +141,8 @@ def query_equipment_items(outlet=None, compact=False):
     if outlet:
         where = "WHERE outlet = ?"
         params = (outlet,)
-    columns = ("id, asset_id, outlet, zone, equipment_type, name, type, code, location, "
-               "inspection_criteria_data_id") if compact else ("id, asset_id, qr_code, outlet, zone, equipment_type, health_status, "
+    columns = ("id, kind, category, asset_id, outlet, zone, equipment_type, name, type, code, location, "
+               "inspection_criteria_data_id") if compact else ("id, kind, category, asset_id, qr_code, outlet, zone, equipment_type, health_status, "
                "last_checked, replacement_flag, notes, name, description, type, operational_status, code, model, serial_number, brand, location, "
                "installation_date, temporary_relocation, warranty_date, calibration_date, expiry_date, photos_data_id, inverter_model, motor_capacity, source_file, source_sheet, inspection_criteria_data_id")
     with connect() as db:

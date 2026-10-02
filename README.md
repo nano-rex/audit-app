@@ -1,7 +1,7 @@
 # Audit App
 
 A facilities audit application: schedule an audit, walk a guided checklist of an outlet's
-fixed assets, record findings with photos, assign and verify corrective actions, sign off, and
+fixed assets and building fixtures, record findings with photos, assign and verify corrective actions, sign off, and
 report.
 
 There are two separate versions:
@@ -31,8 +31,8 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
 
 ## The workflow
 
-1. An administrator sets up users and roles, outlets and their locations, fixed assets with
-   inspection criteria, and the categories, priorities, and audit types used by findings.
+1. An administrator sets up users and roles, outlets and their locations, fixed assets and fixtures
+   and finishes with inspection criteria, and the categories, priorities, and audit types used by findings.
 2. An auditor starts an audit with **+ New Audit** (or opens a scheduled one) and works through
    the checklist: tick what passes, or use **Pass all** for an asset; record a remark and
    finding details for what fails; attach photos.

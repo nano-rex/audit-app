@@ -372,11 +372,11 @@ document.querySelector("[data-open-work-order]")?.addEventListener("click", asyn
   await openWorkOrderEditor();
 });
 
-document.querySelector("[data-open-equipment]")?.addEventListener("click", async () => {
-  resetEquipmentForm();
+document.querySelectorAll("[data-open-equipment]").forEach((button) => button.addEventListener("click", async () => {
+  resetEquipmentForm(button.dataset.openEquipment);
   await updateEquipmentLocationSelect();
   document.getElementById("equipment-dialog").showModal();
-});
+}));
 
 document.querySelector("[data-add-equipment-criterion]")?.addEventListener("click", () => {
   addEquipmentCriterion();
@@ -662,6 +662,27 @@ checklistContainer?.addEventListener("change", async (event) => {
   await openFindingEditor(row);
 });
 
+// The department that normally handles a category, when one is set on it.
+function categoryDepartment(name) {
+  return categoryCache.find((row) => row.name === name)?.department || "";
+}
+
+document.querySelector("[data-inspection-filter-kind]")?.addEventListener("change", (event) => {
+  inspectionFilter.kind = event.target.value;
+  applyInspectionFilter();
+});
+
+document.querySelector("[data-inspection-filter-category]")?.addEventListener("change", (event) => {
+  inspectionFilter.category = event.target.value;
+  applyInspectionFilter();
+});
+
+// Choosing a category on a finding or work order brings its responsible department with it.
+document.querySelector('#work-order-form [name="category"]')?.addEventListener("change", (event) => {
+  const department = categoryDepartment(event.target.value);
+  if (department) event.target.form.elements.requestType.value = department;
+});
+
 // A failed criterion is recorded with the work-order form, limited to the fields a finding keeps.
 async function openFindingEditor(row) {
   const detail = JSON.parse(row.querySelector("[data-inspection-check]").dataset.inspectionCheck);
@@ -670,8 +691,8 @@ async function openFindingEditor(row) {
   await openWorkOrderEditor({
     outlet: detail.outlet,
     zone: detail.location,
-    request_type: saved.assignedDepartment || setupOptions.departments[0] || "",
-    category: saved.category || setupOptions.categories[0] || "",
+    request_type: saved.assignedDepartment || categoryDepartment(saved.category || detail.category) || setupOptions.departments[0] || "",
+    category: saved.category || detail.category || setupOptions.categories[0] || "",
     priority: saved.priority || "High",
     status: "Assigned",
     assignee: "Technical Support",
@@ -817,6 +838,16 @@ document.getElementById("equipment-filter-type")?.addEventListener("change", (ev
 
 document.getElementById("equipment-filter-brand")?.addEventListener("change", (event) => {
   equipmentFilters.brand = event.target.value;
+  renderEquipment();
+});
+
+document.getElementById("equipment-filter-kind")?.addEventListener("change", (event) => {
+  equipmentFilters.kind = event.target.value;
+  renderEquipment();
+});
+
+document.getElementById("equipment-filter-category")?.addEventListener("change", (event) => {
+  equipmentFilters.category = event.target.value;
   renderEquipment();
 });
 

@@ -2,26 +2,28 @@
       <form method="dialog" id="equipment-form">
         <header><h2>Register Fixed Asset</h2><button type="button" data-close-dialog>x</button></header>
         <input name="equipmentId" type="hidden">
+        <input name="kind" type="hidden" value="asset">
           <div class="form-grid">
-            <label>Name<input name="name" list="equipment-name-options" placeholder="Speaker, TV, amplifier, furniture"></label>
-            <label>Code<input name="code" placeholder="Fixed asset code"></label>
-            <label>QR Code<input name="qrCode" placeholder="Auto-filled from Code" readonly></label>
+            <label>Name<input name="name" list="equipment-name-options" placeholder="Speaker, TV, amplifier, furniture" required></label>
+            <label>Category<select name="itemCategory"></select></label>
+            <label data-asset-only>Code<input name="code" placeholder="Fixed asset code"></label>
+            <label data-asset-only>QR Code<input name="qrCode" placeholder="Auto-filled from Code" readonly></label>
             <label>Outlet<select name="outlet"></select></label>
             <label>Location<select name="location"></select></label>
-            <label>Asset Type<input name="type" placeholder="Part of Musical, Part of Computer"></label>
-            <label>Operational Status<select name="operationalStatus"><option>Operational</option><option>Needs Attention</option><option>Out of Service</option><option>Replace</option></select></label>
-            <label>Brand<input name="brand" placeholder="Brand"></label>
-            <label>Model<input name="model" placeholder="Model"></label>
-            <label>Serial Number<input name="serialNumber" placeholder="Serial number"></label>
-            <label>Installation Date<input name="installationDate" placeholder="DD.MM.YYYY or YYYY-MM-DD"></label>
-            <label>Warranty Date<input name="warrantyDate" placeholder="Warranty date"></label>
-            <label>Calibration Date<input name="calibrationDate" placeholder="Calibration date"></label>
-            <label>Expiry Date<input name="expiryDate" placeholder="Expiry date"></label>
-            <label>Temporary Relocation<input name="temporaryRelocation" placeholder="Temporary location"></label>
-            <label>Inverter Model<input name="inverterModel" placeholder="If applicable"></label>
-            <label>Motor Capacity<input name="motorCapacity" placeholder="If applicable"></label>
+            <label data-asset-only>Asset Type<input name="type" placeholder="Part of Musical, Part of Computer"></label>
+            <label><span data-condition-label>Operational Status</span><select name="operationalStatus"><option>Operational</option><option>Needs Attention</option><option>Out of Service</option><option>Replace</option></select></label>
+            <label data-asset-only>Brand<input name="brand" placeholder="Brand"></label>
+            <label data-asset-only>Model<input name="model" placeholder="Model"></label>
+            <label data-asset-only>Serial Number<input name="serialNumber" placeholder="Serial number"></label>
+            <label data-asset-only>Installation Date<input name="installationDate" placeholder="DD.MM.YYYY or YYYY-MM-DD"></label>
+            <label data-asset-only>Warranty Date<input name="warrantyDate" placeholder="Warranty date"></label>
+            <label data-asset-only>Calibration Date<input name="calibrationDate" placeholder="Calibration date"></label>
+            <label data-asset-only>Expiry Date<input name="expiryDate" placeholder="Expiry date"></label>
+            <label data-asset-only>Temporary Relocation<input name="temporaryRelocation" placeholder="Temporary location"></label>
+            <label data-asset-only>Inverter Model<input name="inverterModel" placeholder="If applicable"></label>
+            <label data-asset-only>Motor Capacity<input name="motorCapacity" placeholder="If applicable"></label>
           </div>
-          <label>Description<textarea name="description" placeholder="Fixed asset description, condition, usage, or replacement note"></textarea></label>
+          <label>Description<textarea name="description" placeholder="Description, condition, usage, or replacement note"></textarea></label>
           <label>Photos<input type="file" accept="image/*" multiple capture="environment" data-equipment-photos-upload></label>
           <div class="saved-images" data-equipment-photos data-saved-images><span class="muted">No photos attached.</span></div>
           <datalist id="equipment-name-options"></datalist>

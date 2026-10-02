@@ -784,7 +784,8 @@ fieldset {
 #work-order-form[data-mode="finding"] [data-work-order-only] { display: none; }
 .criteria-row.passed [data-record-finding] { visibility: hidden; }
 .finding-summary { grid-column: 1 / -1; color: var(--muted); }
-.finding-summary[hidden] { display: none; }
+.finding-summary[hidden],
+.criteria-row.passed .finding-summary { display: none; }
 
 /* Row actions are compact and the same size in cards, lists, and tables. */
 .row-actions button,
@@ -962,4 +963,37 @@ dialog header h2 {
 .signature-strip [data-signature-message] {
   grid-column: 1 / -1;
   justify-self: start;
+}
+
+/* Fixtures and finishes have no code, serial, or warranty details. */
+#equipment-form[data-kind="fixture"] [data-asset-only] {
+  display: none;
+}
+
+.kind-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.inspection-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 260px)) minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.inspection-filter p {
+  margin: 0;
 }

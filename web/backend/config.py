@@ -53,6 +53,18 @@ DEFAULT_INSPECTION_CRITERIA = [
 ]
 
 
+# Fixtures & finishes are parts of the building itself (paint, tiles, pipes, sanitary ware).
+DEFAULT_FIXTURE_CRITERIA = [
+    "Clean and free from stains or marks",
+    "Intact with no cracks, leaks, or loose parts",
+    "Works as intended",
+    "Safe with no hazard to users",
+]
+
+
+ITEM_KINDS = ("asset", "fixture")
+
+
 DEFAULT_PRIORITY_LEVELS = [
     {"name": "Priority", "classification": "Priority", "dueDays": 3},
     {"name": "Non-Priority", "classification": "Non-Priority", "dueDays": 14},

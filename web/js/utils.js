@@ -195,6 +195,8 @@ function updateEquipmentFilterSelects() {
   updateSelectOptions(document.getElementById("equipment-filter-location"), locations, true, "All locations");
   updateSelectOptions(document.getElementById("equipment-filter-type"), types, true, "All types");
   updateSelectOptions(document.getElementById("equipment-filter-brand"), brands, true, "All brands");
+  updateSelectOptions(document.getElementById("equipment-filter-category"), setupOptions.categories, true, "All categories");
+  document.getElementById("equipment-filter-category").value = equipmentFilters.category;
   document.getElementById("equipment-filter-location").value = equipmentFilters.location;
   document.getElementById("equipment-filter-type").value = equipmentFilters.type;
   document.getElementById("equipment-filter-brand").value = equipmentFilters.brand;

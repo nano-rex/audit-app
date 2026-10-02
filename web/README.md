@@ -23,7 +23,7 @@ see the [repository README](../README.md); for server modules, see
 | Inspections | History, Findings | Guided checklist; past inspections, PDFs, and audit closure; findings raised by audits |
 | Work Orders | | Corrective actions and manually raised issues |
 | Notifications | | In-app notices addressed to you |
-| Assets | Fixed Assets, Categories | The asset register with inspection criteria; finding categories |
+| Assets | Assets & Fixtures, Categories | The register of fixed assets and of fixtures and finishes, with inspection criteria; categories and their responsible departments |
 | Outlets | Zones, Locations | Outlets and the places inside them |
 | Users | Departments, Roles | Accounts, departments, and role permissions |
 | Settings | | Theme, items per page, and workflow options |

@@ -345,3 +345,18 @@ test("a notification opens its record only for users who can reach that page", (
   assert.match(context.notificationRow({ id: 1, title: "Due soon", status: "Unread", related_type: "work_order", related_id: 7 }), /data-open-notification="1"/);
   assert.doesNotMatch(context.notificationRow({ id: 2, title: "Audit verified", status: "Read", related_type: "inspection", related_id: 3 }), /data-open-notification/);
 });
+
+test("the checklist filter narrows items by kind and category", () => {
+  const context = vm.createContext({ ...shared(), checklistContainer: null, inspectionFilter: { kind: "", category: "" } });
+  vm.runInContext(source("inspections.js"), context);
+  const items = [{ id: 1, category: "Plumbing", kind: "fixture" }, { id: 2, category: "AV Equipment" }, { id: 3, kind: "fixture" }];
+  const shown = () => items.filter(context.matchesInspectionFilter).map((item) => item.id).join();
+  assert.equal(shown(), "1,2,3");
+  context.inspectionFilter.kind = "fixture";
+  assert.equal(shown(), "1,3");
+  context.inspectionFilter.category = "Plumbing";
+  assert.equal(shown(), "1");
+  context.inspectionFilter.kind = "asset";
+  context.inspectionFilter.category = "";
+  assert.equal(shown(), "2", "an item without a kind is a fixed asset");
+});

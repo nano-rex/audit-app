@@ -26,11 +26,18 @@ An administrator should configure these records before staff begin auditing:
    Configure role permissions and inspection capabilities as required.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed.
-3. In Assets (Fixed Assets), add the equipment and assign it to the correct outlet and
-   location. Configure the inspection criteria for each asset.
-4. Configure finding categories under Assets > Categories. Audit types and
-   priority levels are managed by the Super account in Super Settings.
-   Each priority level has a classification and a due-day target.
+3. In Assets, register what will be inspected at each outlet and location:
+   - Add Fixed Asset for equipment that has a code and serial details
+     (speakers, screens, amplifiers).
+   - Add Fixture or Finish for parts of the building itself (wall paint, floor
+     tiles, water pipes, toilets, sinks). These need only a name, location,
+     category, and condition.
+   Give each item a category and review its inspection criteria. A code is
+   generated when you leave it blank.
+4. Under Assets > Categories, set the department responsible for each category.
+   Findings in that category are assigned to it unless the auditor chooses
+   another. Audit types and priority levels are managed by the Super account
+   in Super Settings.
 5. In Settings, review audit scoring, pass mark, rating bands, and category
    weights. Configure the company name, facilities header, and report logo if
    these should appear on reports.
@@ -52,28 +59,33 @@ An administrator should configure these records before staff begin auditing:
 2. Select the scheduled work item, or choose Open beside "Continue inspection"
    under Waiting on you on the Dashboard. The app creates or resumes the
    inspection and displays its reference and details.
-3. Work through each listed location and fixed-asset criterion.
-4. Tick each criterion that passes, or choose Pass all on an asset to tick
+3. Work through each listed location and the criteria of each item in it.
+4. Use Show and Category above the checklist to work through one kind of item
+   or one category at a time, for example only Plumbing. The location and zone
+   percentages then count the items shown; the whole checklist must still be
+   finished to complete the inspection.
+5. Tick each criterion that passes, or choose Pass all on an asset to tick
    every criterion that has no remark. For a failed criterion, leave it
    unticked and enter a remark, or select Finding details beside it.
-5. Add a photo for each asset. You can add multiple photos, remove a photo, or
+6. Add a photo for each asset. You can add multiple photos, remove a photo, or
    open Mark to annotate it before saving the mark.
-6. Finding details opens the Record Audit Finding dialog (it also opens when
+7. Finding details opens the Record Audit Finding dialog (it also opens when
    you untick a criterion). Select the category, priority, department, and PIC;
    describe the problem; add the cause, recommendation, required action, and
    evidence. Choose Save Finding to Draft to keep these details with the
-   inspection; a summary appears under the criterion. A failed criterion with
-   only a remark uses the default category, priority, and department. The
+   inspection; a summary appears under the criterion. The category and
+   department start from the item's category and that category's responsible
+   department; a failed criterion with only a remark uses those defaults. The
    finding and linked work order are created when the inspection is completed.
-7. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
+8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
-8. When every criterion is ticked or has a remark, and the required photos
+9. When every criterion is ticked or has a remark, and the required photos
    are attached, the button changes to Complete Inspection. An asset with a
    failed criterion always needs a photo; whether every other asset needs one
-   is set by an administrator under Settings > Workflow options. Locations without fixed
-   assets show "No assets" and do not count. Select the button to submit. The app validates the
-   checklist, calculates the configured score, saves the audit and its findings,
-   and updates the dashboard.
+   is set by an administrator under Settings > Workflow options. Locations
+   with nothing to inspect show "None" and do not count. Select the button to
+   submit. The app validates the checklist, calculates the configured score,
+   saves the audit and its findings, and updates the dashboard.
 
 5. ADD SIGNATURES AND REVIEW HISTORY
 ------------------------------------

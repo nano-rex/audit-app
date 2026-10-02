@@ -224,8 +224,11 @@ function renderEquipment() {
       brand,
       row.outlet,
       location,
+      row.category,
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
+      && (!equipmentFilters.kind || (row.kind || "asset") === equipmentFilters.kind)
+      && (!equipmentFilters.category || (row.category || "") === equipmentFilters.category)
       && (!equipmentFilters.outlet || row.outlet === equipmentFilters.outlet)
       && (!equipmentFilters.location || location === equipmentFilters.location)
       && (!equipmentFilters.type || type === equipmentFilters.type)
@@ -238,10 +241,10 @@ function renderEquipment() {
   setHtml("[data-equipment]", rows.length
     ? visible.map(equipmentRow).join("") + `<nav aria-label="Fixed asset pages">
         <button type="button" data-equipment-page="${equipmentPage - 1}" ${equipmentPage === 1 ? "disabled" : ""}>Previous</button>
-        <span>Page ${equipmentPage} of ${pages} · ${rows.length} assets</span>
+        <span>Page ${equipmentPage} of ${pages} · ${rows.length} items</span>
         <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === pages ? "disabled" : ""}>Next</button>
       </nav>`
-    : `<article><div><b>No fixed assets found</b><span>Adjust search or filters, or add a new fixed asset.</span></div></article>`);
+    : `<article><div><b>Nothing found</b><span>Adjust search or filters, or add a fixed asset or a fixture.</span></div></article>`);
 }
 
 window.addEventListener("pagination-size-changed", () => {

@@ -191,6 +191,10 @@
     grid-template-columns: 1fr;
   }
 
+  .inspection-filter {
+    grid-template-columns: 1fr;
+  }
+
   /* Figures stay two to a row on a phone so the page is not a long column of single numbers. */
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));

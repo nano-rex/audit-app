@@ -26,19 +26,28 @@ def post_setup_departments(self, parsed, payload=None):
     self.json({"ok": True})
 
 
+def category_department(db, payload):
+    """The department that normally handles findings in this category; empty means no default."""
+    department = str(payload.get("department") or "").strip()
+    if department and not db.execute("SELECT 1 FROM departments WHERE code = ?", (department,)).fetchone():
+        raise ValueError("Select an existing department")
+    return department
+
+
 def post_setup_categories(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
         db.execute(
             """
-            INSERT OR REPLACE INTO categories (name, description, sequence, active, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO categories (name, description, sequence, active, department, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 payload.get("name", "New Category"),
                 payload.get("description", ""),
                 max(0, int(payload.get("sequence") or 0)),
                 1 if payload.get("active", True) else 0,
+                category_department(db, payload),
                 now,
             ),
         )
@@ -187,23 +196,30 @@ def patch_setup_categories(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
-        cursor = db.execute(
+        db.execute("BEGIN IMMEDIATE")
+        existing = db.execute("SELECT name FROM categories WHERE id = ?", (int(record_id),)).fetchone()
+        if not existing:
+            self.send_error(404)
+            return
+        name = payload.get("name", "New Category")
+        db.execute(
             """
             UPDATE categories
-            SET name = ?, description = ?, sequence = ?, active = ?
+            SET name = ?, description = ?, sequence = ?, active = ?, department = ?
             WHERE id = ?
             """,
             (
-                payload.get("name", "New Category"),
+                name,
                 payload.get("description", ""),
                 max(0, int(payload.get("sequence") or 0)),
                 1 if payload.get("active", True) else 0,
+                category_department(db, payload),
                 int(record_id),
             ),
         )
-        if cursor.rowcount == 0:
-            self.send_error(404)
-            return
+        if name != existing["name"]:
+            # Items carry the category by name; keep them attached through a rename.
+            db.execute("UPDATE equipment SET category = ? WHERE category = ?", (name, existing["name"]))
     self.json({"ok": True})
     return
 
@@ -228,6 +244,7 @@ def delete_setup_categories(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
+        db.execute("UPDATE equipment SET category = '' WHERE category = (SELECT name FROM categories WHERE id = ?)", (int(record_id),))
         cursor = db.execute("DELETE FROM categories WHERE id = ?", (int(record_id),))
         if cursor.rowcount == 0:
             self.send_error(404)
