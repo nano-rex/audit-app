@@ -408,21 +408,6 @@ document.querySelector('#work-order-form select[name="outlet"]')?.addEventListen
   updateWorkOrderLocationSelect();
 });
 
-document.querySelector("[data-work-order-completion-photo]")?.addEventListener("change", async (event) => {
-  const existingImages = workOrderCompletionPhotos();
-  const newImages = await readFilesAsStoredImages(event.target.files);
-  setWorkOrderCompletionPhotos([...existingImages, ...newImages]);
-  event.target.value = "";
-});
-
-document.querySelector("[data-work-order-completion-photos]")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-delete-work-order-completion-photo]");
-  if (!button) return;
-  const images = workOrderCompletionPhotos();
-  images.splice(Number(button.dataset.deleteWorkOrderCompletionPhoto), 1);
-  setWorkOrderCompletionPhotos(images);
-});
-
 document.querySelector(".mark-toolbar")?.addEventListener("click", (event) => {
   const toolButton = event.target.closest("[data-mark-tool]");
   if (toolButton && photoMarkState) {
@@ -595,8 +580,7 @@ async function openFindingEditor(row) {
   findingForm.dataset.mode = "finding";
   findingForm.querySelector("h2").textContent = "Record Audit Finding";
   findingForm.querySelector('button[type="submit"]').textContent = "Save Finding to Draft";
-  findingForm.querySelector("[data-corrective-fields]").hidden = true;
-  findingForm.querySelector("[data-verification-fields]").hidden = true;
+  findingForm.querySelector("[data-work-order-closed]").hidden = true;
 }
 
 document.querySelector("[data-work-order-evidence-upload]").addEventListener("change", async (event) => {
@@ -724,11 +708,6 @@ document.getElementById("equipment-filter-type")?.addEventListener("change", (ev
 
 document.getElementById("equipment-filter-brand")?.addEventListener("change", (event) => {
   equipmentFilters.brand = event.target.value;
-  renderEquipment();
-});
-
-document.getElementById("equipment-filter-kind")?.addEventListener("change", (event) => {
-  equipmentFilters.kind = event.target.value;
   renderEquipment();
 });
 

@@ -65,6 +65,8 @@ function showTab(tabId) {
   });
   if (panelId === "users") showUserSubtab(userSection || activeUserSection);
   if (panelId === "inspections") showGuidedContent(false);
+  // The register opens on fixed assets; the Fixtures & Finishes tab switches it afterwards.
+  if (panelId === "equipment") setEquipmentKind("asset");
   if (panelId === "inspections" && pendingInspectionSchedule) {
     const row = pendingInspectionSchedule;
     pendingInspectionSchedule = null;
@@ -79,6 +81,10 @@ function showContextTab(tabId) {
     showTab("findings");
     if (activeTabId !== "findings") return;
     showHistoryFindingsSection(tabId);
+  } else if (tabId === "fixtures") {
+    showTab("equipment");
+    if (activeTabId !== "equipment") return;
+    setEquipmentKind("fixture");
   } else if (tabId === "signoff") {
     showTab("inspections");
     if (activeTabId !== "inspections") return;

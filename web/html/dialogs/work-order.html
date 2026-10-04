@@ -14,6 +14,7 @@
         <label data-work-order-only>Due Date<input name="dueDate" type="date"></label>
         <label data-work-order-only>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
         <label data-work-order-only>Cost<input name="cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label data-work-order-closed hidden>Closed Date<input name="closedAt" type="date" readonly></label>
       </div>
       <label data-work-order-only>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
       <label>Description<textarea name="description" placeholder="Troubleshooting detail, photo note, or outlet confirmation needed"></textarea></label>
@@ -27,31 +28,6 @@
           <div class="saved-images" data-work-order-evidence data-saved-images></div>
         </div>
       </div>
-      <section class="form-section" data-corrective-fields>
-        <h3>Corrective Action</h3>
-        <div class="form-grid">
-          <label>Completion Date<input name="completionDate" type="date"></label>
-        </div>
-        <label>Action Taken<textarea name="actionTaken" placeholder="Describe what was repaired, replaced, cleaned, adjusted, or verified"></textarea></label>
-        <label>Completion Remark<textarea name="completionRemark" placeholder="Final note, confirmation detail, or pending condition"></textarea></label>
-        <div class="image-field">
-          <span class="image-field-label">Completion Photo</span>
-          <div class="image-tiles">
-            <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-work-order-completion-photo aria-label="Add completion photos"><span>Choose file</span></label>
-            <div class="saved-images" data-work-order-completion-photos></div>
-          </div>
-        </div>
-      </section>
-      <section class="form-section" data-verification-fields>
-        <h3>Verification</h3>
-        <div class="form-grid">
-          <label>Verified By<input name="verifiedBy" readonly placeholder="Recorded when verified"></label>
-          <label>Verified Date<input name="verifiedAt" type="date" readonly></label>
-          <label>Closed Date<input name="closedAt" type="date" readonly></label>
-        </div>
-        <label>Verification Remark<textarea name="verificationRemark" placeholder="Acceptance note, rejection reason, or close-out comment"></textarea></label>
-        <p class="muted">A verifier accepts completed work by choosing Verified or Closed, or returns it by choosing In Progress with a remark.</p>
-      </section>
       <section class="form-section" data-work-order-comments-section hidden>
         <h3>Comments Timeline</h3>
         <div class="list compact-list" data-work-order-comments></div>

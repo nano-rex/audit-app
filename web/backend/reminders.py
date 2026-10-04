@@ -3,8 +3,6 @@ from datetime import date, timedelta
 import time
 
 from backend.database import connect
-from backend.permissions import resolve_permissions
-from backend.relational_values import load_value
 from backend.workflow import assigned_to
 
 
@@ -12,18 +10,9 @@ def active_people(db):
     return [dict(row) for row in db.execute("SELECT id, name, email, department, role, permission_overrides_data_id FROM users WHERE active = 1")]
 
 
-def recipients(db, order, include_reviewers=False, people=None):
+def recipients(db, order, people=None):
     people = active_people(db) if people is None else people
     selected = {person["id"] for person in people if assigned_to(person, order)}
-    if include_reviewers:
-        roles = {}
-        for person in people:
-            key = (person["role"], person["permission_overrides_data_id"])
-            if key not in roles:
-                override = load_value(key[1]) if key[1] is not None else None
-                roles[key] = resolve_permissions(db, person["role"], override)[1]
-            if "verifier" in roles[key]:
-                selected.add(person["id"])
     if not selected:
         selected = {person["id"] for person in people if person["role"] in {"Super", "Admin"}}
     return selected
@@ -32,7 +21,7 @@ def recipients(db, order, include_reviewers=False, people=None):
 def notify_work_order(db, work_order_id, status):
     order = dict(db.execute("SELECT * FROM work_orders WHERE id = ?", (work_order_id,)).fetchone())
     now = int(time.time() * 1000)
-    for recipient in recipients(db, order, include_reviewers=status == "Completed"):
+    for recipient in recipients(db, order):
         db.execute("INSERT INTO notifications(title,message,channel,status,related_type,related_id,created_at,recipient_user_id) VALUES (?,?,'In-App','Unread','work_order',?,?,?)",
                    (f"Work order {status.lower()}", f"{order['work_order_ref']}: {order['title']}", work_order_id, now, recipient))
 

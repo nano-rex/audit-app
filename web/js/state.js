@@ -35,12 +35,10 @@ const contextParents = { reports: "today", findings: "inspections", equipment: "
 const defaultContextChild = { categories: "equipment" };
 // Mirrors TRANSITIONS in web/backend/workflow.py, which remains the authority.
 const workOrderTransitions = {
-  Open: ["Assigned", "In Progress", "Pending"],
-  Assigned: ["In Progress", "Pending", "Completed"],
-  "In Progress": ["Pending", "Completed"],
-  Pending: ["Assigned", "In Progress"],
-  Completed: ["Verified", "Closed", "In Progress"],
-  Verified: ["Closed", "In Progress"],
+  Open: ["Assigned", "In Progress", "Pending", "Closed"],
+  Assigned: ["In Progress", "Pending", "Closed"],
+  "In Progress": ["Assigned", "Pending", "Closed"],
+  Pending: ["Assigned", "In Progress", "Closed"],
   Closed: [],
 };
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
@@ -90,7 +88,7 @@ const findingFilters = { search: "", outlet: "", location: "", department: "", c
 const workOrderFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const equipmentFilters = {
   search: "",
-  kind: "",
+  kind: "asset",
   category: "",
   outlet: "",
   location: "",

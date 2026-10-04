@@ -147,12 +147,12 @@ function locationRow(row) {
 }
 
 function zoneRow(row) {
+  const locations = row.locations || [];
   return `
     <li>
-      <div>
-        <b>${escapeHtml(row.name)}</b>
-        <span>${escapeHtml(row.outlet_code)} | ${escapeHtml((row.locations || []).join(", ") || "No locations")} | ${escapeHtml(row.description || "No description")}</span>
-      </div>
+      <b>${escapeHtml(row.name)}</b>
+      <span>${escapeHtml(row.description || "No description")}</span>
+      <span class="zone-locations" title="${escapeAttr(locations.join(", "))}">${locations.length} location${locations.length === 1 ? "" : "s"}${locations.length ? `: ${escapeHtml(locations.join(", "))}` : ""}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-zone='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-zone="${row.id}">Delete</button>
@@ -188,18 +188,16 @@ function equipmentRow(row) {
   `;
 }
 
-// Evidence recorded with the finding, then the photos taken when the work was completed.
+// Evidence recorded with the finding.
 function workOrderPhotos(row) {
-  const caption = (images, text) => parseStoredImages(images || "[]").map((image) => ({ ...image, caption: text }));
-  return [...caption(row.images_json, "Finding evidence"), ...caption(row.completion_photo, "Completion photo")];
+  return parseStoredImages(row.images_json || "[]").map((image) => ({ ...image, caption: "Finding evidence" }));
 }
 
 function workOrderRow(row) {
   const closed = row.status === "Closed";
   const reference = row.work_order_ref || `#${row.id}`;
   const pic = row.pic || row.assignee || "No PIC";
-  const completion = row.completion_date ? `Completed ${row.completion_date}` : "No completion date";
-  const verification = row.verified_at ? `Verified ${row.verified_at}` : "";
+  const closedOn = row.closed_at ? ` | Closed ${row.closed_at}` : "";
   const sla = row.sla_status || "No SLA";
   const due = row.due_date ? `Due ${row.due_date}` : "No due date";
   return `
@@ -207,7 +205,7 @@ function workOrderRow(row) {
       <div>
         <b>${escapeHtml(reference)} ${escapeHtml(row.title)}</b>
         <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No category")} | ${escapeHtml(row.assignee)}</span>
-        <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(sla)} | ${escapeHtml(completion)}${verification ? ` | ${escapeHtml(verification)}` : ""}${row.action_taken ? ` | ${escapeHtml(row.action_taken)}` : ""}</span>
+        <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(closed ? closedOn.replace(" | ", "") : sla)}</span>
       </div>
       <span class="row-actions">
         <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
@@ -229,8 +227,7 @@ function findingRow(row) {
         <b>${escapeHtml(reference)} ${escapeHtml(row.category || "No category")}</b>
         <span>${escapeHtml(auditReference)} | ${escapeHtml(row.outlet)} | ${escapeHtml(row.location)}</span>
         <span>${escapeHtml(department)} | ${escapeHtml(row.pic || "No PIC")} | ${escapeHtml(row.comment || "No comment")}</span>
-        ${row.corrective_action || row.completion_date ? `<span>${escapeHtml(row.corrective_action || "No action taken")} | ${escapeHtml(row.completion_date || "No completion date")}</span>` : ""}
-        ${row.verified_at || row.closed_at ? `<span>${escapeHtml(row.verified_by || "No verifier")} | ${escapeHtml(row.verified_at || "No verification date")} | ${escapeHtml(row.closed_at || "Not closed")}</span>` : ""}
+        ${row.closed_at ? `<span>Closed ${escapeHtml(row.closed_at)}</span>` : ""}
       </div>
       <span class="row-actions">
         <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>

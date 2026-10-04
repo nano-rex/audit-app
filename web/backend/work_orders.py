@@ -1,5 +1,5 @@
 """Work orders for the audit application."""
-from backend.relational_values import save_value, hydrate_many
+from backend.relational_values import hydrate_many
 import time
 from backend.common import sla_status
 from backend.database import connect
@@ -57,9 +57,7 @@ def work_order_items(user=None):
         rows = db.execute(
             f"""
             SELECT id, work_order_ref, business_unit, outlet, zone, request_type, category, priority, title,
-                   description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo_data_id, verified_by, verified_at,
-                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
+                   description, assignee, pic, status, closed_at, due_date, vendor, sla_status, cost,
                    outlet_confirmed, source_finding_id, cause, recommendation, required_action, images_data_id
             FROM work_orders
             {where}
@@ -79,41 +77,12 @@ def with_current_sla(orders):
 
 
 def sync_finding_from_work_order(db, work_order_id):
-    row = db.execute(
-        """
-        SELECT source_finding_id, status, pic, action_taken, completion_date,
-               completion_photo_data_id, completion_remark, verified_by, verified_at,
-               verification_remark, closed_at
-        FROM work_orders
-        WHERE id = ?
-        """,
-        (work_order_id,),
-    ).fetchone()
+    """A finding follows its work order: the same status, person in charge, and closing date."""
+    row = db.execute("SELECT source_finding_id, status, pic, closed_at FROM work_orders WHERE id = ?", (work_order_id,)).fetchone()
     if not row or not row["source_finding_id"]:
         return
-    db.execute(
-        """
-        UPDATE findings
-        SET status = ?, pic = ?, corrective_action = ?, completion_date = ?,
-            completion_photo_data_id = ?, completion_remark = ?, verified_by = ?,
-            verified_at = ?, verification_remark = ?, closed_at = ?, updated_at = ?
-        WHERE id = ?
-        """,
-        (
-            row["status"],
-            row["pic"] or "",
-            row["action_taken"] or "",
-            row["completion_date"] or "",
-            row["completion_photo_data_id"] or save_value(db, []),
-            row["completion_remark"] or "",
-            row["verified_by"] or "",
-            row["verified_at"] or "",
-            row["verification_remark"] or "",
-            row["closed_at"] or "",
-            int(time.time() * 1000),
-            row["source_finding_id"],
-        ),
-    )
+    db.execute("UPDATE findings SET status = ?, pic = ?, closed_at = ?, updated_at = ? WHERE id = ?",
+               (row["status"], row["pic"] or "", row["closed_at"] or "", int(time.time() * 1000), row["source_finding_id"]))
 
 
 def finding_items(unit="Ottotree", filters=None, user=None):

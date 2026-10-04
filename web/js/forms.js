@@ -177,21 +177,6 @@ async function updateWorkOrderLocationSelect(selected = "") {
   }
 }
 
-function workOrderCompletionPhotos() {
-  const form = document.getElementById("work-order-form");
-  return parseStoredImages(form?.dataset.completionPhotos || "[]");
-}
-
-function setWorkOrderCompletionPhotos(images) {
-  const form = document.getElementById("work-order-form");
-  if (!form) return;
-  form.dataset.completionPhotos = JSON.stringify(images || []);
-  const container = form.querySelector("[data-work-order-completion-photos]");
-  if (container) {
-    container.innerHTML = renderSavedImageList(images || [], "data-delete-work-order-completion-photo");
-  }
-}
-
 async function loadWorkOrderComments(workOrderId = "") {
   const section = document.querySelector("[data-work-order-comments-section]");
   const list = document.querySelector("[data-work-order-comments]");
@@ -211,27 +196,12 @@ async function loadWorkOrderComments(workOrderId = "") {
     : `<article><div><b>No comments</b><span>Add the first follow-up note.</span></div></article>`;
 }
 
-// Show the corrective and verification sections when the order has reached them.
+// Closing is final: say so when it is chosen.
 function updateWorkOrderStage() {
   const form = document.getElementById("work-order-form");
   if (!form || form.dataset.mode === "finding") return;
-  const current = form.dataset.currentStatus || "";
-  const selected = form.elements.status.value;
-  const reviewed = ["Completed", "Verified", "Closed"];
-  form.querySelector("[data-corrective-fields]").hidden = !current;
-  form.querySelector("[data-verification-fields]").hidden = !(reviewed.includes(current) || ["Verified", "Closed"].includes(selected));
-  const hints = {
-    Completed: "Completing needs the action taken, PIC, completion date, remark, and a completion photo.",
-    Verified: "Verifying needs a verification remark.",
-    Closed: current === "Completed" ? "Closing from Completed also records your verification; add a verification remark." : "Closing needs a verification remark. A closed work order cannot be edited.",
-    "In Progress": reviewed.includes(current) ? "Returning the work for correction needs a remark explaining what is still required." : "",
-  };
-  setText("[data-work-order-stage-hint]", selected !== current ? hints[selected] || "" : "");
-  if (selected === "Completed" && selected !== current) {
-    // Completing is usually done today by the person filling this in.
-    if (!form.elements.completionDate.value) form.elements.completionDate.value = todayIsoDate();
-    if (!form.elements.pic.value.trim()) form.elements.pic.value = currentUser?.name || "";
-  }
+  const closing = form.elements.status.value === "Closed" && form.dataset.currentStatus !== "Closed";
+  setText("[data-work-order-stage-hint]", closing ? "Closing records today's date. A closed work order cannot be edited." : "");
 }
 
 document.querySelector('#work-order-form [name="status"]')?.addEventListener("change", updateWorkOrderStage);
@@ -244,8 +214,6 @@ async function openWorkOrderEditor(row = null) {
   form.reset();
   form.dataset.mode = "work-order";
   setText("[data-work-order-message]", "");
-  form.querySelector("[data-corrective-fields]").hidden = false;
-  form.querySelector("[data-verification-fields]").hidden = false;
   form.dataset.savedImages = JSON.stringify(parseStoredImages(row?.images_json || "[]"));
   form.querySelector("[data-work-order-evidence]").innerHTML = renderWorkOrderEvidence(storedImagesFromDataset(form));
   updateSetupSelects();
@@ -269,13 +237,7 @@ async function openWorkOrderEditor(row = null) {
     form.elements.cause.value = row.cause || "";
     form.elements.recommendation.value = row.recommendation || "";
     form.elements.requiredAction.value = row.required_action || "";
-    form.elements.actionTaken.value = row.action_taken || "";
-    form.elements.completionDate.value = row.completion_date || "";
-    form.elements.completionRemark.value = row.completion_remark || "";
-    form.elements.verifiedBy.value = row.verified_by || "";
-    form.elements.verifiedAt.value = row.verified_at || "";
     form.elements.closedAt.value = row.closed_at || "";
-    form.elements.verificationRemark.value = row.verification_remark || "";
     form.querySelector("h2").textContent = isEdit ? "Edit Work Order" : "Create Work Order";
     form.querySelector('button[type="submit"]').textContent = isEdit ? "Save Changes" : "Save Work Order";
   } else {
@@ -283,6 +245,7 @@ async function openWorkOrderEditor(row = null) {
     form.querySelector('button[type="submit"]').textContent = "Save Work Order";
   }
   const closed = row?.status === "Closed";
+  form.querySelector("[data-work-order-closed]").hidden = !closed;
   form.querySelector('button[type="submit"]').hidden = closed;
   if (closed) form.querySelector("h2").textContent = "Closed Work Order";
   // Offer only the steps the workflow allows from here.
@@ -291,7 +254,6 @@ async function openWorkOrderEditor(row = null) {
   updateSelectOptions(form.elements.status, isEdit ? [current, ...(workOrderTransitions[current] || [])] : ["Assigned", "Open"]);
   form.elements.status.value = current || (row?.status === "Open" ? "Open" : "Assigned");
   updateWorkOrderStage();
-  setWorkOrderCompletionPhotos(parseStoredImages(row?.completion_photo || "[]"));
   await loadWorkOrderComments(row?.id || "");
   dialog.showModal();
 }
@@ -492,14 +454,6 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     vendor: formValue(form, "vendor", ""),
     cost: Number(formValue(form, "cost", "0")) || 0,
     pic: formValue(form, "pic", ""),
-    actionTaken: formValue(form, "actionTaken", ""),
-    completionDate: formValue(form, "completionDate", ""),
-    completionRemark: formValue(form, "completionRemark", ""),
-    completionPhoto: workOrderCompletionPhotos(),
-    verifiedBy: formValue(form, "verifiedBy", ""),
-    verifiedAt: formValue(form, "verifiedAt", ""),
-    closedAt: formValue(form, "closedAt", ""),
-    verificationRemark: formValue(form, "verificationRemark", ""),
   };
   if (activeFindingRow) {
     if (!payload.description.trim()) {

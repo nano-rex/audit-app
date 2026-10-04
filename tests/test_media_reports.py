@@ -66,15 +66,14 @@ class EvidenceReportTests(unittest.TestCase):
             image = media.normalize({"dataUrl": photo_data_url(), "markedDataUrl": photo_data_url("red"),
                                      "name": "original.png", "markedName": "marked-photo.png"})
             logo = media.normalize({"dataUrl": photo_data_url("blue"), "name": "logo.png"})
-            completion = media.normalize({"dataUrl": photo_data_url("orange"), "name": "completion.png"})
             signature = media.normalize({"dataUrl": photo_data_url("green"), "name": "Auditor"})
             items = [{"section": "Safety", "item": f"Checklist row {i}", "passed": True} for i in range(100)]
             items[0]["images"] = [image]
             items[-1]["item"] = "FINAL-CHECKLIST-ENTRY"
             findings = [
                 {"finding_ref": "F-TEST-1", "priority": "High", "priority_classification": "Non-Priority", "status": "Assigned"},
-                {"finding_ref": "F-TEST-2", "priority": "Routine", "priority_classification": "Priority", "status": "Completed",
-                 "completion_photo": [completion], "completion_date": "2026-09-20", "corrective_action": "Repaired"},
+                {"finding_ref": "F-TEST-2", "priority": "Routine", "priority_classification": "Priority", "status": "Closed",
+                 "closed_at": "2026-09-20"},
             ]
             report = build_report({"id": 1, "audit_ref": "AUD-TEST", "inspection_name": "Inspection 1",
                                    "outlet": "MST", "zone": "Room 1", "audit_date": "2026-09-20",
@@ -95,10 +94,10 @@ class EvidenceReportTests(unittest.TestCase):
             self.assertIn("2026-09-20", text)
             self.assertIn("Auditor One", text)
             self.assertIn("2 total / 1 priority / 1 non-priority", text)
-            self.assertIn("1 completed / 1 outstanding", text)
-            self.assertIn("Completion photo: completion.png", text)
-            self.assertIn("Action taken: Repaired", text)
-            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 3)
+            self.assertIn("1 closed / 1 open", text)
+            self.assertIn("Closed: 2026-09-20", text)
+            self.assertNotIn("Action taken", text)
+            self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 2)
 
 
 if __name__ == "__main__":

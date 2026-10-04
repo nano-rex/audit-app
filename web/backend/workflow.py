@@ -1,8 +1,4 @@
-"""Server-side work-order transitions, validation, and verification identity."""
-import json
-from backend.relational_values import load_value
-from datetime import date
-
+"""Server-side work-order transitions and validation."""
 from backend.common import today_date
 
 
@@ -12,14 +8,13 @@ class WorkflowError(ValueError):
         self.status = status
 
 
+# A work order is raised, assigned, worked on, and closed. There is no separate completion
+# or verification step: whoever it is assigned to (or an auditor/administrator) closes it.
 TRANSITIONS = {
-    "Open": {"Assigned", "In Progress", "Pending"},
-    "Assigned": {"In Progress", "Pending", "Completed"},
-    "In Progress": {"Pending", "Completed"},
-    "Pending": {"Assigned", "In Progress"},
-    # A verifier may accept and close in one step; the verification is recorded either way.
-    "Completed": {"Verified", "Closed", "In Progress"},
-    "Verified": {"Closed", "In Progress"},
+    "Open": {"Assigned", "In Progress", "Pending", "Closed"},
+    "Assigned": {"In Progress", "Pending", "Closed"},
+    "In Progress": {"Assigned", "Pending", "Closed"},
+    "Pending": {"Assigned", "In Progress", "Closed"},
     "Closed": set(),
 }
 
@@ -27,15 +22,8 @@ FIELDS = {
     "businessUnit": "business_unit", "outlet": "outlet", "zone": "zone",
     "requestType": "request_type", "category": "category", "priority": "priority",
     "title": "title", "description": "description", "assignee": "assignee", "pic": "pic",
-    "status": "status", "actionTaken": "action_taken", "completionDate": "completion_date",
-    "completionRemark": "completion_remark", "completionPhoto": "completion_photo_data_id",
-    "verifiedBy": "verified_by", "verifiedAt": "verified_at", "verificationRemark": "verification_remark",
-    "closedAt": "closed_at", "dueDate": "due_date", "vendor": "vendor", "cost": "cost",
+    "status": "status", "closedAt": "closed_at", "dueDate": "due_date", "vendor": "vendor", "cost": "cost",
 }
-
-
-def can_verify(user):
-    return "verifier" in user.get("inspectionPermissions", [])
 
 
 def assigned_to(user, record):
@@ -53,9 +41,7 @@ def assigned_to(user, record):
 def validate_update(payload, existing, user):
     existing = dict(existing) if existing else None
     merged = {key: existing[column] for key, column in FIELDS.items()} if existing else {}
-    if existing:
-        merged["completionPhoto"] = load_value(existing["completion_photo_data_id"]) or []
-    merged.update(payload)
+    merged.update({key: value for key, value in payload.items() if key in FIELDS or key in ("cause", "recommendation", "requiredAction", "images")})
     status = merged.get("status", "Assigned")
     if status not in TRANSITIONS:
         raise WorkflowError("Unknown work-order status", 400)
@@ -67,47 +53,12 @@ def validate_update(payload, existing, user):
             raise WorkflowError("Closed work orders are read-only")
         if status != previous and status not in TRANSITIONS.get(previous, set()):
             raise WorkflowError(f"Cannot change {previous} directly to {status}")
-        if previous == "Verified" and status == previous:
-            raise WorkflowError("Reopen a verified work order before editing it")
         if user.get("role") == "Department/PIC":
             if not assigned_to(user, existing):
                 raise WorkflowError("This work order is assigned to another person or department", 403)
             for key in ("outlet", "zone", "requestType", "category", "priority", "assignee", "pic", "dueDate"):
                 if str(merged.get(key) or "") != str(existing[FIELDS[key]] or ""):
                     raise WorkflowError("Only an auditor or administrator can change the assignment", 403)
-    verification_change = status in {"Verified", "Closed"} or previous in {"Completed", "Verified"} and status == "In Progress"
-    if verification_change and not can_verify(user):
-        raise WorkflowError("An auditor or facilities manager must verify, reject, or close this work order", 403)
-    if status in {"Completed", "Verified", "Closed"}:
-        for key, label in (("actionTaken", "Action taken"), ("pic", "Person in charge"),
-                           ("completionDate", "Completion date"), ("completionRemark", "Completion remark")):
-            if not str(merged.get(key) or "").strip():
-                raise WorkflowError(f"{label} is required before completion", 400)
-        try:
-            completed = date.fromisoformat(merged["completionDate"])
-        except (TypeError, ValueError):
-            raise WorkflowError("Completion date must be a valid YYYY-MM-DD date", 400)
-        if completed > date.today():
-            raise WorkflowError("Completion date cannot be in the future", 400)
-        photos = merged.get("completionPhoto") or []
-        if isinstance(photos, str):
-            try:
-                photos = json.loads(photos)
-            except ValueError:
-                photos = []
-        if not isinstance(photos, list) or not any(isinstance(photo, dict) and (photo.get("url") or photo.get("dataUrl")) for photo in photos):
-            raise WorkflowError("Upload a completion photo before completing this work order", 400)
-    if verification_change and not str(payload.get("verificationRemark") or "").strip():
-        raise WorkflowError("A verification or rejection remark is required", 400)
-    # The caller cannot impersonate another verifier or choose verification/closure dates.
-    merged["verifiedBy"] = existing.get("verified_by", "") if existing else ""
-    merged["verifiedAt"] = existing.get("verified_at", "") if existing else ""
-    merged["closedAt"] = ""
-    if status != previous and (status == "Verified" or status == "Closed" and previous == "Completed"):
-        merged["verifiedBy"] = user["name"]
-        merged["verifiedAt"] = today_date()
-    if status == "Closed":
-        merged["closedAt"] = today_date()
-    if status not in {"Verified", "Closed"}:
-        merged["verifiedBy"] = merged["verifiedAt"] = ""
+    # The closing date is recorded by the server, not chosen by the caller.
+    merged["closedAt"] = today_date() if status == "Closed" else ""
     return merged

@@ -32,11 +32,11 @@ An administrator should configure these records before staff begin auditing:
    assets and fixtures that belong in it (use the filter to find them);
    unticking one removes it from the location.
 3. In Assets, register what will be inspected at each outlet and location:
-   - Add Fixed Asset for equipment that has a code and serial details
-     (speakers, screens, amplifiers).
-   - Add Fixture or Finish for parts of the building itself (wall paint, floor
-     tiles, water pipes, toilets, sinks). These need only a name, location,
-     category, and condition.
+   - On the Fixed Assets tab, Add Fixed Asset for equipment that has a code
+     and serial details (speakers, screens, amplifiers).
+   - On the Fixtures & Finishes tab, Add Fixture or Finish for parts of the
+     building itself (wall paint, floor tiles, water pipes, toilets, sinks).
+     These need only a name, location, category, and condition.
    Give each item a category and review its inspection criteria. A code is
    generated when you leave it blank.
 4. Under Assets > Categories, set the department responsible for each category.
@@ -123,26 +123,21 @@ An administrator should configure these records before staff begin auditing:
    includes the audit summary, checklist, findings, available photos, and
    signatures.
 
-6. HANDLE CORRECTIVE ACTIONS
-----------------------------
+6. HANDLE WORK ORDERS
+---------------------
 1. The Dashboard lists the work orders assigned to you or your department
    under Waiting on you; choose Open to go straight to one. Work Orders shows
    the full list. A Department/PIC account sees only records assigned to that
    PIC or department.
 2. Open a work order to review the issue, evidence, due date, priority, and
    assignment. Add comments to its timeline as work progresses.
-3. The Status list offers only the steps allowed from the current status. The
-   assigned PIC chooses Completed and records the action taken, completion
-   remark, and completion photo; the completion date and PIC are filled in with
-   today and your name if empty.
-4. A permitted verifier reviews the evidence (it appears under Waiting on you
-   as "Verify corrective action"). With a verification remark the verifier can
-   choose Closed to accept and close in one step, Verified to accept and close
-   later, or In Progress to return the work for correction.
-5. Closed records are retained for audit history and open read-only. If a
-   step is refused (for example a missing completion photo), the reason is
-   shown at the bottom of the dialog.
-6. The Notifications page shows relevant progress, assignment, verification,
+3. A work order moves through Open, Assigned, In Progress, and Pending, and
+   is Closed when the work is done. The person or department it is assigned
+   to, or an auditor or administrator, closes it; today's date is recorded and
+   its finding closes with it. The Status list offers only the allowed steps.
+4. Closed work orders are kept for audit history and open read-only. If a
+   change is refused, the reason is shown at the bottom of the dialog.
+5. The Notifications page shows relevant progress, assignment,
    due-soon, and overdue notices. Open goes to the inspection or work order a
    notice is about and marks it read; Mark all read clears the rest. The
    number of unread notices is shown on the Notifications button, or on the

@@ -9,6 +9,7 @@ from backend import config
 from backend.accounts import branding_settings
 from backend.common import rating, sla_status
 from backend.report_filters import report_scope
+from backend.inspections import visit_locations_of
 from backend.database import connect
 from backend.work_orders import finding_items, with_current_sla
 
@@ -70,12 +71,15 @@ def dashboard(unit, filters=None, include_room_trends=False):
             """,
             schedule_params,
         ).fetchone()
+        # The same details as Scheduled Work, so an audit is named and edited the same way here.
         schedules = db.execute(
             f"""
-            SELECT id, outlet, zone, scheduled_date, auditor, remarks, status, created_at
-            FROM schedules
-            WHERE {schedule_where} AND status != 'Completed'
-            ORDER BY scheduled_date ASC, created_at DESC, id DESC
+            SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref,
+                   inspection_sessions.inspection_name, inspection_sessions.progress AS progress,
+                   inspection_sessions.status AS inspection_status
+            FROM (SELECT * FROM schedules WHERE {schedule_where} AND status NOT IN ('Completed', 'Cancelled')) AS schedules
+            LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id
+            ORDER BY schedules.scheduled_date ASC, schedules.created_at DESC, schedules.id DESC
             LIMIT 5
             """,
             schedule_params,
@@ -171,7 +175,7 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "priorityIssues": len(priority_findings),
             "nonPriorityIssues": len(non_priority_findings),
             "outstandingIssues": len(open_work_orders),
-            "completedCorrectiveActions": len(completed_work_orders),
+            "closedWorkOrders": len(completed_work_orders),
             "overdueFindings": len(overdue_orders),
             "completionRate": round((len(completed_work_orders) * 100 / len(all_work_orders)) if all_work_orders else 0),
         },
@@ -185,7 +189,7 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "responseRate": response_rate,
         },
         "today": {
-            "scheduled": [dict(row) for row in schedules],
+            "scheduled": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"])} for row in schedules],
             "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
@@ -236,7 +240,7 @@ def report(unit, filters=None):
             "totalFindings": data["stats"]["priorityIssues"] + data["stats"]["nonPriorityIssues"],
             "priorityFindings": data["stats"]["priorityIssues"],
             "nonPriorityFindings": data["stats"]["nonPriorityIssues"],
-            "completedCorrectiveActions": data["stats"]["completedCorrectiveActions"],
+            "closedWorkOrders": data["stats"]["closedWorkOrders"],
             "outstandingFindings": data["stats"]["outstandingFindings"],
             "overdueFindings": data["stats"]["overdueFindings"],
             "completionRate": data["stats"]["completionRate"],
@@ -295,7 +299,7 @@ def report_xls(unit, filters=None):
     for key, value in report(unit, filters)["monthlySummary"].items():
         summary.append([key, value])
     findings = workbook.create_sheet("Findings")
-    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("corrective_action", "Corrective Action"), ("completion_date", "Completed"), ("verified_by", "Verified By")]
+    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("closed_at", "Closed")]
     findings.append([label for _, label in columns])
     for row in finding_items(unit, filters)["items"]:
         findings.append([row.get(key) or "" for key, _ in columns])

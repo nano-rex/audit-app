@@ -49,7 +49,7 @@
           </form>
           <div class="list compact-list" data-audit-type-records></div>
         </article>
-        <article class="panel" data-super-only-setting hidden>
+        <article class="panel settings-wide" data-super-only-setting hidden>
           <h2>Scoring</h2>
           <form id="scoring-settings-form" class="inline-form">
             <label>Pass Mark<input name="passMark" type="number" min="0" max="100"></label>
@@ -57,13 +57,13 @@
             <label>Excellent From<input name="excellentFrom" type="number" min="0" max="100"></label>
             <label>Good From<input name="goodFrom" type="number" min="0" max="100"></label>
             <label>Needs Improvement From<input name="needsImprovementFrom" type="number" min="0" max="100"></label>
-            <fieldset><legend>Category Weights</legend><p>Used in Weighted mode; 1 gives the standard weight.</p><div data-category-weights></div></fieldset>
+            <fieldset class="category-weights"><legend>Category Weights</legend><p class="muted">Used in Weighted mode; 1 gives the standard weight.</p><div data-category-weights></div></fieldset>
             <p data-scoring-message role="status"></p>
             <button class="primary" type="submit">Save Scoring</button>
           </form>
         </article>
-        <article class="panel" data-super-only-setting hidden>
-          <h2>Report & System</h2>
+        <article class="panel settings-wide" data-super-only-setting hidden>
+          <h2>Report &amp; System</h2>
           <form id="system-settings-form" class="inline-form">
             <label>App Title<input name="appTitle"></label>
             <label>App Subtitle<input name="appSubtitle"></label>

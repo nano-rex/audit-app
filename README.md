@@ -1,7 +1,7 @@
 # Audit App
 
 A facilities audit application: schedule an audit, walk a guided checklist of an outlet's
-fixed assets and building fixtures, record findings with photos, assign and verify corrective actions, sign off, and
+fixed assets and building fixtures, record findings with photos, assign and close work orders, sign off, and
 report.
 
 There are two separate versions:
@@ -39,8 +39,7 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
    finding details for what fails; attach photos.
 3. Completing the inspection calculates the score and creates one finding and one work order
    per failed criterion, assigned to a department and person in charge.
-4. The assignee records the corrective action with a completion photo. A verifier accepts it
-   and closes the work order, or returns it with a remark.
+4. The assignee works through the work order and closes it when done; its finding closes with it.
 5. On **Sign-off**, the auditor, verifier, and acknowledger sign (drawn, uploaded, or the signature saved
    on their account). Once every linked work order is closed, a verifier closes the audit, which becomes read-only.
 6. Reports, charts, and CSV, Excel, JSON, and PDF exports are available throughout.

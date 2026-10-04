@@ -1,12 +1,11 @@
-"""What is waiting on the signed-in user: drafts, signatures, corrective actions, verification, closure."""
+"""What is waiting on the signed-in user: drafts, signatures, assigned work orders, closure."""
 from backend.common import sla_status
 from backend.database import connect
 from backend.relational_values import load_values
-from backend.workflow import assigned_to, can_verify
+from backend.workflow import assigned_to
 
 SIGNATURES = (("auditedBy", "auditor", "auditor"), ("verifiedBy", "verifier", "verifier"),
               ("acknowledgedBy", "acknowledger", "acknowledger"))
-ACTIVE_ORDERS = ("Open", "Assigned", "In Progress", "Pending")
 LIMIT = 50
 
 
@@ -37,14 +36,12 @@ def todo_items(user):
                 if "verifier" in capabilities and all((signed.get(key) or {}).get("url") for key, _, _ in SIGNATURES) and not db.execute(
                         "SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' UNION ALL SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1",
                         (row["audit_id"], row["audit_id"])).fetchone():
-                    items.append(inspection_item(row, "Close audit", "Signed and all corrective actions closed", "signoff"))
+                    items.append(inspection_item(row, "Close audit", "Signed and all work orders closed", "signoff"))
         if "work-orders" in permissions:
-            for row in db.execute("SELECT * FROM work_orders WHERE status NOT IN ('Verified', 'Closed') ORDER BY CASE WHEN due_date IS NULL OR due_date = '' THEN 1 ELSE 0 END, due_date, id LIMIT 500"):
+            for row in db.execute("SELECT * FROM work_orders WHERE status != 'Closed' ORDER BY CASE WHEN due_date IS NULL OR due_date = '' THEN 1 ELSE 0 END, due_date, id LIMIT 500"):
                 order = dict(row)
-                if order["status"] in ACTIVE_ORDERS and assigned_to(user, order):
-                    items.append(order_item(order, "Complete corrective action"))
-                elif order["status"] == "Completed" and can_verify(user):
-                    items.append(order_item(order, "Verify corrective action"))
+                if assigned_to(user, order):
+                    items.append(order_item(order, "Resolve work order"))
     return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread}
 
 

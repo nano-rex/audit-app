@@ -491,8 +491,8 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(len(orders), 1)
 
     def test_z_workflow_rules_identity_history_and_concurrent_close(self):
-        from test_media_reports import photo_data_url
-        for status, expected in (("Invalid", 400), ("Closed", 409), ("Verified", 409)):
+        # Completed and Verified are no longer steps; a new order cannot start Closed.
+        for status, expected in (("Invalid", 400), ("Completed", 400), ("Verified", 400), ("Closed", 409)):
             self.assertEqual(self.request("/api/work-orders", "POST", {"status": status})[0], expected)
         with app.connect() as db:
             cursor = db.execute("INSERT INTO users(name, role, email, department, active, created_at) VALUES ('Workflow PIC', 'Department/PIC', 'workflow@test', 'Technical', 1, 0)")
@@ -501,34 +501,26 @@ class ServerTests(unittest.TestCase):
         with app.connect() as db:
             record_id = db.execute("SELECT id FROM work_orders WHERE title = 'Workflow test'").fetchone()[0]
         path = f"/api/work-orders/{record_id}"
-        self.assertEqual(self.request(path, "PATCH", {"status": "Closed"})[0], 409)
         self.assertEqual(self.request(path, "PATCH", {"status": "Completed"}, token="pic")[0], 400)
         self.assertEqual(self.request(path, "PATCH", {"pic": "Someone else"}, token="pic")[0], 403)
         self.assertEqual(self.request(path, "DELETE", token="pic")[0], 403)
-        _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "repair.png"}})
-        image = json.loads(body)["image"]
-        completion = {"status": "Completed", "actionTaken": "Repaired", "completionDate": "2026-01-01",
-                      "completionRemark": "Checked operation", "completionPhoto": [image]}
-        self.assertEqual(self.request(path, "PATCH", completion, token="pic")[0], 200)
-        self.assertEqual(self.request(path, "PATCH", {"status": "Verified", "verificationRemark": "Fine"}, token="pic")[0], 403)
-        self.assertEqual(self.request(path, "PATCH", {"status": "Verified"})[0], 400)
-        self.assertEqual(self.request(path, "PATCH", {"status": "In Progress", "verificationRemark": "Needs retest"})[0], 200)
-        self.assertEqual(self.request(path, "PATCH", completion, token="pic")[0], 200)
-        self.assertEqual(self.request(path, "PATCH", {"status": "Verified", "verifiedBy": "Forged identity", "verifiedAt": "2000-01-01", "verificationRemark": "Retest passed"})[0], 200)
+        self.assertEqual(self.request(path, "PATCH", {"status": "In Progress"}, token="pic")[0], 200)
+        # The closing date is the server's, not the caller's.
+        self.assertEqual(self.request(path, "PATCH", {"status": "Pending", "closedAt": "2000-01-01"}, token="pic")[0], 200)
         with app.connect() as db:
             row = db.execute("SELECT * FROM work_orders WHERE id = ?", (record_id,)).fetchone()
             self.assertEqual(row["title"], "Workflow test")  # Partial PATCH preserves omitted fields.
-            self.assertNotEqual(row["verified_by"], "Forged identity")
-            self.assertNotEqual(row["verified_at"], "2000-01-01")
-            self.assertEqual(row["action_taken"], "Repaired")
+            self.assertFalse(row["closed_at"])
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-            statuses = list(pool.map(lambda _: self.request(path, "PATCH", {"status": "Closed", "verificationRemark": "Accepted"})[0], range(2)))
+            statuses = list(pool.map(lambda _: self.request(path, "PATCH", {"status": "Closed"}, token="pic")[0], range(2)))
         self.assertEqual(sorted(statuses), [200, 409])
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT closed_at FROM work_orders WHERE id = ?", (record_id,)).fetchone()[0], time.strftime("%Y-%m-%d"))
         self.assertEqual(self.request(path, "PATCH", {"title": "Changed"})[0], 409)
         self.assertEqual(self.request(path, "DELETE")[0], 409)
         with app.connect() as db:
             events = db.execute("SELECT * FROM comments WHERE record_type = 'work_order' AND record_id = ?", (record_id,)).fetchall()
-        self.assertEqual(len(events), 5)
+        self.assertEqual(len(events), 3)
         self.assertTrue(all(row["system_generated"] for row in events))
         self.assertEqual(self.request(f"/api/comments/{events[0]['id']}", "DELETE")[0], 409)
 

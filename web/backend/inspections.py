@@ -131,8 +131,7 @@ def inspection_session(session_id):
                 """
                 SELECT finding_ref, location, category, priority, priority_classification, assigned_department, pic, comment,
                        cause, recommendation, required_action, images_data_id, due_date,
-                       status, corrective_action, completion_date, completion_photo_data_id,
-                       completion_remark, verified_by, verified_at, verification_remark, closed_at
+                       status, closed_at
                 FROM findings
                 WHERE audit_id = ?
                 ORDER BY id

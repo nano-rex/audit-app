@@ -182,7 +182,7 @@
 .department-card-copy p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
 .department-card .row-actions { margin-left: 0; }
 
-.settings-page .settings-grid { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
+.settings-page .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings-page .theme-settings { display: grid; gap: 14px; margin-bottom: 0; }
 .settings-page .theme-settings h2 { margin-bottom: 0; }
 .settings-page .theme-toggle { align-items: center; color: var(--text); display: flex; font-size: 14px; gap: 10px; }
@@ -515,14 +515,11 @@ dialog header button {
 }
 
 fieldset {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-}
-
-fieldset {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .help-block {
@@ -1401,4 +1398,59 @@ h4,
   flex-wrap: wrap;
   gap: 6px;
   margin-top: 4px;
+}
+
+/* One card per page: title and actions, filters, then the list. */
+.list-panel > .filter {
+  margin-block: 14px 18px;
+}
+
+.list-panel > .muted {
+  margin-top: 0;
+}
+
+/* Settings: two columns; scoring and report settings take the full width. */
+.settings-page .settings-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-page .inline-form {
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  align-items: end;
+}
+
+.settings-page .inline-form > :is(fieldset, p, .image-field, button, .checkbox-line),
+.settings-page .inline-form > label:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+.category-weights {
+  display: block;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.category-weights legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.category-weights > p {
+  margin: 0 0 10px;
+}
+
+[data-category-weights] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: 10px 14px;
+}
+
+/* A zone's locations can run long; show three lines and the full list on hover or in Edit. */
+.zone-locations {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }

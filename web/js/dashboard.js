@@ -23,7 +23,7 @@ async function loadAttention() {
           <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-view="${escapeAttr(item.view || "")}" data-attention-id="${Number(item.id)}">Open</button>
         </span>
       </article>`).join("")
-    : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and corrective actions assigned to you, appear here.</span></div></article>`);
+    : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and work orders assigned to you, appear here.</span></div></article>`);
 }
 
 async function openAttentionItem(type, id, view = "") {
@@ -70,7 +70,7 @@ async function loadSuperDashboard() {
   setStat("roles", (roles.items || []).length);
   setStat("departments", (setupOptions.departments || []).length);
   setStat("assets", (equipment.items || []).length);
-  setStat("findings", (findings.items || []).filter((row) => !["Completed", "Closed"].includes(row.status)).length);
+  setStat("findings", (findings.items || []).filter((row) => row.status !== "Closed").length);
   setHtml("[data-super-rankings]", (dashboard.rankings || []).length
     ? dashboard.rankings.map((row, index) => rankingRow(row, index + 1)).join("")
     : `<p class="muted">No outlet performance data available.</p>`);
@@ -257,6 +257,21 @@ function renderNotifications() {
     : `<article><div><b>No notifications found</b><span>Assigned, due soon, overdue, and completed notices appear here.</span></div></article>`);
 }
 
+// Fixed assets and fixtures & finishes are separate tabs over one register.
+function setEquipmentKind(kind) {
+  equipmentFilters.kind = kind;
+  setText("[data-equipment-title]", kind === "fixture" ? "Fixtures & Finishes" : "Fixed Assets");
+  const search = document.getElementById("equipment-search");
+  if (search) search.placeholder = kind === "fixture" ? "Search fixtures and finishes" : "Search fixed assets";
+  document.querySelectorAll("#equipment [data-show-kind]").forEach((node) => { node.hidden = node.dataset.showKind !== kind; });
+  // Type and brand describe fixed assets only.
+  if (kind === "fixture") {
+    equipmentFilters.type = equipmentFilters.brand = "";
+    ["equipment-filter-type", "equipment-filter-brand"].forEach((id) => { const select = document.getElementById(id); if (select) select.value = ""; });
+  }
+  if (equipmentCache.length) renderEquipment();
+}
+
 async function loadEquipment() {
   const response = await authFetch("/api/equipment");
   const data = await response.json();
@@ -390,7 +405,7 @@ function auditChart(title, source, score = false) {
   const maximum = score ? 100 : Math.max(1, ...entries.map((row) => row.value));
   const hasData = entries.length && (score || entries.some((row) => row.value > 0));
   return `<article class="panel mini-chart"><h2>${escapeHtml(title)}</h2>
-    <p class="muted">${score === "percent" ? "Completed corrective actions · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
+    <p class="muted">${score === "percent" ? "Closed work orders · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
     ${hasData ? `<ol class="audit-chart">${entries.map((row) => `<li>
       <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score === "percent" ? "%" : score ? "/100" : ""}</strong></div>
       <div class="audit-chart-track" aria-hidden="true"><span style="width:${Math.min(100, row.value * 100 / maximum)}%"></span></div>
@@ -399,7 +414,7 @@ function auditChart(title, source, score = false) {
 
 function renderMainDashboard(data) {
   const stats = data.stats || {};
-  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "completedCorrectiveActions"]) {
+  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"]) {
     setText(`[data-dashboard="${key}"]`, stats[key] ?? 0);
   }
   setText('[data-dashboard="overallAuditScore"]', stats.overallAuditScore == null ? "No completed audits" : `${stats.overallAuditScore}/100`);

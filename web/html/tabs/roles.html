@@ -1,21 +1,18 @@
     <section id="roles" class="user-subpanel" data-user-panel="roles" hidden>
-      <section class="panel filter">
+      <section class="panel list-panel">
         <header class="panel-head">
           <h2>Roles</h2>
           <div class="panel-actions">
             <button class="primary" type="button" data-open-role>Add Role</button>
           </div>
         </header>
-        <label>Search<input id="role-search" placeholder="Search roles"></label>
-      </section>
-      <section class="work-grid">
-        <article class="panel">
-          <h2>Role Access</h2>
-          <div class="admin-list" data-role-records></div>
-          <section class="help-block" aria-label="Role setup help">
-            <h3>How Roles Work</h3>
-            <p>Roles are created here and use checkbox permissions to control which app sections users can open.</p>
-          </section>
-        </article>
+        <div class="filter">
+          <label>Search<input id="role-search" placeholder="Search roles"></label>
+        </div>
+        <div class="admin-list" data-role-records></div>
+        <section class="help-block" aria-label="Role setup help">
+          <h3>How Roles Work</h3>
+          <p>Roles are created here and use checkbox permissions to control which app sections users can open.</p>
+        </section>
       </section>
     </section>

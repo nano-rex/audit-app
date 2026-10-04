@@ -481,6 +481,10 @@ def init_db():
         seed_zones(db)
         seed_roles(db)
         retire_corrective_actions_page(db)
+        # Work orders no longer have Completed and Verified steps: work that had reached them is done.
+        for table in ("work_orders", "findings"):
+            db.execute(f"UPDATE {table} SET status = 'Closed', closed_at = COALESCE(NULLIF(closed_at, ''), NULLIF(verified_at, ''), "
+                       f"NULLIF(completion_date, ''), date('now')) WHERE status IN ('Completed', 'Verified')")
         seed_priority_levels(db)
         seed_audit_types(db)
         seed_settings(db)

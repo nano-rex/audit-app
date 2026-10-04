@@ -276,21 +276,18 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertIn(("inspection", "Sign as auditor, verifier, acknowledger"), actions("super"))
         # The reviewer has the verifier capability but no Inspections page, so nothing is offered to them.
         self.assertEqual(actions("reviewer"), [])
-        self.assertEqual(actions("todo-pic"), [("work_order", "Complete corrective action")])
+        self.assertEqual(actions("todo-pic"), [("work_order", "Resolve work order")])
         order_id = todo("todo-pic")["items"][0]["id"]
         self.assertGreaterEqual(todo("todo-pic")["unreadNotifications"], 1)
-        done = {"status": "Completed", "actionTaken": "Cleaned", "completionDate": time.strftime("%Y-%m-%d"), "completionRemark": "Done", "completionPhoto": [image]}
-        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", done, token="todo-pic")[0], 200)
+        # The person in charge closes the work order when it is done; there is no separate verification.
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed"}, token="todo-pic")[0], 200)
         self.assertEqual(actions("todo-pic"), [])
-        self.assertIn(("work_order", "Verify corrective action"), actions("super"))
-        # A verifier accepts and closes in one step; the verification is still recorded.
-        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed"}, token="super")[0], 400)
-        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed", "verificationRemark": "Accepted"}, token="todo-pic")[0], 403)
-        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed", "verificationRemark": "Accepted"}, token="super")[0], 200)
         with app.connect() as db:
-            order = db.execute("SELECT status, verified_by, verified_at, closed_at FROM work_orders WHERE id = ?", (order_id,)).fetchone()
-        self.assertEqual((order["status"], order["verified_by"]), ("Closed", "Super User"))
-        self.assertTrue(order["verified_at"] and order["closed_at"])
+            order = db.execute("SELECT status, closed_at FROM work_orders WHERE id = ?", (order_id,)).fetchone()
+            finding = db.execute("SELECT status, closed_at FROM findings WHERE id = (SELECT source_finding_id FROM work_orders WHERE id = ?)", (order_id,)).fetchone()
+        self.assertEqual(order["status"], "Closed")
+        self.assertTrue(order["closed_at"])
+        self.assertEqual((finding["status"], finding["closed_at"]), ("Closed", order["closed_at"]))
         signatures = {key: image for key in ("auditedBy", "verifiedBy", "acknowledgedBy")}
         self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"signatures": signatures})[0], 200)
         self.assertIn(("inspection", "Close audit"), actions("super"))

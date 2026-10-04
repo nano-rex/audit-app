@@ -2,7 +2,6 @@
 from datetime import datetime, timezone
 from html import escape
 from io import BytesIO
-import json
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -78,7 +77,7 @@ def build_report(session, brand, summary, media, settings=None):
         ["Pass mark", f"{summary['passMark']} — {'Met' if summary['meetsPassMark'] else 'Not met'}"],
         ["Checklist", f"{summary['total']} total / {summary['passed']} passed / {summary['failed']} failed / {summary['notApplicable']} N/A"],
         ["Findings", f"{len(findings)} total / {priority} priority / {len(findings) - priority} non-priority"],
-        ["Corrective actions", f"{completed} completed / {len(findings) - completed} outstanding"],
+        ["Follow-up", f"{completed} closed / {len(findings) - completed} open"],
     ]
     table = Table([[paragraph(cell) for cell in row] for row in rows], colWidths=[125, 355])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), soft), ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
@@ -110,17 +109,15 @@ def build_report(session, brand, summary, media, settings=None):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]))
     story += [Spacer(1, 14), paragraph("Location grading", "Heading1"), location_table]
-    story.append(paragraph("Findings and corrective actions", "Heading1"))
+    story.append(paragraph("Findings", "Heading1"))
     for finding in findings:
         story += [paragraph(f"{finding.get('finding_ref')} — {finding.get('status')}", "Heading2"),
                   paragraph(f"{finding.get('location')} | {finding.get('category')} | {finding.get('priority')}"),
                   paragraph(f"Department: {finding.get('assigned_department')} | PIC: {finding.get('pic') or 'Unassigned'} | Due: {finding.get('due_date') or 'Not set'}")]
-        for key, label in (("comment", "Finding"), ("cause", "Cause"), ("recommendation", "Recommendation"), ("required_action", "Required action"), ("corrective_action", "Action taken"), ("completion_remark", "Completion remark"), ("verification_remark", "Verification")):
+        for key, label in (("comment", "Finding"), ("cause", "Cause"), ("recommendation", "Recommendation"), ("required_action", "Required action")):
             if finding.get(key):
                 story.append(paragraph(f"{label}: {finding[key]}"))
-        story.append(paragraph(f"Completed: {finding.get('completion_date') or 'Pending'} | Verified by: {finding.get('verified_by') or 'Pending'} | Closed: {finding.get('closed_at') or 'Pending'}"))
-        photos = finding.get("completion_photo") or "[]"
-        images(json.loads(photos) if isinstance(photos, str) else photos, "Completion photo")
+        story.append(paragraph(f"Closed: {finding.get('closed_at') or 'Open'}"))
     story.append(paragraph("Signatures", "Heading1"))
     for key, label in (("auditedBy", "Audited by"), ("verifiedBy", "Verified by"), ("acknowledgedBy", "Acknowledged by")):
         signature = (session.get("signatures") or {}).get(key)

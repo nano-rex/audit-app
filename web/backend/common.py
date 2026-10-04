@@ -89,7 +89,7 @@ def priority_due_date(db, priority, created_at):
 
 def sla_status(status, due_date):
     if status in ("Completed", "Verified", "Closed"):
-        return "Completed"
+        return "Closed"
     if not due_date:
         return "No due date"
     days = (parse_date(due_date) - parse_date(today_date())).days

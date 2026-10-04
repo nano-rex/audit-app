@@ -47,6 +47,10 @@
 }
 
 @media (max-width: 920px) {
+  .settings-page .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
   /* The header wraps to several rows here; keeping it pinned would cover the page. */
   .app-header {
     position: static;

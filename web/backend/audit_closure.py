@@ -1,4 +1,4 @@
-"""Close completed audits after signatures and corrective actions are finalized."""
+"""Close completed audits once they are signed and their work orders are closed."""
 import time
 
 from backend.database import connect
@@ -27,7 +27,7 @@ def close_audit(handler, parsed, payload=None):
         pending = db.execute("SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1", (session["audit_id"],)).fetchone()
         pending_order = db.execute("SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' LIMIT 1", (session["audit_id"],)).fetchone()
         if pending or pending_order:
-            raise WorkflowError("Close all linked findings and corrective actions before closing the audit")
+            raise WorkflowError("Close all linked findings and work orders before closing the audit")
         now = int(time.time() * 1000)
         db.execute("UPDATE inspection_sessions SET closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ?", (now, user["name"], now, session_id))
         db.execute("INSERT INTO comments(record_type,record_id,comment,author,created_at,system_generated) VALUES ('inspection',?,'Audit closed',?,?,1)", (session_id, user["name"], now))

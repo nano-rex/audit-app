@@ -23,7 +23,7 @@ class DashboardTests(unittest.TestCase):
 
     def test_empty_dashboard_does_not_invent_scores(self):
         data = app.dashboard("Mini Studio")
-        for key in ("total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "completedCorrectiveActions"):
+        for key in ("total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"):
             self.assertEqual(data["stats"][key], 0, key)
         self.assertIsNone(data["stats"]["overallAuditScore"])
         self.assertEqual(data["charts"]["auditScores"], [])
@@ -52,7 +52,7 @@ class DashboardTests(unittest.TestCase):
             insert_record(db, "findings", {"audit_id": audit_ids[0], "business_unit": "Loudspeaker", "outlet": "Other", "location": "Other", "priority": "High", "status": "Assigned", "created_at": 0, "updated_at": 0})
             insert_record(db, "inspection_sessions", common | {"business_unit": "Loudspeaker", "zone": "Area", "audit_date": "2026-03-01", "items_data_id": save_value(db, []), "progress": 0, "status": "Draft", "updated_at": 0})
         data = app.dashboard("Mini Studio")
-        expected = {"total": 5, "auditsCompleted": 2, "auditsPending": 3, "priorityIssues": 2, "nonPriorityIssues": 1, "outstandingFindings": 2, "completedCorrectiveActions": 3, "overallAuditScore": 60}
+        expected = {"total": 5, "auditsCompleted": 2, "auditsPending": 3, "priorityIssues": 2, "nonPriorityIssues": 1, "outstandingFindings": 2, "closedWorkOrders": 3, "overallAuditScore": 60}
         for key, value in expected.items():
             self.assertEqual(data["stats"][key], value, key)
         self.assertEqual(data["charts"]["auditScores"], [{"label": "A", "score": 60}])
