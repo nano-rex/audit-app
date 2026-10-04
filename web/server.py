@@ -12,6 +12,7 @@ from backend.reminders import reminder_loop
 from backend.http_support import AuditHTTPServer
 from backend.database import connect
 from backend.database_manager import restore_active_database
+from backend.control import SuperSessions, first_super_id
 from backend.migrations import init_db
 from backend.common import hash_password, verify_password, inspection_progress
 from backend.response_cache import cached_response
@@ -21,9 +22,11 @@ from backend.reports import report, dashboard
 # Compatibility surface for existing maintenance scripts and test harnesses.
 __all__ = ["Handler", "AuditHTTPServer", "connect", "init_db", "hash_password",
            "verify_password", "inspection_progress", "cached_response",
-           "setup_records", "report", "dashboard", "configure_data_directory", "SESSION_TOKENS"]
+           "setup_records", "report", "dashboard", "configure_data_directory", "SESSION_TOKENS",
+           "SUPER_SESSIONS", "first_super_id"]
 
 SESSION_TOKENS = config.SESSION_TOKENS
+SUPER_SESSIONS = SuperSessions()
 
 
 def configure_data_directory(directory):

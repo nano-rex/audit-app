@@ -41,7 +41,7 @@ def main():
         app.init_db()
         with app.connect() as db:
             db.execute("UPDATE users SET reset_required = 0")  # Starter accounts are otherwise held at the password change.
-            user_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
+            user_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
             template = {"asset_id": "", "qr_code": "", "code": "", "name": "", "business_unit": "Ottotree", "outlet": "STP", "zone": "Test", "equipment_type": "AV", "health_status": "Operational", "last_checked": "2026-09-14", "created_at": 0}
             columns = list(template)
             sql = f"INSERT INTO equipment ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})"

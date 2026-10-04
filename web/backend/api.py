@@ -21,6 +21,7 @@ from backend.reports import dashboard, inspection_pdf, report, report_csv, repor
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.routes import dispatch
+from backend import control
 from backend.todo import todo_items
 
 
@@ -109,7 +110,10 @@ class Handler(BaseHTTPRequestHandler):
             if not session or session["expires_at"] < time.time():
                 if session:
                     db.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (SESSION_TOKENS.key(token),))
-                return None
+                    return None
+                # Not an organization session: a Super account signs in through the control database.
+                self._current_user_value = control.user_for_session(SESSION_TOKENS.key(token))
+                return self._current_user_value
             row = db.execute(
                 """
                 SELECT id, name, username, role, email, department, active, reset_required,

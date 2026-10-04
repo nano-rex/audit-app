@@ -35,6 +35,10 @@ async function loadAccount() {
   form.elements.department.disabled = !administrator;
   form.elements.role.disabled = !administrator;
   document.querySelector("[data-account-access-note]").hidden = administrator;
+  // A Super account lives in its own database, outside every organization.
+  const superAccount = currentUser.accountScope === "control";
+  form.querySelectorAll("[data-organization-account-only]").forEach((node) => { node.hidden = superAccount; });
+  document.querySelector("[data-super-account-note]").hidden = !superAccount;
   accountPhoto = currentUser.profilePhoto || {};
   accountSignature = currentUser.signatureImage || {};
   renderAccountPhoto();
@@ -60,8 +64,9 @@ document.querySelector("[data-super-create-database]")?.addEventListener("click"
 });
 document.querySelector("[data-super-switch-database]")?.addEventListener("click", async () => {
   const name = document.querySelector("[data-super-database-select]")?.value;
-  if (!name || !confirm(`Switch to ${name}? All users must sign in again.`)) return;
-  try { await requestJson("/api/account/databases", "PATCH", { name }); await requestJson("/api/auth/logout", "POST", {}); window.location.href = "login.html"; }
+  if (!name || !confirm(`Switch to ${name}? Everyone signed in to the current organization must sign in again.`)) return;
+  // Organization users are signed out; the Super account stays signed in and reopens on the new database.
+  try { await requestJson("/api/account/databases", "PATCH", { name }); window.location.reload(); }
   catch (error) { setText("[data-super-database-message]", error.message); }
 });
 document.querySelector("[data-super-remove-database]")?.addEventListener("click", async () => {
@@ -103,8 +108,10 @@ document.getElementById("account-form").addEventListener("submit", async (event)
     const data = await requestJson("/api/account", "PATCH", {
       name: form.elements.name.value, email: form.elements.email.value,
       username: form.elements.username.value,
-      department: form.elements.department.value, role: form.elements.role.value, profilePhoto: accountPhoto,
-      signatureImage: accountSignature,
+      ...(currentUser?.accountScope === "control" ? {} : {
+        department: form.elements.department.value, role: form.elements.role.value, profilePhoto: accountPhoto,
+        signatureImage: accountSignature,
+      }),
     });
     currentUser = data.user;
     renderCurrentUser();

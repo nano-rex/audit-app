@@ -23,6 +23,7 @@ python3 web/server.py
 | `AUDIT_SECURE_COOKIES` | off | `1` marks the session cookie HTTPS-only. Use it only behind HTTPS, otherwise browsers will not send the cookie |
 | `AUDIT_TRUST_PROXY` | off | `1` takes the client address from the last `X-Forwarded-For` entry. Use it only behind a reverse proxy you control |
 | `PORT` | `41883` | Listening port. The server always binds to `127.0.0.1` |
+| `AUDIT_CONTROL_DB` | `<data dir>/control/control.db` | The Super accounts' own database; see Super accounts |
 | `AUDIT_SESSION_COOKIE` | from `PORT` | Name of the session cookie; see Running several organizations |
 
 ## What the server does
@@ -73,6 +74,22 @@ python3 web/server.py
 6. Keep SQLite on local storage while the workload is modest. WAL allows one writer at a time
    and is unsuitable for network filesystems ([SQLite WAL](https://www.sqlite.org/wal.html)).
    Move to PostgreSQL when measured write contention or multi-host operation requires it.
+
+## Super accounts
+
+Super accounts, their sessions, sign-in history, and page order are kept in a control database
+(`control/control.db` under the data directory, or `AUDIT_CONTROL_DB`), separate from every
+organization's database. An organization database holds only its own people; the Super role
+cannot be assigned in it, and its users cannot take a Super account's username or email.
+
+- On the first start of this release, any Super account found in an organization database is
+  moved to the control database with its name and password; drafts it owned stay with it and
+  its sign-in history moves with it. If no Super account exists anywhere, a starter account
+  (`super`) is created and must change its published password at first sign-in.
+- Back up the control database with the organization databases; without it nobody can sign in
+  as Super. It is ignored by git.
+- Instances run for different organizations can share Super accounts by pointing
+  `AUDIT_CONTROL_DB` at the same file on the same host.
 
 ## Running several organizations
 
@@ -125,7 +142,7 @@ They are a regression signal, not a capacity guarantee.
 
 ## Verified, and not
 
-- 72 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
+- 73 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
 - The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
   Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
   from outside the repository and is not an automated test here.

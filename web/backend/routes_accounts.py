@@ -10,10 +10,11 @@ from datetime import datetime
 from backend import config
 from backend.accounts import is_company_admin_user, is_super_user, public_user
 from backend.common import hash_password, verify_password
-from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
+from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
 from backend.database import connect, first_department, insert_record
 from backend.workflow import WorkflowError
 from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
+from backend import control
 from backend.database_manager import create_database, remove_database, switch_database
 from backend.login_throttle import LOGIN_THROTTLE, REGISTRATION_THROTTLE, client_address
 
@@ -40,6 +41,20 @@ def post_auth_login(self, parsed, payload=None):
     if wait:
         self.json({"ok": False, "error": f"Too many failed sign-in attempts. Try again in {(wait + 59) // 60} minute(s)."},
                   status=429, headers=(("Retry-After", str(wait)),))
+        return
+    # Super accounts are checked first, in their own database; organizations cannot reuse their names.
+    super_row = control.find_super(identifier)
+    if super_row is not None:
+        matches = verify_password(password, super_row["password_hash"] or unknown_account_hash())
+        if not super_row["active"] or not super_row["password_hash"] or not matches:
+            LOGIN_THROTTLE.failure(throttle_key)
+            self.json({"ok": False, "error": "Invalid email or password"}, status=401)
+            return
+        LOGIN_THROTTLE.success(throttle_key)
+        token = secrets.token_urlsafe(32)
+        max_age = 60 * 60 * 24 * 30 if remember else 60 * 60 * 8
+        user = control.start_session(super_row, SESSION_TOKENS.key(token), time.time() + max_age, remember, self.headers.get("User-Agent", ""))
+        send_session_cookie(self, token, max_age, {"ok": True, "user": user})
         return
     with connect() as db:
         row = db.execute(
@@ -85,18 +100,23 @@ def post_auth_login(self, parsed, payload=None):
             """,
             (row["id"],),
         ).fetchone()
+    send_session_cookie(self, token, max_age, {"ok": True, "user": public_user(refreshed)})
+
+
+def send_session_cookie(self, token, max_age, body):
     self.send_response(200)
     self.send_header("Content-Type", "application/json")
     self.send_header("Cache-Control", "no-store")
     secure = "; Secure" if os.environ.get("AUDIT_SECURE_COOKIES") == "1" else ""
     self.send_header("Set-Cookie", f"{config.SESSION_COOKIE}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
     self.end_headers()
-    self.wfile.write(json.dumps({"ok": True, "user": public_user(refreshed)}).encode("utf-8"))
-    return
+    self.wfile.write(json.dumps(body).encode("utf-8"))
 
 
 def post_auth_logout(self, parsed, payload=None):
     SESSION_TOKENS.pop(self.session_token(), None)
+    if self.session_token():
+        control.end_session(SESSION_TOKENS.key(self.session_token()))
     self.send_response(200)
     self.send_header("Content-Type", "application/json")
     self.send_header("Cache-Control", "no-store")
@@ -108,6 +128,10 @@ def post_auth_logout(self, parsed, payload=None):
 
 def patch_account(self, parsed, payload=None):
     user = self.current_user()
+    super_id = control.control_id(user)
+    if super_id is not None:
+        patch_super_account(self, super_id, user, payload)
+        return
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         existing = db.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
@@ -138,10 +162,10 @@ def patch_account(self, parsed, payload=None):
         if department and not db.execute("SELECT 1 FROM departments WHERE code = ?", (department,)).fetchone():
             self.json({"error": "Select an existing department"}, 400)
             return
-        if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user["id"])).fetchone():
+        if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user["id"])).fetchone() or control.is_reserved_identifier(email):
             self.json({"error": "That email address belongs to another account"}, 409)
             return
-        if db.execute("SELECT 1 FROM users WHERE lower(username) = ? AND id != ?", (username, user["id"])).fetchone():
+        if db.execute("SELECT 1 FROM users WHERE lower(username) = ? AND id != ?", (username, user["id"])).fetchone() or control.is_reserved_identifier(username):
             self.json({"error": "That username belongs to another account"}, 409)
             return
         photo = payload.get("profilePhoto", load_value(existing["profile_photo_data_id"] or "{}")) or {}
@@ -158,6 +182,33 @@ def patch_account(self, parsed, payload=None):
     self.json({"ok": True, "user": public_user(refreshed)})
 
 
+def patch_super_account(self, super_id, user, payload):
+    """A Super account's own details live in the control database; it keeps no picture or saved signature."""
+    name = str(payload.get("name", user["name"]) or "").strip()
+    email = str(payload.get("email", user["email"]) or "").strip().lower()
+    username = str(payload.get("username") or user["username"] or "").strip().lower()
+    if (not name or len(name) > 100 or not (username == user["username"] or USERNAME_PATTERN.fullmatch(username))
+            or not (email == user["email"] or EMAIL_PATTERN.fullmatch(email))):
+        self.json({"error": "Enter a valid display name, username, and email address"}, 400)
+        return
+    if payload.get("role", SUPER_ROLE) != SUPER_ROLE:
+        self.json({"error": "The Super account's role cannot be changed"}, 403)
+        return
+    if payload.get("profilePhoto") or payload.get("signatureImage"):
+        self.json({"error": "The Super account keeps no profile picture or saved signature"}, 400)
+        return
+    with connect() as db:
+        if db.execute("SELECT 1 FROM users WHERE lower(email) = ? OR lower(username) IN (?, ?)", (email, username, email)).fetchone():
+            self.json({"error": "That username or email belongs to an account in this organization"}, 409)
+            return
+    try:
+        refreshed = control.update_profile(super_id, name, username, email)
+    except ValueError as error:
+        self.json({"error": str(error)}, 409)
+        return
+    self.json({"ok": True, "user": refreshed})
+
+
 def post_auth_forgot_password(self, parsed, payload=None):
     email = str(payload.get("email") or "").strip().lower()
     now = int(time.time() * 1000)
@@ -167,7 +218,7 @@ def post_auth_forgot_password(self, parsed, payload=None):
             previous = db.execute("SELECT requested_at FROM password_reset_requests WHERE user_id = ?", (user["id"],)).fetchone()
             if not previous or now - previous["requested_at"] >= 15 * 60 * 1000:
                 db.execute("INSERT INTO password_reset_requests(user_id, requested_at) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET requested_at = excluded.requested_at, resolved_at = NULL", (user["id"], now))
-                for admin in db.execute("SELECT id FROM users WHERE role = ? AND active = 1", (SUPER_ROLE,)).fetchall():
+                for admin in db.execute("SELECT id FROM users WHERE role = ? AND active = 1", (ADMIN_ROLE,)).fetchall():
                     db.execute("INSERT INTO notifications(title,message,channel,status,related_type,related_id,created_at,recipient_user_id) VALUES (?,?,'In-App','Unread','user',?,?,?)",
                                ("Password reset requested", f"{user['name']} requested a password reset. Review this account in Users.", user["id"], now, admin["id"]))
     self.json({"ok": True, "message": "If an active account matches, a reset request has been sent to your administrator. Contact them to verify your identity and receive a temporary password."})
@@ -185,6 +236,9 @@ def post_auth_register(self, parsed, payload=None):
         return
     if not name or len(name) > 100 or not EMAIL_PATTERN.fullmatch(email) or len(password) < MIN_PASSWORD_LENGTH:
         self.json({"ok": False, "error": "Name, email, and an 8-character password are required"}, status=400)
+        return
+    if control.is_reserved_identifier(email):
+        self.json({"ok": False, "error": "An account with this email already exists"}, status=409)
         return
     with connect() as db:
         try:
@@ -213,6 +267,14 @@ def post_auth_change_password(self, parsed, payload=None):
     new_password = payload.get("newPassword") or ""
     if not isinstance(new_password, str) or len(new_password) < MIN_PASSWORD_LENGTH:
         self.json({"ok": False, "error": "New password must be at least 8 characters"}, status=400)
+        return
+    super_id = control.control_id(user)
+    if super_id is not None:
+        if not verify_password(old_password, control.password_hash(super_id)):
+            self.json({"ok": False, "error": "Current password is incorrect"}, status=400)
+            return
+        control.change_password(super_id, hash_password(new_password), SESSION_TOKENS.key(self.session_token()))
+        self.json({"ok": True})
         return
     with connect() as db:
         row = db.execute("SELECT password_hash FROM users WHERE id = ?", (user["id"],)).fetchone()
@@ -250,6 +312,8 @@ def account_fields(db, payload, existing=None):
         raise ValueError("Enter a valid email address")
     username = text("username", "Username", 64).lower() or email.split("@", 1)[0]
     role = text("role", "Role", 100)
+    if role == SUPER_ROLE:
+        raise ValueError("The Super account is kept in its own database and cannot be given to an organization user")
     if role and role != (existing["role"] if existing else None) and not db.execute("SELECT 1 FROM roles WHERE name = ?", (role,)).fetchone():
         raise ValueError("Select an existing role")
     department = text("department", "Department", 100) or first_department(db)
@@ -259,6 +323,8 @@ def account_fields(db, payload, existing=None):
     if not isinstance(password, str) or password and len(password) < MIN_PASSWORD_LENGTH:
         raise ValueError(f"Passwords must be at least {MIN_PASSWORD_LENGTH} characters")
     user_id = existing["id"] if existing else 0
+    if control.is_reserved_identifier(email, username):
+        raise WorkflowError("That username or email is reserved for a Super account")
     if db.execute("SELECT 1 FROM users WHERE lower(email) = ? AND id != ?", (email, user_id)).fetchone():
         raise WorkflowError("That email address belongs to another account")
     if db.execute("SELECT 1 FROM users WHERE lower(username) = ? AND id != ?", (username, user_id)).fetchone():
@@ -468,6 +534,11 @@ def patch_navigation(self, parsed, payload=None):
     if not isinstance(order, list) or len(order) > len(pages) or any(not isinstance(page, str) or page not in pages for page in order) or len(set(order)) != len(order):
         raise ValueError("Choose each available page at most once")
     user_id = self.current_user()["id"]
+    super_id = control.control_id(self.current_user())
+    if super_id is not None:
+        control.save_navigation(super_id, order)
+        self.json({"ok": True, "navigationOrder": order})
+        return
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
         db.execute("DELETE FROM user_navigation WHERE user_id = ?", (user_id,))

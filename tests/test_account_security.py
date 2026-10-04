@@ -26,10 +26,13 @@ class AccountSecurityTests(unittest.TestCase):
         with app.connect() as db:
             # Starter accounts must change their password before using the API; these tests act as them directly.
             db.execute("UPDATE users SET reset_required = 0")
-            cls.super_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
             override = save_value(db, {"permissions": ["notifications"], "inspectionPermissions": ["verifier"]})
             cls.reviewer_id = db.execute("INSERT INTO users(name,role,email,active,created_at,permission_overrides_data_id) VALUES ('Reviewer','Auditor','reviewer@example.test',1,0,?)", (override,)).lastrowid
-        app.SESSION_TOKENS["super"] = {"user_id": cls.super_id, "expires_at": time.time() + 3600}
+        cls.super_id = app.first_super_id()
+        from backend.control import connect_control
+        with connect_control() as control_db:
+            control_db.execute("UPDATE super_users SET reset_required = 0")
+        app.SUPER_SESSIONS["super"] = {"user_id": cls.super_id, "expires_at": time.time() + 3600}
         app.SESSION_TOKENS["reviewer"] = {"user_id": cls.reviewer_id, "expires_at": time.time() + 3600}
         cls.server = app.AuditHTTPServer(("127.0.0.1", 0), QuietHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -224,7 +227,8 @@ class AccountSecurityTests(unittest.TestCase):
         with app.connect() as db:
             admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
         app.SESSION_TOKENS["role-admin"] = {"user_id": admin_id, "expires_at": time.time() + 3600}
-        self.assertLessEqual({"Super", "Admin", "Auditor"}, names("super"))
+        self.assertLessEqual({"Admin", "Auditor"}, names("super"))
+        self.assertNotIn("Super", names("super"), "the Super role is not an organization role")
         self.assertIn("Auditor", names("role-admin"))
         self.assertNotIn("Super", names("role-admin"))
         setup = json.loads(self.request("/api/setup", token="super")[2])
@@ -415,6 +419,53 @@ class AccountSecurityTests(unittest.TestCase):
             self.assertEqual(self.request("/api/auth/me", token=None, headers={"Cookie": f"company_b={token}"})[0], 200)
             self.assertEqual(self.request("/api/auth/me", token=token)[0], 401, "another instance's cookie is ignored")
 
+    def test_super_accounts_live_in_their_own_database(self):
+        from backend.control import connect_control, control_path
+        from backend.database_manager import list_databases
+        self.assertNotIn(control_path().stem, {row["name"] for row in list_databases()}, "never listed as an organization")
+        # An older organization database that still holds a Super account gives it up on upgrade.
+        with app.connect() as db:
+            legacy = db.execute("INSERT INTO users(name, username, role, email, password_hash, active, reset_required, created_at) VALUES "
+                                "('Legacy Super', 'legacy-super', 'Super', 'legacy-super@example.test', ?, 1, 0, 0)", (app.hash_password("legacy-password"),)).lastrowid
+            db.execute("INSERT INTO user_login_activity(user_id, email, logged_at) VALUES (?, 'legacy-super@example.test', '2026-09-01 08:00:00')", (legacy,))
+            owned = db.execute("INSERT INTO inspection_sessions(business_unit,outlet,zone,audit_date,auditor,progress,status,created_at,updated_at,owner_user_id) "
+                               "VALUES ('Ottotree','STP','Room','2026-09-01','Legacy Super',0,'Draft',0,0,?)", (legacy,)).lastrowid
+            db.execute("INSERT OR IGNORE INTO roles(name, description, protected, created_at) VALUES ('Super', 'old', 1, 0)")
+        app.init_db()
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE id = ? OR role = 'Super'", (legacy,)).fetchone())
+            self.assertIsNone(db.execute("SELECT 1 FROM roles WHERE name = 'Super'").fetchone())
+            self.assertIsNone(db.execute("SELECT 1 FROM user_login_activity WHERE user_id = ?", (legacy,)).fetchone())
+            owner = db.execute("SELECT owner_user_id FROM inspection_sessions WHERE id = ?", (owned,)).fetchone()[0]
+        with connect_control() as db:
+            moved = db.execute("SELECT * FROM super_users WHERE username = 'legacy-super'").fetchone()
+            self.assertEqual(db.execute("SELECT count(*) FROM super_login_activity WHERE user_id = ?", (moved["id"],)).fetchone()[0], 1)
+        self.assertEqual(owner, -moved["id"], "the draft stays with its owner")
+        # The moved account signs in with its existing password and works in the organization.
+        status, headers, body = self.request("/api/auth/login", "POST", {"identifier": "legacy-super", "password": "legacy-password"}, token=None)
+        self.assertEqual(status, 200, body)
+        token = headers["Set-Cookie"].split(";", 1)[0].split("=", 1)[1]
+        user = json.loads(body)["user"]
+        self.assertEqual((user["role"], user["accountScope"], user["id"]), ("Super", "control", -moved["id"]))
+        self.assertEqual(self.request("/api/users", token=token)[0], 200)
+        self.assertNotIn("legacy-super", {row["username"] for row in json.loads(self.request("/api/users", token=token)[2])["items"]})
+        # Its own details, password, and page order are kept in the control database.
+        self.assertEqual(self.request("/api/account", "PATCH", {"name": "Renamed Super"}, token=token)[0], 200)
+        self.assertEqual(self.request("/api/account", "PATCH", {"department": "SSD", "profilePhoto": {"url": "/api/media/x.png"}}, token=token)[0], 400)
+        self.assertEqual(self.request("/api/account/navigation", "PATCH", {"order": ["super-settings", "today"]}, token=token)[0], 200)
+        change = {"oldPassword": "legacy-password", "newPassword": "a-new-super-password"}
+        self.assertEqual(self.request("/api/auth/change-password", "POST", change, token=token)[0], 200)
+        with connect_control() as db:
+            row = db.execute("SELECT * FROM super_users WHERE id = ?", (moved["id"],)).fetchone()
+            pages = [item[0] for item in db.execute("SELECT page_id FROM super_navigation WHERE user_id = ? ORDER BY position", (moved["id"],))]
+        self.assertEqual(row["name"], "Renamed Super")
+        self.assertTrue(app.verify_password("a-new-super-password", row["password_hash"]))
+        self.assertEqual(pages, ["super-settings", "today"])
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE name = 'Renamed Super'").fetchone())
+        self.assertEqual(self.request("/api/auth/logout", "POST", {}, token=token)[0], 200)
+        self.assertEqual(self.request("/api/auth/me", token=token)[0], 401)
+
     def test_photo_thumbnails_are_small_jpegs_and_need_a_session(self):
         from io import BytesIO
         import base64
@@ -510,9 +561,13 @@ class AccountSecurityTests(unittest.TestCase):
             config.DB_PATH = original
             self.assertTrue(restore_active_database())
             self.assertEqual(config.DB_PATH, second.resolve())
-            self.assertEqual(self.request("/api/auth/me")[0], 401)
+            # Organization sessions in the selected database are ended; the Super account, kept in its
+            # own database, stays signed in and now works in the selected organization.
             with app.connect() as db:
                 self.assertEqual(db.execute("SELECT count(*) FROM auth_sessions").fetchone()[0], 0)
+                self.assertIsNone(db.execute("SELECT 1 FROM users WHERE role = 'Super'").fetchone())
+            status, _, body = self.request("/api/auth/me")
+            self.assertEqual((status, json.loads(body)["user"]["accountScope"]), (200, "control"))
         finally:
             app.configure_data_directory(self.storage.name)
         for suffix in ("-wal", "-shm"):

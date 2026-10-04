@@ -9,6 +9,7 @@ from datetime import datetime
 from backend.common import audit_ref, hash_password, inspection_progress, location_qr_code, today_date
 from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
+from backend.control import adopt_organization_supers, ensure_super_account
 from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
@@ -485,6 +486,8 @@ def init_db():
         seed_audit_types(db)
         seed_settings(db)
         seed_users(db)
+        # Super accounts belong to the control database, never to an organization.
+        adopt_organization_supers(db)
         default_department = first_department(db)
         if default_department:
             db.execute("UPDATE users SET department = ? WHERE department IS NULL OR department = ''", (default_department,))
@@ -500,3 +503,5 @@ def init_db():
         db.execute("CREATE TABLE IF NOT EXISTS password_reset_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id), requested_at INTEGER NOT NULL, resolved_at INTEGER)")
         db.execute("CREATE TABLE IF NOT EXISTS due_notification_events(user_id INTEGER NOT NULL, work_order_id INTEGER NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, due_date TEXT NOT NULL, PRIMARY KEY(user_id,work_order_id,kind,day,due_date))")
         install_reference_cleanup(db)
+    # Only when no Super account exists anywhere: after moving any out of this organization.
+    ensure_super_account(hash_password)

@@ -146,7 +146,14 @@ An administrator should configure these records before staff begin auditing:
 
 8. SUPER ACCOUNT
 ----------------
-The built-in Super account has every page above, plus two restricted pages
+The Super account is kept in its own database, separate from every
+organization. It never appears in an organization's Users list, cannot be
+given to an organization user, and its sign-in history and page order are
+kept with it. It has no department, profile picture, or saved signature; draw
+or upload a signature when signing an inspection. Switching to another
+organization keeps the Super account signed in.
+
+The Super account has every page above, plus two restricted pages
 under the page menu: Super Dashboard (users, roles, assets, open findings, and
 the active company database) and Super Settings (company databases, the
 organization theme, priority levels, audit types, scoring, and report

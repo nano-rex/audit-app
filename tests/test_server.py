@@ -32,10 +32,15 @@ class ServerTests(unittest.TestCase):
         with app.connect() as db:
             # Starter accounts must change their password before using the API; these tests act as them directly.
             db.execute("UPDATE users SET reset_required = 0")
-            cls.user_id = db.execute("SELECT id FROM users WHERE role = 'Super'").fetchone()[0]
             db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Restricted', 'Auditor', 'restricted@test', 1, 0)")
             limited_id = db.execute("SELECT id FROM users WHERE email = 'restricted@test'").fetchone()[0]
-        app.SESSION_TOKENS["test"] = {"user_id": cls.user_id, "expires_at": time.time() + 3600}
+            cls.admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
+        # The Super account lives in the control database, not in the organization.
+        cls.user_id = app.first_super_id()
+        from backend.control import connect_control
+        with connect_control() as control_db:
+            control_db.execute("UPDATE super_users SET reset_required = 0")
+        app.SUPER_SESSIONS["test"] = {"user_id": cls.user_id, "expires_at": time.time() + 3600}
         app.SESSION_TOKENS["limited"] = {"user_id": limited_id, "expires_at": time.time() + 3600}
         cls.server = app.AuditHTTPServer(("127.0.0.1", 0), QuietHandler)
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
@@ -106,11 +111,14 @@ class ServerTests(unittest.TestCase):
             count = db.execute("SELECT COUNT(*) FROM comments WHERE record_type = 'inspection' AND record_id = ? AND comment = 'Audit closed'", (session_id,)).fetchone()[0]
         self.assertEqual(count, 1)
 
-    def test_administration_preserves_last_super_and_revokes_deactivated_sessions(self):
-        path = f"/api/users/{self.user_id}"
-        for payload in ({"active": False}, {"role": "Auditor"}):
-            self.assertEqual(self.request(path, "PATCH", payload)[0], 409)
-        self.assertEqual(self.request(path, "DELETE")[0], 409)
+    def test_administration_keeps_super_out_and_revokes_deactivated_sessions(self):
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE role = 'Super'").fetchone(), "no Super account inside an organization")
+        self.assertEqual(self.request("/api/users", "POST", {"name": "Would be super", "email": "would-be@example.test", "role": "Super"})[0], 400)
+        self.assertEqual(self.request(f"/api/users/{self.admin_id}", "PATCH", {"role": "Super"})[0], 400)
+        self.assertEqual(self.request("/api/users", "POST", {"name": "Copycat", "email": "copycat@example.test", "username": "super"})[0], 409)
+        # The starter Super address is also not a valid organization address, so it may fail either check.
+        self.assertIn(self.request("/api/users", "POST", {"name": "Copycat", "email": "super@sudo"})[0], {400, 409})
         user = {"name": "Lifecycle User", "email": "lifecycle@example.test", "role": "Auditor", "active": True}
         self.assertEqual(self.request("/api/users", "POST", user)[0], 200)
         with app.connect() as db:
@@ -192,8 +200,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(json.loads(body)["user"]["navigationOrder"], [])
         for invalid in (["today", "today"], ["unknown"], ["roles"], "today", [1], [{}]):
             self.assertEqual(self.request(path, "PATCH", {"order": invalid})[0], 400)
-        with app.connect() as db:
-            stored = [row[0] for row in db.execute("SELECT page_id FROM user_navigation WHERE user_id = ? ORDER BY position", (self.user_id,))]
+        from backend.control import connect_control
+        with connect_control() as db:
+            stored = [row[0] for row in db.execute("SELECT page_id FROM super_navigation WHERE user_id = ? ORDER BY position", (self.user_id,))]
         self.assertEqual(stored, order)
         self.assertEqual(self.request(path, "PATCH", {"order": ["notifications", "account"], "userId": self.user_id}, token="limited")[0], 200)
         _, _, body = self.request("/api/auth/me")
@@ -250,10 +259,10 @@ class ServerTests(unittest.TestCase):
             db.execute("SELECT 1")
         with self.assertRaises(RuntimeError):
             with app.connect() as db:
-                db.execute("UPDATE users SET name = 'Must roll back' WHERE id = ?", (self.user_id,))
+                db.execute("UPDATE users SET name = 'Must roll back' WHERE id = ?", (self.admin_id,))
                 raise RuntimeError()
         with app.connect() as db:
-            self.assertNotEqual(db.execute("SELECT name FROM users WHERE id = ?", (self.user_id,)).fetchone()[0], "Must roll back")
+            self.assertNotEqual(db.execute("SELECT name FROM users WHERE id = ?", (self.admin_id,)).fetchone()[0], "Must roll back")
 
     def test_seed_preserves_credentials_and_deactivation(self):
         with app.connect() as db:
@@ -404,7 +413,8 @@ class ServerTests(unittest.TestCase):
     def test_new_audit_header_reference_and_completion(self):
         with app.connect() as db:
             audit_type = db.execute("SELECT name FROM audit_types WHERE active = 1 LIMIT 1").fetchone()[0]
-            name = db.execute("SELECT name FROM users WHERE id = ?", (self.user_id,)).fetchone()[0]
+            pass
+        name = "Super User"
         payload = {"outlet": "STP", "auditDate": "2026-09-18", "auditTime": "09:35", "auditType": audit_type,
                    "remarks": "Morning review", "auditor": "Forged name"}
         for change in ({"outlet": "Missing"}, {"auditDate": "2026-02-30"}, {"auditTime": "25:70"}, {"auditType": "Missing"}, {"remarks": "x" * 5001}):
