@@ -3,6 +3,7 @@ from backend.common import sla_status
 from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
+from backend.work_requests import reviews_requests
 
 SIGNATURES = (("auditedBy", "auditor", "auditor"), ("verifiedBy", "verifier", "verifier"),
               ("acknowledgedBy", "acknowledger", "acknowledger"))
@@ -37,6 +38,11 @@ def todo_items(user):
                         "SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' UNION ALL SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1",
                         (row["audit_id"], row["audit_id"])).fetchone():
                     items.append(inspection_item(row, "Close audit", "Signed and all work orders closed", "signoff"))
+        if reviews_requests(user):
+            for row in db.execute("SELECT * FROM work_requests WHERE status = 'Open' ORDER BY created_at LIMIT ?", (LIMIT,)):
+                items.append({"type": "work_request", "id": row["id"], "action": "Review work request",
+                              "title": f"{row['request_ref']} {row['item_name'] or ''}".strip(),
+                              "detail": f"{row['outlet']} | {row['location']} | Requested by {row['requested_by'] or 'someone'}"})
         if "work-orders" in permissions:
             for row in db.execute("SELECT * FROM work_orders WHERE status != 'Closed' ORDER BY CASE WHEN due_date IS NULL OR due_date = '' THEN 1 ELSE 0 END, due_date, id LIMIT 500"):
                 order = dict(row)

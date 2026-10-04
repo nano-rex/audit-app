@@ -9,7 +9,7 @@ function showTabLoading(tabId) {
     today: [["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
     reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
     findings: [["[data-inspection-history]", "Loading history…"], ["[data-findings]", "Loading findings…"]],
-    "work-orders": [["[data-work-orders]", "Loading work orders…"]],
+    "work-orders": [["[data-work-orders]", "Loading work orders…"], ["[data-work-requests]", "Loading work requests…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
     categories: [["[data-category-records]", "Loading categories…"]],
     // Departments and roles are loaded with the initial setup catalog. Keep
@@ -78,7 +78,7 @@ async function loadTabData(tabId) {
     today: loadDashboard,
     reports: async () => { await loadDashboard(); await loadReport(); },
     findings: () => Promise.all([loadInspectionHistory(), loadFindings()]),
-    "work-orders": loadWorkOrders,
+    "work-orders": () => Promise.all([loadWorkOrders(), loadWorkRequests()]),
     equipment: loadEquipment,
     categories: async () => {
       if (!categoryCache.length) await loadSetup();

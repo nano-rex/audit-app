@@ -13,7 +13,7 @@ const allTabs = [
   { id: "today", label: "Dashboard" },
   { id: "inspections", label: "Inspections" },
   { id: "findings", label: "History & Findings" },
-  { id: "work-orders", label: "Work Orders" },
+  { id: "work-orders", label: "Maintenance" },
   { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
   { id: "notifications", label: "Notifications" },
@@ -84,7 +84,7 @@ const userFilters = { search: "", role: "", department: "" };
 const roleFilters = { search: "" };
 const notificationFilters = { search: "", status: "" };
 const historyFilters = { dateFrom: "", dateTo: "", outlet: "", location: "", auditor: "", department: "", category: "", priority: "", status: "", pic: "" };
-const findingFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "", auditId: "" };
+const findingFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "active", auditId: "" };
 const workOrderFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const equipmentFilters = {
   search: "",

@@ -157,7 +157,7 @@ APP_TABS = (
     ("today", "Dashboard"),
     ("inspections", "Inspections"),
     ("findings", "History & Findings"),
-    ("work-orders", "Work Orders"),
+    ("work-orders", "Maintenance"),
     ("equipment", "Fixed Assets"),
     ("reports", "Reports"),
     ("categories", "Categories"),

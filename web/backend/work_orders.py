@@ -77,12 +77,16 @@ def with_current_sla(orders):
 
 
 def sync_finding_from_work_order(db, work_order_id):
-    """A finding follows its work order: the same status, person in charge, and closing date."""
-    row = db.execute("SELECT source_finding_id, status, pic, closed_at FROM work_orders WHERE id = ?", (work_order_id,)).fetchone()
-    if not row or not row["source_finding_id"]:
+    """Findings follow their work order: the same status, person in charge, and closing date.
+    A closed work order closes the request it was made from."""
+    row = db.execute("SELECT source_finding_id, work_request_id, status, pic, closed_at FROM work_orders WHERE id = ?", (work_order_id,)).fetchone()
+    if not row:
         return
-    db.execute("UPDATE findings SET status = ?, pic = ?, closed_at = ?, updated_at = ? WHERE id = ?",
-               (row["status"], row["pic"] or "", row["closed_at"] or "", int(time.time() * 1000), row["source_finding_id"]))
+    now = int(time.time() * 1000)
+    db.execute("UPDATE findings SET status = ?, pic = ?, closed_at = ?, updated_at = ? WHERE id = ? OR (work_request_id IS NOT NULL AND work_request_id = ?)",
+               (row["status"], row["pic"] or "", row["closed_at"] or "", now, row["source_finding_id"], row["work_request_id"]))
+    if row["work_request_id"] and row["status"] == "Closed":
+        db.execute("UPDATE work_requests SET status = 'Closed', updated_at = ? WHERE id = ?", (now, row["work_request_id"]))
 
 
 def finding_items(unit="Ottotree", filters=None, user=None):
@@ -97,8 +101,16 @@ def finding_items(unit="Ottotree", filters=None, user=None):
         params = (*params, name, email, department)
     with connect() as db:
         rows = db.execute(
-            f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor
+            f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor,
+                       COALESCE(NULLIF(findings.item_name, ''), inspection_items.section, 'Item') AS item_name,
+                       COALESCE(NULLIF(findings.criterion, ''), inspection_items.item, '') AS criterion,
+                       COALESCE(equipment.kind, 'asset') AS item_kind,
+                       work_requests.request_ref, work_requests.status AS request_status,
+                       (SELECT work_order_ref FROM work_orders WHERE work_orders.source_finding_id = findings.id) AS order_ref
                 FROM findings LEFT JOIN audits ON audits.id = findings.audit_id
+                LEFT JOIN inspection_items ON inspection_items.id = findings.source_item_id
+                LEFT JOIN equipment ON equipment.id = findings.equipment_id
+                LEFT JOIN work_requests ON work_requests.id = findings.work_request_id
                 WHERE {where} ORDER BY findings.created_at DESC, findings.id DESC""", params
         ).fetchall()
     return {"items": hydrate_many(rows)}

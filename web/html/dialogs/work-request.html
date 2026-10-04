@@ -1,0 +1,24 @@
+  <dialog id="work-request-dialog">
+    <form method="dialog" id="work-request-form">
+      <header><h2>Work Request</h2><button type="button" data-close-dialog>x</button></header>
+      <div class="work-request-source" data-work-request-source hidden></div>
+      <div class="form-grid">
+        <label data-ad-hoc-only>Outlet<select name="outlet"></select></label>
+        <label data-ad-hoc-only>Location<select name="location"></select></label>
+        <label data-ad-hoc-only>Item<input name="itemName" placeholder="What needs work, e.g. Toilet 2 or Chiller"></label>
+        <label>Department<select name="department"></select></label>
+        <label>Category<select name="category"></select></label>
+        <label>Priority<select name="priority"></select></label>
+      </div>
+      <label>Work needed<textarea name="description" required placeholder="What is wrong and what should be done"></textarea></label>
+      <div class="image-field">
+        <span class="image-field-label">Photos</span>
+        <div class="image-tiles">
+          <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-work-request-photos-upload aria-label="Add photos"><span>Choose file</span></label>
+          <div class="saved-images" data-work-request-photos data-saved-images></div>
+        </div>
+      </div>
+      <p class="form-message" data-work-request-message role="alert"></p>
+      <button class="primary" type="submit">Submit Request</button>
+    </form>
+  </dialog>

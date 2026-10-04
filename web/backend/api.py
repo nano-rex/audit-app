@@ -20,6 +20,7 @@ from backend.inspections import inspection_session, inspection_sessions, schedul
 from backend.reports import dashboard, inspection_pdf, report, report_csv, report_xls
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
+from backend.work_requests import work_request_items
 from backend.routes import dispatch
 from backend import control
 from backend.todo import todo_items
@@ -173,6 +174,7 @@ class Handler(BaseHTTPRequestHandler):
             "schedules": {"today", "inspections"},
             "findings": {"findings", "inspections"},
             "work-orders": {"work-orders"},
+            "work-requests": {"work-orders", "findings"},
             "notifications": {"notifications"},
             "locations": {"outlets"},
             "zones": {"outlets"},
@@ -186,8 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             allowed = permissions.get(route, set())
         if route == "notifications" and self.command in {"GET", "PATCH", "DELETE"}:
             allowed = set()  # Each user can access their own addressed notifications.
-        if self.command == "POST" and route == "work-orders":
-            allowed |= {"inspections"}  # Inspectors can raise issues from failed criteria.
+        if self.command == "POST" and route == "work-requests":
+            allowed |= {"inspections"}  # Inspectors can request work for what failed.
         if self.command == "GET":
             if route == "inspection-sessions":
                 allowed |= {"findings"}
@@ -255,6 +257,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/work-orders":
             self.json(work_order_items(self.current_user()))
+            return
+        if parsed.path == "/api/work-requests":
+            self.json(work_request_items(self.current_user()))
             return
         if parsed.path == "/api/findings":
             self.json(finding_items(user=self.current_user()))

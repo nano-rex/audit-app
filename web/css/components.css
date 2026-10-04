@@ -1454,3 +1454,48 @@ h4,
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
+
+/* Findings: one card per failed item, listing the checks it failed. */
+.finding-checks {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.finding-checks .status-pill {
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.finding-item b small {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* The item a work request is raised for, shown above its fields. */
+.work-request-source {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  font-size: 13px;
+}
+
+.work-request-source span {
+  color: var(--muted);
+}
+
+.work-request-source ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.pre-line {
+  white-space: pre-line;
+}

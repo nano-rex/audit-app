@@ -276,6 +276,14 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertIn(("inspection", "Sign as auditor, verifier, acknowledger"), actions("super"))
         # The reviewer has the verifier capability but no Inspections page, so nothing is offered to them.
         self.assertEqual(actions("reviewer"), [])
+        # Nothing is assigned until the finding is requested and a work order is made from the request.
+        self.assertEqual(actions("todo-pic"), [])
+        with app.connect() as db:
+            finding_ids = [row[0] for row in db.execute("SELECT id FROM findings WHERE audit_id = (SELECT audit_id FROM inspection_sessions WHERE id = ?)", (session_id,))]
+        request_id = json.loads(self.request("/api/work-requests", "POST", {"findingIds": finding_ids, "description": "Clean it"})[2])["id"]
+        self.assertIn(("work_request", "Review work request"), actions("super"))
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Clean", "requestType": department, "pic": "Todo PIC", "workRequestId": request_id})[0], 200)
+        self.assertNotIn(("work_request", "Review work request"), actions("super"))
         self.assertEqual(actions("todo-pic"), [("work_order", "Resolve work order")])
         order_id = todo("todo-pic")["items"][0]["id"]
         self.assertGreaterEqual(todo("todo-pic")["unreadNotifications"], 1)
@@ -284,7 +292,7 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(actions("todo-pic"), [])
         with app.connect() as db:
             order = db.execute("SELECT status, closed_at FROM work_orders WHERE id = ?", (order_id,)).fetchone()
-            finding = db.execute("SELECT status, closed_at FROM findings WHERE id = (SELECT source_finding_id FROM work_orders WHERE id = ?)", (order_id,)).fetchone()
+            finding = db.execute("SELECT status, closed_at FROM findings WHERE work_request_id = (SELECT work_request_id FROM work_orders WHERE id = ?)", (order_id,)).fetchone()
         self.assertEqual(order["status"], "Closed")
         self.assertTrue(order["closed_at"])
         self.assertEqual((finding["status"], finding["closed_at"]), ("Closed", order["closed_at"]))
@@ -355,8 +363,8 @@ class AccountSecurityTests(unittest.TestCase):
         status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items, "complete": True})
         self.assertEqual(status, 200, body)
         with app.connect() as db:
-            routed = dict(db.execute("SELECT title, request_type FROM work_orders WHERE category = 'Routed category'").fetchall())
-        self.assertEqual({title.rsplit(" - ", 1)[-1]: department for title, department in routed.items()}, {"By category": owner, "Chosen": departments[0]})
+            routed = dict(db.execute("SELECT criterion, assigned_department FROM findings WHERE category = 'Routed category'").fetchall())
+        self.assertEqual(routed, {"By category": owner, "Chosen": departments[0]})
         # Renaming the category keeps its items attached; deleting it leaves them uncategorised.
         self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "PATCH", {"name": "Routed renamed", "department": owner})[0], 200)
         sink = lambda: next(row for row in json.loads(self.request("/api/equipment")[2])["items"] if row["name"] == "Routed sink")

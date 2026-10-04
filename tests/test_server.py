@@ -53,6 +53,13 @@ class ServerTests(unittest.TestCase):
         cls.thread.join()
         cls.storage.cleanup()
 
+    def from_request(self, order=None, **request):
+        """A work order is made from a work request: raise one, then point the order at it."""
+        fields = {"outlet": "STP", "location": "Room", "itemName": "Test item", "description": "Needs work"} | request
+        status, _, body = self.request("/api/work-requests", "POST", fields)
+        self.assertEqual(status, 200, body)
+        return (order or {}) | {"workRequestId": json.loads(body)["id"]}
+
     def request(self, path, method="GET", payload=None, token="test", headers=None, raw=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=30)
         request_headers = {"Cookie": f"ottotree_session={token}"} if token else {}
@@ -367,7 +374,7 @@ class ServerTests(unittest.TestCase):
 
     def test_report_counts_not_limited_to_preview(self):
         for number in range(10):
-            self.assertEqual(self.request("/api/work-orders", "POST", {"title": f"Test {number}", "priority": "Priority"})[0], 200)
+            self.assertEqual(self.request("/api/work-orders", "POST", self.from_request({"title": f"Test {number}", "priority": "Priority"}))[0], 200)
         data = app.report("Ottotree")
         self.assertEqual(data["monthlySummary"]["openWorkOrders"], 10)
         self.assertEqual(len(data["criticalIssues"]), 10)
@@ -455,6 +462,8 @@ class ServerTests(unittest.TestCase):
         ]
         for path, table, field, payload in cases:
             with self.subTest(path=path):
+                if table == "work_orders":
+                    payload = self.from_request(payload)
                 self.assertEqual(self.request(path, "POST", payload)[0], 200)
                 with app.connect() as db:
                     row = db.execute(f"SELECT * FROM {table} WHERE {field} = ?", ("ROUTE-TEST",)).fetchone()
@@ -467,7 +476,7 @@ class ServerTests(unittest.TestCase):
                 with app.connect() as db:
                     self.assertIsNone(db.execute(f"SELECT id FROM {table} WHERE id = ?", (record_id,)).fetchone())
 
-    def test_z_failed_audit_retains_evidence_and_links_one_work_order(self):
+    def test_z_failed_audit_becomes_request_then_work_order(self):
         from test_media_reports import photo_data_url
         status, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
         self.assertEqual(status, 200)
@@ -487,17 +496,47 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(len(findings), 1)
             self.assertEqual((findings[0]["pic"], findings[0]["cause"]), ("Tester", "Loose screw"))
             self.assertEqual(load_value(findings[0]["images_data_id"])[0]["url"], image["url"])
-            orders = db.execute("SELECT * FROM work_orders WHERE source_finding_id = ?", (findings[0]["id"],)).fetchall()
-            self.assertEqual(len(orders), 1)
+            # Completing an inspection records the finding; no work is ordered until someone requests it.
+            self.assertEqual(findings[0]["status"], "Open")
+            self.assertIsNone(db.execute("SELECT 1 FROM work_orders WHERE source_audit_id = ?", (session["audit_id"],)).fetchone())
+        finding_id = findings[0]["id"]
+        status, _, body = self.request("/api/work-requests", "POST", {"findingIds": [finding_id], "description": "Fix the fixture"})
+        self.assertEqual(status, 200, body)
+        request_id = json.loads(body)["id"]
+        self.assertEqual(self.request("/api/work-requests", "POST", {"findingIds": [finding_id], "description": "Again"})[0], 409)
+        listed = next(row for row in json.loads(self.request("/api/findings")[2])["items"] if row["id"] == finding_id)
+        self.assertEqual((listed["status"], listed["request_status"]), ("Requested", "Open"))
+        status, _, body = self.request("/api/work-orders", "POST", {"title": "Fix it", "pic": "Tester", "workRequestId": request_id})
+        self.assertEqual(status, 200, body)
+        order_id = json.loads(body)["id"]
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Twice", "workRequestId": request_id})[0], 409)
+        self.assertEqual(self.request(f"/api/work-orders/{order_id}", "PATCH", {"status": "Closed"})[0], 200)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT status FROM findings WHERE id = ?", (finding_id,)).fetchone()[0], "Closed")
+            self.assertEqual(db.execute("SELECT status, work_order_id FROM work_requests WHERE id = ?", (request_id,)).fetchone()[:], ("Closed", order_id))
+            self.assertEqual(db.execute("SELECT source_audit_id FROM work_orders WHERE id = ?", (order_id,)).fetchone()[0], session["audit_id"])
+
+    def test_z_declined_request_closes_its_findings(self):
+        with app.connect() as db:
+            audit_id = db.execute("INSERT INTO audits(business_unit, outlet, branch, audit_date, auditor, audit_type, score, created_at) VALUES ('Ottotree', 'STP', 'Room', '2026-09-20', 'Auditor', 'Standard', 0, 0)").lastrowid
+            finding_id = db.execute("INSERT INTO findings(finding_ref, audit_id, business_unit, outlet, location, priority, comment, status, created_at, updated_at) VALUES ('F-DECLINE', ?, 'Ottotree', 'STP', 'Room', 'High', 'Scuffed', 'Open', 0, 0)", (audit_id,)).lastrowid
+        request_id = json.loads(self.request("/api/work-requests", "POST", {"findingIds": [finding_id], "description": "Repaint"})[2])["id"]
+        self.assertEqual(self.request(f"/api/work-requests/{request_id}", "PATCH", {"action": "decline"})[0], 400)
+        self.assertEqual(self.request(f"/api/work-requests/{request_id}", "PATCH", {"action": "decline", "remark": "Cosmetic only"})[0], 200)
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Late", "workRequestId": request_id})[0], 409)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT status FROM findings WHERE id = ?", (finding_id,)).fetchone()[0], "Closed")
+            self.assertEqual(db.execute("SELECT status, decline_remark FROM work_requests WHERE id = ?", (request_id,)).fetchone()[:], ("Declined", "Cosmetic only"))
 
     def test_z_workflow_rules_identity_history_and_concurrent_close(self):
         # Completed and Verified are no longer steps; a new order cannot start Closed.
         for status, expected in (("Invalid", 400), ("Completed", 400), ("Verified", 400), ("Closed", 409)):
-            self.assertEqual(self.request("/api/work-orders", "POST", {"status": status})[0], expected)
+            self.assertEqual(self.request("/api/work-orders", "POST", self.from_request({"status": status}))[0], expected)
+        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "No request"})[0], 400)
         with app.connect() as db:
             cursor = db.execute("INSERT INTO users(name, role, email, department, active, created_at) VALUES ('Workflow PIC', 'Department/PIC', 'workflow@test', 'Technical', 1, 0)")
             app.SESSION_TOKENS["pic"] = {"user_id": cursor.lastrowid, "expires_at": time.time() + 3600}
-        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Workflow test", "pic": "Workflow PIC"})[0], 200)
+        self.assertEqual(self.request("/api/work-orders", "POST", self.from_request({"title": "Workflow test", "pic": "Workflow PIC"}))[0], 200)
         with app.connect() as db:
             record_id = db.execute("SELECT id FROM work_orders WHERE title = 'Workflow test'").fetchone()[0]
         path = f"/api/work-orders/{record_id}"
@@ -525,7 +564,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/comments/{events[0]['id']}", "DELETE")[0], 409)
 
     def test_z_workflow_rejects_changes_to_another_pic_assignment(self):
-        self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Other PIC", "pic": "Another person"})[0], 200)
+        self.assertEqual(self.request("/api/work-orders", "POST", self.from_request({"title": "Other PIC", "pic": "Another person"}))[0], 200)
         with app.connect() as db:
             record_id = db.execute("SELECT id FROM work_orders WHERE title = 'Other PIC'").fetchone()[0]
             cursor = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Unassigned PIC', 'Department/PIC', 'unassigned@test', 1, 0)")
@@ -557,7 +596,7 @@ class ServerTests(unittest.TestCase):
         ):
             status, _, body = self.request(
                 "/api/work-orders", "POST",
-                {"title": title, "requestType": department, "assignee": department, "pic": pic},
+                self.from_request({"title": title, "requestType": department, "assignee": department, "pic": pic}),
             )
             self.assertEqual(status, 200, body)
         _, _, body = self.request("/api/findings", token="assigned-pic")

@@ -3,8 +3,7 @@ from backend.relational_values import load_value, save_value, hydrate_many
 from datetime import datetime
 from backend.scoring import summarize as summarize_score
 from backend.audit_metadata import allocate_reference
-from backend.reminders import notify_work_order
-from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
+from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date
 from backend.workflow import WorkflowError
 from backend.database import connect, first_category, first_department, first_outlet, insert_record
 
@@ -60,26 +59,15 @@ def finalize_inspection(db, session_id, payload, now):
         finding_id = insert_record(db, "findings", {
             "audit_id": audit_id, "audit_ref": reference, "business_unit": unit, "outlet": outlet, "location": location,
             "category": category, "priority": priority, "priority_classification": priority_row["classification"],
-            "assigned_department": department, "pic": pic, "comment": comment, "status": "Assigned",
+            "assigned_department": department, "pic": pic, "comment": comment, "status": "Open",
             "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
             "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
-            "source_item_id": item_id, "created_at": now, "updated_at": now,
+            "source_item_id": item_id, "equipment_id": int(item["equipmentId"]) if str(item.get("equipmentId") or "").isdigit() else None,
+            "item_name": item.get("section") or "", "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
         })
         finding_reference = finding_ref(finding_id, audit_date)
         db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (finding_reference, finding_id))
         db.execute("UPDATE inspection_items SET finding_id = ? WHERE id = ?", (finding_id, item_id))
-        order_id = insert_record(db, "work_orders", {
-            "business_unit": unit, "outlet": outlet, "zone": location, "request_type": department, "category": category,
-            "priority": priority, "title": f"{finding_reference} - {item.get('section', 'Fixed Asset')} - {item.get('item', 'Finding')}",
-            "description": comment, "assignee": pic or department, "pic": pic, "status": "Assigned",
-            "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
-            "required_action": item.get("requiredAction", ""), "images_data_id": images,
-            "due_date": due_date, "sla_status": sla_status("Assigned", due_date),
-            "source_audit_id": audit_id, "source_item_id": item_id, "source_finding_id": finding_id,
-            "outlet_confirmed": 0, "created_at": now,
-        })
-        db.execute("UPDATE work_orders SET work_order_ref = ? WHERE id = ?", (work_order_ref(order_id, audit_date), order_id))
-        notify_work_order(db, order_id, "Assigned")
     db.execute("UPDATE inspection_sessions SET status = 'Completed', progress = 100, audit_id = ?, updated_at = ? WHERE id = ?", (audit_id, now, session_id))
     db.execute("UPDATE schedules SET status = 'Completed' WHERE id = (SELECT schedule_id FROM inspection_sessions WHERE id = ?)", (session_id,))
     return audit_id

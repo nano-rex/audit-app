@@ -37,9 +37,11 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
 2. An auditor schedules an audit (or chooses **Schedule and start now**), optionally limited to some locations, and works through
    the checklist: tick what passes, or use **Pass all** for an asset; record a remark and
    finding details for what fails; attach photos.
-3. Completing the inspection calculates the score and creates one finding and one work order
-   per failed criterion, assigned to a department and person in charge.
-4. The assignee works through the work order and closes it when done; its finding closes with it.
+3. Completing the inspection calculates the score and records a finding per failed check. **Findings**
+   lists each failed item once, with **Create work request**.
+4. On **Maintenance > Work Requests**, a request becomes a work order (or is declined when no work is
+   needed). On **Maintenance > Work Orders**, the assignee closes the order when done; its request and
+   findings close with it.
 5. On **Sign-off**, the auditor, verifier, and acknowledger sign (drawn, uploaded, or the signature saved
    on their account). Once every linked work order is closed, a verifier closes the audit, which becomes read-only.
 6. Reports, charts, and CSV, Excel, JSON, and PDF exports are available throughout.

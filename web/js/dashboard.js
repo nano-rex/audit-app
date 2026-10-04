@@ -27,6 +27,11 @@ async function loadAttention() {
 }
 
 async function openAttentionItem(type, id, view = "") {
+  if (type === "work_request") {
+    showTab("work-orders");
+    showMaintenanceSubtab("requests");
+    return;
+  }
   if (type === "inspection") {
     await (view === "signoff" ? openSignoff(id) : openInspectionSession(id));
     return;
@@ -171,34 +176,44 @@ async function loadFindings() {
   renderFindings();
 }
 
-function renderFindings() {
+// Findings that pass the filters, gathered into one entry per inspected item.
+function findingGroups() {
   const search = findingFilters.search.toLowerCase();
   const rows = findingCache.filter((row) => {
-    const haystack = [
-      row.finding_ref,
-      row.audit_ref,
-      row.outlet,
-      row.location,
-      row.category,
-      row.priority,
-      row.assigned_department,
-      row.pic,
-      row.comment,
-      row.status,
-    ].join(" ").toLowerCase();
-    return (!search || haystack.includes(search))
+    const haystack = [row.finding_ref, row.audit_ref, row.item_name, row.criterion, row.outlet, row.location, row.category,
+      row.priority, row.assigned_department, row.pic, row.comment, row.status, row.request_ref].join(" ").toLowerCase();
+    const status = findingFilters.status === "active" ? row.status !== "Closed" : !findingFilters.status || row.status === findingFilters.status;
+    return (!search || haystack.includes(search)) && status
       && (!findingFilters.auditId || String(row.audit_id) === findingFilters.auditId)
       && (!findingFilters.outlet || row.outlet === findingFilters.outlet)
       && (!findingFilters.location || row.location === findingFilters.location)
       && (!findingFilters.department || row.assigned_department === findingFilters.department)
       && (!findingFilters.category || row.category === findingFilters.category)
-      && (!findingFilters.priority || row.priority === findingFilters.priority)
-      && (!findingFilters.status || row.status === findingFilters.status);
+      && (!findingFilters.priority || row.priority === findingFilters.priority);
   });
-  const page = paginateList("findings", rows, findingFilters, renderFindings);
-  setHtml("[data-findings]", (rows.length
-    ? page.items.map(findingRow).join("")
-    : `<article><div><b>No findings found</b><span>Completed inspections with failed criteria will appear here.</span></div></article>`) + page.controls);
+  const groups = new Map();
+  rows.forEach((row) => {
+    const key = [row.audit_id, row.equipment_id || row.item_name, row.location].join("|");
+    if (!groups.has(key)) {
+      groups.set(key, { key, findings: [], item_name: row.item_name, item_kind: row.item_kind, audit_id: row.audit_id, audit_ref: row.audit_ref,
+        outlet: row.outlet, location: row.location, department: row.assigned_department, category: row.category, priority: row.priority, images: [] });
+    }
+    const group = groups.get(key);
+    group.findings.push(row);
+    // The same photo is often attached to several checks of one item; show it once.
+    parseStoredImages(row.images_json || "[]").forEach((image) => {
+      if (!group.images.some((seen) => imageSource(seen) === imageSource(image))) group.images.push(image);
+    });
+  });
+  return [...groups.values()].map((group) => ({ ...group, findingIds: group.findings.map((row) => row.id) }));
+}
+
+function renderFindings() {
+  const groups = findingGroups();
+  const page = paginateList("findings", groups, findingFilters, renderFindings);
+  setHtml("[data-findings]", (groups.length
+    ? page.items.map(findingItemRow).join("")
+    : `<article><div><b>No findings</b><span>Items that failed a check in a completed inspection appear here.</span></div></article>`) + page.controls);
 }
 
 function renderWorkOrders() {
@@ -215,12 +230,6 @@ function renderWorkOrders() {
       row.assignee,
       row.pic,
       row.status,
-      row.action_taken,
-      row.completion_date,
-      row.completion_remark,
-      row.verified_by,
-      row.verified_at,
-      row.verification_remark,
       row.closed_at,
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
@@ -233,7 +242,7 @@ function renderWorkOrders() {
   });
   setHtml("[data-work-orders]", rows.length
     ? rows.map(workOrderRow).join("")
-    : `<article><div><b>No work orders found</b><span>Adjust search or filters, or add a new work order.</span></div></article>`);
+    : `<article><div><b>No work orders found</b><span>Create one from a work request, or adjust the filters.</span></div></article>`);
 }
 
 async function loadNotifications() {

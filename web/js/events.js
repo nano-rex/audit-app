@@ -368,10 +368,6 @@ document.querySelector("[data-open-role]")?.addEventListener("click", () => {
   openRoleEditor();
 });
 
-document.querySelector("[data-open-work-order]")?.addEventListener("click", async () => {
-  await openWorkOrderEditor();
-});
-
 document.querySelectorAll("[data-open-equipment]").forEach((button) => button.addEventListener("click", async () => {
   resetEquipmentForm(button.dataset.openEquipment);
   await updateEquipmentLocationSelect();

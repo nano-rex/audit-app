@@ -7,13 +7,15 @@
 
 .inspection-subpanel,
 .outlet-subpanel,
-.user-subpanel {
+.user-subpanel,
+.maintenance-subpanel {
   display: none;
 }
 
 .inspection-subpanel.active,
 .outlet-subpanel.active,
-.user-subpanel.active {
+.user-subpanel.active,
+.maintenance-subpanel.active {
   display: block;
 }
 

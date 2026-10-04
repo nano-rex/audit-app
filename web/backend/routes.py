@@ -6,7 +6,7 @@ from backend.routes_inspections import delete_inspection_sessions, delete_schedu
 from backend.routes_inspections import start_audit, start_schedule
 from backend.routes_locations import delete_locations, delete_setup_outlets, delete_zones, patch_locations, patch_setup_outlets, patch_zones, post_locations, post_setup_outlets, post_zones
 from backend.routes_setup import delete_setup_audit_types, delete_setup_categories, delete_setup_departments, delete_setup_priorities, patch_setup_audit_types, patch_setup_categories, patch_setup_departments, patch_setup_priorities, post_settings, post_setup_audit_types, post_setup_categories, post_setup_departments, post_setup_priorities
-from backend.routes_work_orders import delete_comments, delete_notifications, delete_work_orders, patch_notifications, patch_work_orders, post_comments, post_work_orders
+from backend.routes_work_orders import delete_comments, delete_notifications, delete_work_orders, patch_notifications, patch_work_orders, patch_work_requests, post_comments, post_work_orders, post_work_requests
 
 ROUTES = {
     'POST': {
@@ -21,6 +21,7 @@ ROUTES = {
         '/api/schedules': post_schedules,
         '/api/schedules/start': start_schedule,
         '/api/work-orders': post_work_orders,
+        '/api/work-requests': post_work_requests,
         '/api/equipment': post_equipment,
         '/api/locations': post_locations,
         '/api/zones': post_zones,
@@ -50,6 +51,7 @@ ROUTES = {
         '/api/setup/outlets': patch_setup_outlets,
         '/api/equipment': patch_equipment,
         '/api/work-orders': patch_work_orders,
+        '/api/work-requests': patch_work_requests,
         '/api/locations': patch_locations,
         '/api/zones': patch_zones,
         '/api/schedules': patch_schedules,

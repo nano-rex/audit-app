@@ -6,12 +6,19 @@ from backend.common import priority_due_date, sla_status, work_order_ref
 from backend.database import connect, first_category, first_department, first_outlet
 from backend.work_orders import sync_finding_from_work_order
 from backend.workflow import WorkflowError, validate_update
+from backend.work_requests import claim_for_work_order, create_work_request, decline_work_request, link_work_order
 
 
 def post_work_orders(self, parsed, payload=None):
     now = int(time.time() * 1000)
-    payload = validate_update(payload, None, self.current_user())
+    user = self.current_user()
+    request_id = int(payload.get("workRequestId") or 0)
+    if not request_id:
+        raise WorkflowError("Create a work order from a work request", 400)
+    payload = validate_update(payload, None, user)
     with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        work_request = claim_for_work_order(db, user, request_id)
         default_outlet = first_outlet(db)
         default_department = first_department(db)
         default_category = first_category(db)
@@ -53,8 +60,25 @@ def post_work_orders(self, parsed, payload=None):
             (work_order_ref(cursor.lastrowid), cursor.lastrowid),
         )
         save_finding_details(db, cursor.lastrowid, payload)
+        db.execute("UPDATE work_orders SET source_audit_id = ?, images_data_id = COALESCE(images_data_id, ?) WHERE id = ?",
+                   (work_request["audit_id"], work_request["images_data_id"], cursor.lastrowid))
+        link_work_order(db, request_id, cursor.lastrowid, status, payload.get("pic", ""))
         notify_work_order(db, cursor.lastrowid, status)
-    self.json({"ok": True})
+    self.json({"ok": True, "id": cursor.lastrowid})
+
+
+def post_work_requests(self, parsed, payload=None):
+    self.json(create_work_request(self.current_user(), payload or {}))
+
+
+def patch_work_requests(self, parsed, payload=None):
+    record_id = parsed.path.rsplit("/", 1)[-1]
+    if not record_id.isdigit():
+        self.send_error(400)
+        return
+    if (payload or {}).get("action") != "decline":
+        raise WorkflowError("Unknown work request action", 400)
+    self.json(decline_work_request(self.current_user(), int(record_id), payload.get("remark")))
 
 
 def post_comments(self, parsed, payload=None):
@@ -217,10 +241,14 @@ def delete_work_orders(self, parsed, payload=None):
         raise WorkflowError("Department/PIC users cannot delete work orders", 403)
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT source_finding_id, status FROM work_orders WHERE id = ?", (int(record_id),)).fetchone()
+        row = db.execute("SELECT source_finding_id, work_request_id, status FROM work_orders WHERE id = ?", (int(record_id),)).fetchone()
         if row and (row["source_finding_id"] or row["status"] == "Closed"):
             raise WorkflowError("Audit-linked or closed work orders must be retained")
         cursor = db.execute("DELETE FROM work_orders WHERE id = ?", (int(record_id),))
+        if row and row["work_request_id"]:
+            now = int(time.time() * 1000)
+            db.execute("UPDATE work_requests SET status = 'Open', work_order_id = NULL, updated_at = ? WHERE id = ?", (now, row["work_request_id"]))
+            db.execute("UPDATE findings SET status = 'Requested', updated_at = ? WHERE work_request_id = ?", (now, row["work_request_id"]))
         if cursor.rowcount == 0:
             self.send_error(404)
             return

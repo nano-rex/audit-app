@@ -206,13 +206,15 @@ function updateWorkOrderStage() {
 
 document.querySelector('#work-order-form [name="status"]')?.addEventListener("change", updateWorkOrderStage);
 
-async function openWorkOrderEditor(row = null) {
+// A new work order is made from a work request (requestId), prefilled from it as row.
+async function openWorkOrderEditor(row = null, requestId = "") {
   activeFindingRow = null;
   const dialog = document.getElementById("work-order-dialog");
   const form = document.getElementById("work-order-form");
   const isEdit = Boolean(row?.id);
   form.reset();
   form.dataset.mode = "work-order";
+  form.dataset.workRequestId = isEdit ? "" : String(requestId || "");
   setText("[data-work-order-message]", "");
   form.dataset.savedImages = JSON.stringify(parseStoredImages(row?.images_json || "[]"));
   form.querySelector("[data-work-order-evidence]").innerHTML = renderWorkOrderEvidence(storedImagesFromDataset(form));
@@ -454,6 +456,7 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     vendor: formValue(form, "vendor", ""),
     cost: Number(formValue(form, "cost", "0")) || 0,
     pic: formValue(form, "pic", ""),
+    workRequestId: Number(form.dataset.workRequestId) || undefined,
   };
   if (activeFindingRow) {
     if (!payload.description.trim()) {

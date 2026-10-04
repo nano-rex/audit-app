@@ -1,10 +1,29 @@
     <section id="work-orders" class="tab-panel">
+      <nav class="sub-tabs" aria-label="Maintenance sections">
+        <button class="active" type="button" data-maintenance-subtab="requests">Work Requests</button>
+        <button type="button" data-maintenance-subtab="orders">Work Orders</button>
+      </nav>
+      <section class="maintenance-subpanel active" data-maintenance-panel="requests">
+      <section class="panel list-panel">
+        <header class="panel-head">
+          <h2>Work Requests</h2>
+          <div class="panel-actions">
+            <button class="primary" type="button" data-open-work-request>Add Work Request</button>
+          </div>
+        </header>
+        <div class="filter">
+          <label>Search<input id="work-request-search" placeholder="Search work requests"></label>
+          <label>Outlet<select id="work-request-filter-outlet"></select></label>
+          <label>Status<select id="work-request-filter-status"><option value="">All statuses</option><option selected>Open</option><option>Ordered</option><option>Declined</option><option>Closed</option></select></label>
+        </div>
+        <p class="muted">Requests come from failed items on the Findings page, or are added here. Create a work order to have the work done, or decline a request when no work is needed.</p>
+        <div class="list compact-list" data-work-requests></div>
+      </section>
+      </section>
+      <section class="maintenance-subpanel" data-maintenance-panel="orders">
       <section class="panel list-panel">
         <header class="panel-head">
           <h2>Work Orders</h2>
-          <div class="panel-actions">
-            <button class="primary" type="button" data-open-work-order>Add Work Order</button>
-          </div>
         </header>
         <div class="filter">
           <label>Search<input id="work-order-search" placeholder="Search work orders"></label>
@@ -15,6 +34,8 @@
           <label>Priority<select id="work-order-filter-priority"><option value="">All priorities</option><option>High</option><option>Medium</option><option>Low</option></select></label>
           <label>Status<select id="work-order-filter-status"><option value="">All statuses</option><option>Open</option><option>Assigned</option><option>In Progress</option><option>Pending</option><option>Closed</option></select></label>
         </div>
+        <p class="muted">Work orders are created from work requests.</p>
         <div class="list compact-list" data-work-orders></div>
+      </section>
       </section>
     </section>

@@ -217,25 +217,30 @@ function workOrderRow(row) {
   `;
 }
 
-function findingRow(row) {
-  const reference = row.finding_ref || `F-${row.id}`;
-  const auditReference = row.audit_ref || `Audit ${row.audit_id}`;
-  const department = row.assigned_department || "Unassigned";
+// One inspected item with the checks it failed, and the work request raised for it.
+function findingItemRow(group) {
+  const request = group.findings.find((row) => row.request_ref);
+  // Findings recorded before work requests existed already have their own work order.
+  const order = group.findings.find((row) => row.order_ref);
+  const untouched = group.findings.every((row) => row.status === "Open");
+  const kind = group.item_kind === "fixture" ? "Fixture" : "Fixed asset";
+  const status = request ? `${request.request_ref} · ${request.request_status || ""}` : order ? order.order_ref : untouched ? "No work request yet" : "";
   return `
-    <article>
+    <article class="finding-item">
       <div>
-        <b>${escapeHtml(reference)} ${escapeHtml(row.category || "No category")}</b>
-        <span>${escapeHtml(auditReference)} | ${escapeHtml(row.outlet)} | ${escapeHtml(row.location)}</span>
-        <span>${escapeHtml(department)} | ${escapeHtml(row.pic || "No PIC")} | ${escapeHtml(row.comment || "No comment")}</span>
-        ${row.closed_at ? `<span>Closed ${escapeHtml(row.closed_at)}</span>` : ""}
+        <b>${escapeHtml(group.item_name || "Item")} <small class="muted">${escapeHtml(kind)}</small></b>
+        <span>${escapeHtml(group.audit_ref || `Audit ${group.audit_id}`)} | ${escapeHtml(group.outlet)} | ${escapeHtml(group.location)} | ${escapeHtml(group.department || "No department")} | ${escapeHtml(group.priority || "")}</span>
+        <ul class="finding-checks">${group.findings.map((row) => `<li><span class="status-pill ${row.status === "Closed" ? "status-complete" : "status-untouched"}">${escapeHtml(row.status)}</span> ${escapeHtml(row.criterion || "Check")}${row.comment && row.comment !== row.criterion ? ` — ${escapeHtml(row.comment)}` : ""}</li>`).join("")}</ul>
       </div>
       <span class="row-actions">
-        <strong class="${row.priority === "High" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
-        ${photoSetButton(workOrderPhotos(row), "Photos")}
+        <span class="muted">${escapeHtml(status)}</span>
+        ${photoSetButton(group.images, "Photos")}
+        ${!request && !order && untouched && canRequestWork() ? `<button type="button" class="primary" data-request-work="${escapeAttr(group.key)}">Create work request</button>` : ""}
       </span>
     </article>
   `;
 }
+
 // Scheduled Work and History name an audit the same way: its audit number and inspection name
 // first, then the schedule it came from, so one audit reads identically in both lists.
 function auditTitle(session, fallbackName) {

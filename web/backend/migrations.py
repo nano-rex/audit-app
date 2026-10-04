@@ -146,6 +146,31 @@ def init_db():
                 FOREIGN KEY(audit_id) REFERENCES audits(id)
             );
 
+            CREATE TABLE IF NOT EXISTS work_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_ref TEXT,
+                business_unit TEXT NOT NULL,
+                outlet TEXT NOT NULL,
+                location TEXT NOT NULL,
+                equipment_id INTEGER,
+                item_name TEXT,
+                category TEXT,
+                priority TEXT,
+                department TEXT,
+                description TEXT NOT NULL,
+                images_data_id INTEGER REFERENCES value_sets(id),
+                audit_id INTEGER,
+                audit_ref TEXT,
+                status TEXT NOT NULL,
+                requested_by TEXT,
+                requested_by_user_id INTEGER,
+                reviewed_by TEXT,
+                decline_remark TEXT,
+                work_order_id INTEGER,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+
             CREATE TABLE IF NOT EXISTS equipment (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 asset_id TEXT NOT NULL,
@@ -317,6 +342,10 @@ def init_db():
                 ensure_column(db, table, column, "TEXT")
         ensure_column(db, "inspection_sessions", "audit_type", "TEXT")
         ensure_column(db, "findings", "images_data_id", "INTEGER REFERENCES value_sets(id)")
+        # Findings name the item they are about and the work request raised for it.
+        for column, kind in (("equipment_id", "INTEGER"), ("item_name", "TEXT"), ("criterion", "TEXT"), ("work_request_id", "INTEGER")):
+            ensure_column(db, "findings", column, kind)
+        ensure_column(db, "work_orders", "work_request_id", "INTEGER")
         ensure_column(db, "findings", "due_date", "TEXT")
         ensure_column(db, "findings", "priority_classification", "TEXT")
         for column in ("cause", "recommendation", "required_action", "images_data_id"):

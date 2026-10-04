@@ -15,6 +15,7 @@ FIELDS = {
     "schedules": {"locations_json": "locations_data_id"},
     "findings": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
     "work_orders": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
+    "work_requests": {"images_json": "images_data_id"},
     "equipment": {"photos": "photos_data_id", "inspection_criteria": "inspection_criteria_data_id"},
     "zones": {"locations_json": "locations_data_id"},
     "roles": {"permissions_json": "permissions_data_id", "inspection_permissions": "inspection_permissions_data_id"},

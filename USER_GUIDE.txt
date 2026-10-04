@@ -96,7 +96,8 @@ An administrator should configure these records before staff begin auditing:
    inspection; a summary appears under the criterion. The category and
    department start from the item's category and that category's responsible
    department; a failed criterion with only a remark uses those defaults. The
-   finding and linked work order are created when the inspection is completed.
+   findings are recorded when the inspection is completed; no work is ordered
+   until a work request is raised for them (section 6).
 8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
 9. When every criterion is ticked or has a remark, and the required photos
@@ -123,21 +124,37 @@ An administrator should configure these records before staff begin auditing:
    includes the audit summary, checklist, findings, available photos, and
    signatures.
 
-6. HANDLE WORK ORDERS
----------------------
-1. The Dashboard lists the work orders assigned to you or your department
-   under Waiting on you; choose Open to go straight to one. Work Orders shows
-   the full list. A Department/PIC account sees only records assigned to that
-   PIC or department.
-2. Open a work order to review the issue, evidence, due date, priority, and
+6. REQUEST AND ORDER WORK
+-------------------------
+1. Inspections > Findings lists each item (fixed asset or fixture) that failed
+   a check, once, with the checks it failed, their remarks, and photos. It
+   shows items that are not closed; change Status to see the rest.
+2. Choose Create work request on an item. The request starts with the item's
+   department, category, priority, the failed checks as the work needed, and
+   its photos; adjust them and choose Submit Request. The item then shows its
+   request number (WR-...). Something that was not found in an audit can be
+   requested with Add Work Request on Maintenance > Work Requests.
+3. Maintenance > Work Requests lists open requests (change Status for the
+   rest); they also appear under Waiting on you as "Review work request" for
+   whoever assigns work. Choose Create work order to turn a request into a
+   work order, filled in from the request: set the PIC and due date and save.
+   Or choose Decline with the reason when no work is needed; its findings
+   close with that reason.
+4. Maintenance > Work Orders lists the work orders. The Dashboard lists those
+   assigned to you or your department under Waiting on you ("Resolve work
+   order"). A Department/PIC account sees only records assigned to that PIC or
+   department, and cannot create or decline orders.
+5. Open a work order to review the issue, evidence, due date, priority, and
    assignment. Add comments to its timeline as work progresses.
-3. A work order moves through Open, Assigned, In Progress, and Pending, and
+6. A work order moves through Open, Assigned, In Progress, and Pending, and
    is Closed when the work is done. The person or department it is assigned
-   to, or an auditor or administrator, closes it; today's date is recorded and
-   its finding closes with it. The Status list offers only the allowed steps.
-4. Closed work orders are kept for audit history and open read-only. If a
+   to, or an auditor or administrator, closes it; today's date is recorded,
+   and its request and findings close with it. The Status list offers only
+   the allowed steps. Deleting an unstarted work order returns its request to
+   Open.
+7. Closed work orders are kept for audit history and open read-only. If a
    change is refused, the reason is shown at the bottom of the dialog.
-5. The Notifications page shows relevant progress, assignment,
+8. The Notifications page shows relevant progress, assignment,
    due-soon, and overdue notices. Open goes to the inspection or work order a
    notice is about and marks it read; Mark all read clears the rest. The
    number of unread notices is shown on the Notifications button, or on the
@@ -147,8 +164,8 @@ An administrator should configure these records before staff begin auditing:
 -----------------------------------
 1. A verifier can close a completed audit on Sign-off (or from its History
    record) after all
-   required signatures are present and every linked finding/work order is
-   closed. It appears under Waiting on you as "Close audit" when it is ready,
+   required signatures are present and every finding is closed (its work
+   order closed or its request declined). It appears under Waiting on you as "Close audit" when it is ready,
    and as "Sign as ..." while your signature is missing. A closed audit is
    read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
