@@ -9,7 +9,8 @@ from datetime import datetime
 from backend.common import audit_ref, hash_password, inspection_progress, location_qr_code, today_date
 from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
-from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
+from backend.control import adopt_organization_supers, ensure_super_account
+from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
 def ensure_column(db, table, column, definition):
@@ -19,8 +20,8 @@ def ensure_column(db, table, column, definition):
 
 
 def init_db():
-    backup_legacy_database(config.DB_PATH)
-    MediaStore(config.DB_PATH).migrate_directory(config.DATA_DIR / "media")
+    backup_legacy_database(config.active_db_path())
+    MediaStore(config.active_db_path()).migrate_directory(config.DATA_DIR / "media")
     with connect() as db:
         db.execute("PRAGMA journal_mode=WAL")
         db.execute("BEGIN IMMEDIATE")
@@ -143,6 +144,31 @@ def init_db():
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
                 FOREIGN KEY(audit_id) REFERENCES audits(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS work_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                request_ref TEXT,
+                business_unit TEXT NOT NULL,
+                outlet TEXT NOT NULL,
+                location TEXT NOT NULL,
+                equipment_id INTEGER,
+                item_name TEXT,
+                category TEXT,
+                priority TEXT,
+                department TEXT,
+                description TEXT NOT NULL,
+                images_data_id INTEGER REFERENCES value_sets(id),
+                audit_id INTEGER,
+                audit_ref TEXT,
+                status TEXT NOT NULL,
+                requested_by TEXT,
+                requested_by_user_id INTEGER,
+                reviewed_by TEXT,
+                decline_remark TEXT,
+                work_order_id INTEGER,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS equipment (
@@ -316,6 +342,10 @@ def init_db():
                 ensure_column(db, table, column, "TEXT")
         ensure_column(db, "inspection_sessions", "audit_type", "TEXT")
         ensure_column(db, "findings", "images_data_id", "INTEGER REFERENCES value_sets(id)")
+        # Findings name the item they are about and the work request raised for it.
+        for column, kind in (("equipment_id", "INTEGER"), ("item_name", "TEXT"), ("criterion", "TEXT"), ("work_request_id", "INTEGER")):
+            ensure_column(db, "findings", column, kind)
+        ensure_column(db, "work_orders", "work_request_id", "INTEGER")
         ensure_column(db, "findings", "due_date", "TEXT")
         ensure_column(db, "findings", "priority_classification", "TEXT")
         for column in ("cause", "recommendation", "required_action", "images_data_id"):
@@ -366,6 +396,9 @@ def init_db():
         ensure_column(db, "findings", "recommendation", "TEXT")
         ensure_column(db, "findings", "required_action", "TEXT")
         ensure_column(db, "schedules", "zone", "TEXT")
+        ensure_column(db, "equipment", "kind", "TEXT NOT NULL DEFAULT 'asset'")
+        ensure_column(db, "equipment", "category", "TEXT")
+        ensure_column(db, "categories", "department", "TEXT")
         ensure_column(db, "equipment", "name", "TEXT")
         ensure_column(db, "equipment", "description", "TEXT")
         ensure_column(db, "equipment", "type", "TEXT")
@@ -413,14 +446,13 @@ def init_db():
             db.execute("UPDATE locations SET qr_code = ? WHERE id = ?", (location_qr_code(row["outlet_code"], row["name"]), row["id"]))
         db.execute(
             """
-            UPDATE schedules
-            SET zone = COALESCE(
-                (SELECT name FROM locations WHERE locations.outlet_code = schedules.outlet ORDER BY name LIMIT 1),
-                'Unassigned'
-            )
-            WHERE zone IS NULL OR zone = ''
+            UPDATE schedules SET zone = 'All Locations' WHERE zone IS NULL OR zone = '' OR zone = 'Unassigned'
             """
         )
+        # A visit scheduled for one location before several could be chosen covers just that location.
+        for row in db.execute("SELECT id, outlet, zone FROM schedules WHERE locations_data_id IS NULL").fetchall():
+            found = db.execute("SELECT 1 FROM locations WHERE outlet_code = ? AND name = ?", (row["outlet"], row["zone"])).fetchone()
+            db.execute("UPDATE schedules SET locations_data_id = ? WHERE id = ?", (save_value(db, [row["zone"]] if found else []), row["id"]))
         db.execute("UPDATE equipment SET name = asset_id WHERE name IS NULL OR name = ''")
         db.execute("UPDATE equipment SET description = notes WHERE description IS NULL")
         db.execute("UPDATE equipment SET type = equipment_type WHERE type IS NULL OR type = ''")
@@ -461,6 +493,7 @@ def init_db():
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")
         ensure_column(db, "notifications", "recipient_user_id", "INTEGER")
         db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_user_id, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_notifications_related ON notifications(related_type, related_id)")
         db.execute("UPDATE equipment SET location = zone WHERE location IS NULL OR location = ''")
         db.execute("UPDATE equipment SET installation_date = last_checked WHERE installation_date IS NULL OR installation_date = ''")
         db.execute("DELETE FROM audits WHERE auditor = 'Sample Auditor'")
@@ -476,10 +509,17 @@ def init_db():
         seed_locations(db)
         seed_zones(db)
         seed_roles(db)
+        retire_corrective_actions_page(db)
+        # Work orders no longer have Completed and Verified steps: work that had reached them is done.
+        for table in ("work_orders", "findings"):
+            db.execute(f"UPDATE {table} SET status = 'Closed', closed_at = COALESCE(NULLIF(closed_at, ''), NULLIF(verified_at, ''), "
+                       f"NULLIF(completion_date, ''), date('now')) WHERE status IN ('Completed', 'Verified')")
         seed_priority_levels(db)
         seed_audit_types(db)
         seed_settings(db)
         seed_users(db)
+        # Super accounts belong to the control database, never to an organization.
+        adopt_organization_supers(db)
         default_department = first_department(db)
         if default_department:
             db.execute("UPDATE users SET department = ? WHERE department IS NULL OR department = ''", (default_department,))
@@ -495,3 +535,5 @@ def init_db():
         db.execute("CREATE TABLE IF NOT EXISTS password_reset_requests(user_id INTEGER PRIMARY KEY REFERENCES users(id), requested_at INTEGER NOT NULL, resolved_at INTEGER)")
         db.execute("CREATE TABLE IF NOT EXISTS due_notification_events(user_id INTEGER NOT NULL, work_order_id INTEGER NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, due_date TEXT NOT NULL, PRIMARY KEY(user_id,work_order_id,kind,day,due_date))")
         install_reference_cleanup(db)
+    # Only when no Super account exists anywhere: after moving any out of this organization.
+    ensure_super_account(hash_password)

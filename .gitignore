@@ -8,3 +8,5 @@ web/data/*.db-*
 web/data/media/
 
 web/data/backups/
+web/data/control/
+web/data/active-database

@@ -1,8 +1,27 @@
 document.querySelectorAll("[data-tab]").forEach((button) => {
   button.addEventListener("click", () => {
-    showTab(button.dataset.tab);
+    openTab(button.dataset.tab);
   });
 });
+
+// Entry from the bar or the page menu: some pages open on their most-used sub-page.
+function openTab(tabId) {
+  const child = defaultContextChild[tabId];
+  if (child && allowedAppTabs().some((tab) => tab.id === child)) showContextTab(child);
+  else showTab(tabId);
+}
+
+let unreadNotifications = 0;
+
+function renderUnreadBadge() {
+  const barButton = document.querySelector('.tabs [data-tab="notifications"]');
+  document.querySelectorAll("[data-unread-badge]").forEach((badge) => {
+    const onMenu = badge.dataset.unreadBadge === "menu";
+    // The menu button carries the count only while the Notifications button does not fit on the bar.
+    badge.hidden = !unreadNotifications || (onMenu && barButton && !barButton.hidden);
+    badge.textContent = unreadNotifications > 99 ? "99+" : String(unreadNotifications);
+  });
+}
 
 document.querySelectorAll("[data-jump-tab]").forEach((button) => {
   button.addEventListener("click", () => showTab(button.dataset.jumpTab));
@@ -16,17 +35,27 @@ document.querySelectorAll("[data-outlet-subtab]").forEach((button) => {
   button.addEventListener("click", () => showOutletSubtab(button.dataset.outletSubtab));
 });
 
+let activeTabId = null;
+let activeContextTab = null;
+
 function showTab(tabId) {
-  const resolvedTabId = superTabTargets[tabId] || tabId;
-  const userSection = ["departments", "roles"].includes(resolvedTabId) ? resolvedTabId : null;
+  if (typeof restoreOrgTheme === "function" && activeTabId === "super-settings" && tabId !== "super-settings") restoreOrgTheme();
+  const userSection = ["departments", "roles"].includes(tabId) ? tabId : null;
   if (userSection) tabId = "users";
   const allowedTabs = allowedAppTabs();
   if (!allowedTabs.some((tab) => tab.id === tabId)) {
     tabId = allowedTabs[0]?.id || defaultNavbarTabs[0];
   }
-  const panelId = superTabTargets[tabId] || tabId;
+  const panelId = tabId;
+  activeTabId = tabId;
+  activeContextTab = null;
+  // A contextual child page keeps its parent selected on the bar.
+  const barTabId = contextParents[tabId] || tabId;
   document.querySelectorAll("[data-tab]").forEach((tab) => {
-    tab.classList.toggle("active", tab.dataset.tab === tabId);
+    tab.classList.toggle("active", tab.dataset.tab === barTabId);
+  });
+  document.querySelectorAll("[data-context-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.contextTab === panelId);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     const active = panel.id === panelId || contextParents[panelId] === panel.id;
@@ -36,6 +65,8 @@ function showTab(tabId) {
   });
   if (panelId === "users") showUserSubtab(userSection || activeUserSection);
   if (panelId === "inspections") showGuidedContent(false);
+  // The register opens on fixed assets; the Fixtures & Finishes tab switches it afterwards.
+  if (panelId === "equipment") setEquipmentKind("asset");
   if (panelId === "inspections" && pendingInspectionSchedule) {
     const row = pendingInspectionSchedule;
     pendingInspectionSchedule = null;
@@ -48,13 +79,23 @@ function showTab(tabId) {
 function showContextTab(tabId) {
   if (["history", "findings"].includes(tabId)) {
     showTab("findings");
+    if (activeTabId !== "findings") return;
     showHistoryFindingsSection(tabId);
-    document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
-      button.classList.toggle("active", button.dataset.contextTab === tabId);
-    });
-    return;
+  } else if (tabId === "fixtures") {
+    showTab("equipment");
+    if (activeTabId !== "equipment") return;
+    setEquipmentKind("fixture");
+  } else if (tabId === "signoff") {
+    showTab("inspections");
+    if (activeTabId !== "inspections") return;
+    showInspectionSubtab("signoff");
+    loadSignoff().catch(showLoadError);
+  } else {
+    showTab(tabId);
+    if (activeTabId !== tabId) return;
+    if (tabId === "inspections") showInspectionSubtab("guided");
   }
-  showTab(tabId);
+  activeContextTab = tabId;
   document.querySelectorAll(`[data-context-tab]`).forEach((button) => {
     button.classList.toggle("active", button.dataset.contextTab === tabId);
   });
@@ -112,6 +153,7 @@ function layoutNavbar() {
   const gap = Number.parseFloat(getComputedStyle(nav).columnGap) || 0;
   const count = navbarVisibleCount(buttons.map((button) => button.getBoundingClientRect().width), nav.clientWidth, window.innerWidth, gap);
   buttons.forEach((button, index) => { button.hidden = index >= count; });
+  renderUnreadBadge();
 }
 
 function renderTabMenu() {
@@ -168,12 +210,10 @@ function applyNavbarTabs() {
     tab.hidden = tab.hasAttribute("data-nested-only") || !allowedIds.has(tab.dataset.tab);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
-    panel.hidden = !allowedIds.has(panel.id) && ![...allowedIds].some((id) => superTabTargets[id] === panel.id);
+    panel.hidden = !allowedIds.has(panel.id);
   });
   const findingsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.findingsEnabled"] !== false;
-  const correctiveActionsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.correctiveActionsEnabled"] !== false;
   document.querySelectorAll('[data-feature-section="findings"]').forEach((node) => { node.hidden = !findingsEnabled; });
-  document.querySelectorAll('[data-feature-section="corrective-actions"]').forEach((node) => { node.hidden = !correctiveActionsEnabled; });
   renderTabMenu();
   layoutNavbar();
 }
@@ -200,9 +240,8 @@ if (typeof window !== "undefined") {
 }
 
 function allowedAppTabs() {
-  if (currentUser?.role === "Super") return superTabs;
-  const findingsEnabled = setupOptions.settings["system.findingsEnabled"] !== false;
-  const correctiveActionsEnabled = setupOptions.settings["system.correctiveActionsEnabled"] !== false;
+  const isSuper = currentUser?.role === "Super";
+  const findingsEnabled = isSuper || setupOptions.settings["system.findingsEnabled"] !== false;
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
@@ -212,11 +251,11 @@ function allowedAppTabs() {
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
   if (allowedIds.has("reports")) allowedIds.add("today");
   if (allowedIds.has("equipment")) allowedIds.add("categories");
-  if (allowedIds.has("corrective-actions") && correctiveActionsEnabled) allowedIds.add("inspections");
+  // Findings is a sub-page of Inspections, so its users need that page to reach it.
+  if (allowedIds.has("findings") && findingsEnabled) allowedIds.add("inspections");
   if (!findingsEnabled) allowedIds.delete("findings");
-  if (!correctiveActionsEnabled) allowedIds.delete("corrective-actions");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
-  return currentUser?.role === "Super" ? [...superTabs, ...regular] : regular;
+  return isSuper ? [...regular, ...superTabs] : regular;
 }
 
 let activeUserSection = "users";

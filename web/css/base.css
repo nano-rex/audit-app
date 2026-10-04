@@ -1,27 +1,178 @@
+/* Design tokens. Components use these names only, so a theme is a token swap.
+   The organization chooses a palette (data-palette), font (data-font), corner style
+   (data-corners), and density (data-density); each user, or the organization, chooses
+   light or dark (data-theme). See web/js/theme.js. */
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/noto-sans-sc-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/noto-sans-sc-latin-700.woff2") format("woff2");
+}
+
 :root {
-  --green: #6e927f;
-  --green-soft: #e7f2ed;
-  --text: #111d27;
-  --muted: #8f9997;
-  --border: #d5d8d5;
-  --blue: #3a81ef;
-  --purple: #7c37e8;
-  --brown: #917655;
-  --orange: #ef8900;
-  --red: #f34047;
-  font-family: Arial, Helvetica, sans-serif;
+  --accent: #47735f;
+  --accent-strong: #3a6150;
+  --accent-soft: #e4f0ea;
+  --accent-fill: var(--accent);
+  --hero: #47735f;
+  --on-accent: #fff;
+  --bg: #f4f6f4;
+  --surface: #fff;
+  --surface-alt: #f7f9f8;
+  --surface-sunken: #eceff0;
+  --text: #17222b;
+  --heading: var(--text);
+  --text-soft: #46534d;
+  --muted: #5f6c66;
+  --border: #d3d9d5;
+  --border-strong: #b4bdb8;
+  --table-head: var(--accent-soft);
+  --table-head-text: var(--muted);
+  --blue: #2b6fdb;
+  --orange: #b96100;
+  --orange-soft: #fdefd9;
+  --red: #c9303a;
+  --red-soft: #fde7e8;
+  --red-border: #efbcc0;
+  --success: #1c8f4b;
+  --focus: #2b6fdb;
+  --shadow: 0 18px 40px rgb(17 29 39 / 14%);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-sm: 7px;
+  --radius: 8px;
+  --radius-lg: 10px;
+  --control-height: 40px;
+  --panel-padding: 24px;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.4;
   color: var(--text);
-  background: #f8f9f7;
+  background: var(--bg);
+}
+
+html[data-theme="dark"] {
+  --accent: #7fb89c;
+  --accent-strong: #96c9af;
+  --accent-soft: #20382e;
+  --hero: #2c5544;
+  --on-accent: #0f1a15;
+  --bg: #111715;
+  --surface: #1a2320;
+  --surface-alt: #202b27;
+  --surface-sunken: #27332f;
+  --text: #e9f1ed;
+  --text-soft: #c6d2cc;
+  --muted: #a3b2ab;
+  --border: #33423c;
+  --border-strong: #4a5c54;
+  --blue: #7fb0ff;
+  --orange: #f0a64a;
+  --orange-soft: #3d2c14;
+  --red: #ff8a90;
+  --red-soft: #3d1f22;
+  --red-border: #6b3237;
+  --success: #5fd08c;
+  --focus: #9cc2ff;
+  --shadow: 0 18px 40px rgb(0 0 0 / 45%);
+  color-scheme: dark;
+}
+
+/* Ottotree: the teal, greys, and solid teal table headings of its PM checklist reports. */
+html[data-palette="ottotree"] {
+  --accent: #1e99b4;
+  --accent-strong: #167a91;
+  --accent-soft: #e7f5f7;
+  --accent-fill: #1789a2;
+  --hero: #1789a2;
+  --on-accent: #fff;
+  --table-head: #1e99b4;
+  --table-head-text: #fff;
+}
+
+html[data-palette="ottotree"]:not([data-theme="dark"]) {
+  --bg: #f4f5f7;
+  --surface: #fff;
+  --surface-alt: #f8f9fa;
+  --surface-sunken: #f3f4f6;
+  --text: #212529;
+  --heading: #111827;
+  --text-soft: #374151;
+  --muted: #6c757d;
+  --border: #dee2e6;
+  --border-strong: #adb5bd;
+  --focus: #1e99b4;
+}
+
+html[data-palette="ottotree"][data-theme="dark"] {
+  --accent: #4fc1da;
+  --accent-strong: #7ad2e5;
+  --accent-soft: #0f3540;
+  --accent-fill: #2aa6c1;
+  --hero: #135f70;
+  --on-accent: #06222a;
+  --table-head: #135f70;
+  --table-head-text: #e6f6f9;
+  --bg: #0f1419;
+  --surface: #171d23;
+  --surface-alt: #1d252c;
+  --surface-sunken: #242d35;
+  --text: #e6edf2;
+  --text-soft: #c3ccd4;
+  --muted: #9aa6b1;
+  --border: #2f3a44;
+  --border-strong: #46535f;
+  --focus: #7ad2e5;
+}
+
+html[data-palette="ocean"] { --accent: #2563eb; --accent-strong: #1d4ed8; --accent-soft: #e8effd; --hero: #1d4ed8; --on-accent: #fff; }
+html[data-palette="ocean"][data-theme="dark"] { --accent: #7aa7ff; --accent-strong: #9bbcff; --accent-soft: #172a4f; --hero: #1e3a8a; --on-accent: #0a1630; }
+html[data-palette="plum"] { --accent: #7c3aed; --accent-strong: #6d28d9; --accent-soft: #f1eafd; --hero: #6d28d9; --on-accent: #fff; }
+html[data-palette="plum"][data-theme="dark"] { --accent: #b794f6; --accent-strong: #c9adf8; --accent-soft: #2c1d4a; --hero: #4c1d95; --on-accent: #1d1033; }
+html[data-palette="ember"] { --accent: #c2410c; --accent-strong: #9a3412; --accent-soft: #fdece3; --hero: #b13c0b; --on-accent: #fff; }
+html[data-palette="ember"][data-theme="dark"] { --accent: #fb923c; --accent-strong: #fdba74; --accent-soft: #3d2214; --hero: #7c2d12; --on-accent: #2a1305; }
+html[data-palette="slate"] { --accent: #475569; --accent-strong: #334155; --accent-soft: #eceff3; --hero: #334155; --on-accent: #fff; }
+html[data-palette="slate"][data-theme="dark"] { --accent: #a5b4c8; --accent-strong: #c3cede; --accent-soft: #253042; --hero: #334155; --on-accent: #111827; }
+
+html[data-font="noto-sans-sc"] {
+  --font: "Noto Sans SC", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+html[data-font="serif"] {
+  --font: Georgia, "Times New Roman", "Noto Serif", serif;
+}
+
+html[data-corners="square"] { --radius-sm: 2px; --radius: 2px; --radius-lg: 3px; }
+html[data-corners="soft"] { --radius-sm: 12px; --radius: 14px; --radius-lg: 18px; }
+
+html[data-density="compact"] {
+  --control-height: 34px;
+  --panel-padding: 16px;
+  font-size: 14px;
 }
 
 * {
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-width: 0;
   overflow-x: hidden;
+  background: var(--bg);
+  color: var(--text);
 }
 
 button,
@@ -31,6 +182,16 @@ input,
 textarea {
   font: inherit;
   max-width: 100%;
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+a {
+  color: var(--blue);
 }
 
 .app-header {
@@ -38,9 +199,12 @@ textarea {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  padding: 10px 38px;
-  background: #fff;
+  padding: 10px clamp(16px, 3vw, 48px);
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 
 .brand {
@@ -54,18 +218,22 @@ textarea {
   margin-left: auto;
 }
 
-.account-strip span {
+/* The signed-in name opens Account; it reads as text, not as another button. */
+.account-chip {
+  min-height: 0;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 400;
   white-space: nowrap;
 }
 
-.auth-locked main,
-.auth-locked .app-header .nav-row,
-.auth-locked .account-strip {
-  filter: blur(2px);
-  pointer-events: none;
-  user-select: none;
+.account-chip:hover,
+.account-chip:focus-visible {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 .nav-row {
@@ -80,33 +248,55 @@ textarea {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
 
 h1 {
-  color: var(--green);
+  color: var(--accent);
   font-size: 22px;
 }
 
 h2 {
+  color: var(--heading);
   font-size: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+}
+
+/* Running text inside a card needs air before the controls that follow it. */
+.panel > p,
+.panel > form > p,
+dialog form > p {
+  margin-bottom: 12px;
+  color: var(--text-soft);
 }
 
 .app-header p,
 label,
-.unit-card span,
-.outlets span,
 .list span,
 small {
   color: var(--muted);
   font-size: 12px;
 }
 
+/* A field label sits above its control everywhere, not only inside dialogs. */
+label {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+
+label > input:not([type="checkbox"]):not([type="radio"]),
+label > select,
+label > textarea {
+  width: 100%;
+}
+
 .tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   align-items: center;
   flex: 1 1 auto;
   min-width: 0;
@@ -129,14 +319,20 @@ small {
   max-height: calc(100dvh - 160px);
   overflow-y: auto;
   padding: 14px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 18px 40px rgba(17, 29, 39, 0.14);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 .tab-menu h2 {
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+
+.tab-menu p {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 6px;
 }
 
 .menu-tab-row {
@@ -150,6 +346,10 @@ small {
 
 .menu-tab-row:first-child {
   border-top: 0;
+}
+
+.menu-tab-row > button {
+  text-align: left;
 }
 
 .menu-tab-moves {
@@ -171,19 +371,60 @@ small {
 }
 
 button,
+.button-link,
 select,
 input,
 textarea {
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  min-height: 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  min-height: var(--control-height);
   padding: 0 14px;
-  background: #fff;
+  background: var(--surface);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-height: 0;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+input[type="file"] {
+  padding: 8px;
+  height: auto;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: .8;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled,
+input[readonly] {
+  background: var(--surface-sunken);
+  color: var(--muted);
 }
 
 button {
   cursor: pointer;
   white-space: nowrap;
+  font-weight: 600;
+}
+
+button:hover:not(:disabled),
+.button-link:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
 }
 
 img,
@@ -194,6 +435,7 @@ svg {
 
 textarea {
   min-height: 84px;
+  padding-block: 10px;
   resize: vertical;
 }
 
@@ -202,53 +444,55 @@ textarea {
   place-items: center;
   text-decoration: none;
   white-space: nowrap;
+  font-weight: 600;
 }
 
-.primary,
-.brown,
-.muted,
-.purple {
-  color: #fff;
+.primary {
+  color: var(--on-accent);
   border-color: transparent;
 }
 
-.primary { background: var(--green); }
-.brown { background: var(--brown); }
-.muted { background: #929c96; }
-.purple { background: var(--purple); }
-.soft {
-  background: #d7e3de;
-  color: var(--green);
-  border-color: transparent;
+.primary { background: var(--accent-fill); }
+.primary:hover:not(:disabled) { background: var(--accent-strong); }
+
+/* Secondary text. (This class once doubled as a grey button colour, which painted paragraphs as grey bars.) */
+.muted {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .outline {
-  background: #fff;
-  color: #637169;
+  background: var(--surface);
+  color: var(--text-soft);
 }
 
 .danger {
-  background: #fff;
+  background: var(--surface);
   color: var(--red);
-  border-color: #f3c4c7;
+  border-color: var(--red-border);
 }
 
-.unit-select {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.danger:hover:not(:disabled) {
+  background: var(--red-soft);
+  border-color: var(--red);
 }
 
 .tabs button {
   border: 0;
+  border-bottom: 2px solid transparent;
   border-radius: 0;
   color: var(--muted);
   background: transparent;
+  font-weight: 500;
+}
+
+.tabs button:hover {
+  color: var(--text);
 }
 
 .tabs .active {
   color: var(--text);
-  border-bottom: 1px solid var(--green);
+  border-bottom-color: var(--accent);
   font-weight: 700;
 }
 
@@ -258,34 +502,14 @@ main {
   padding: 20px clamp(16px, 3vw, 48px);
 }
 
-html[data-theme="dark"] {
-  --green-soft: #20382e;
-  --text: #edf4f0;
-  --muted: #aab8b1;
-  --border: #3a4943;
-  background: #121816;
-  color-scheme: dark;
+#load-error {
+  margin: 0;
+  padding: 10px clamp(16px, 3vw, 48px);
+  background: var(--red-soft);
+  color: var(--red);
+  border-bottom: 1px solid var(--red-border);
+  font-size: 13px;
 }
-
-html[data-theme="dark"] body { background: #121816; color: var(--text); }
-html[data-theme="dark"] .app-header,
-html[data-theme="dark"] .panel,
-html[data-theme="dark"] .stats article,
-html[data-theme="dark"] .outlets article,
-html[data-theme="dark"] .question-card,
-html[data-theme="dark"] .department-card,
-html[data-theme="dark"] .tab-menu,
-html[data-theme="dark"] .list article,
-html[data-theme="dark"] .admin-group,
-html[data-theme="dark"] .unit-card,
-html[data-theme="dark"] button,
-html[data-theme="dark"] select,
-html[data-theme="dark"] input,
-html[data-theme="dark"] textarea,
-html[data-theme="dark"] .outline { background: #1b2421; color: var(--text); }
-html[data-theme="dark"] .soft { background: #294237; }
-html[data-theme="dark"] .danger { background: #291c1e; }
-html[data-theme="dark"] .tab-menu { box-shadow: 0 18px 40px rgb(0 0 0 / 40%); }
 
 .tab-panel {
   display: none;
@@ -296,9 +520,5 @@ html[data-theme="dark"] .tab-menu { box-shadow: 0 18px 40px rgb(0 0 0 / 40%); }
 }
 
 .tab-panel.context-child-active > :not(.contextual-tabs):not(.tab-panel) {
-  display: none;
-}
-
-.tabs button[hidden], .tab-menu[hidden] {
   display: none;
 }

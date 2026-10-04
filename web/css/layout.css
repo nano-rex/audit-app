@@ -7,13 +7,15 @@
 
 .inspection-subpanel,
 .outlet-subpanel,
-.user-subpanel {
+.user-subpanel,
+.maintenance-subpanel {
   display: none;
 }
 
 .inspection-subpanel.active,
 .outlet-subpanel.active,
-.user-subpanel.active {
+.user-subpanel.active,
+.maintenance-subpanel.active {
   display: block;
 }
 
@@ -29,29 +31,25 @@
 }
 
 [data-user-subtab].active {
-  color: var(--green);
-  background: var(--green-soft);
-  border-color: var(--green);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .panel,
-.stats article,
-.outlets article,
-.question-card {
+.stats article {
   min-width: 0;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .panel {
-  padding: 24px;
+  padding: var(--panel-padding);
   margin-bottom: 24px;
 }
 
 .stats,
-.unit-grid,
-.outlets,
 .chart-grid,
 .work-grid,
 .inspect-layout {
@@ -61,7 +59,6 @@
   margin-bottom: 24px;
 }
 
-.unit-grid,
 .chart-grid,
 .work-grid,
 .inspect-layout {
@@ -141,7 +138,7 @@
   align-items: end;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .inspection-item {
@@ -150,7 +147,7 @@
 
 .criteria-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(150px, 220px) minmax(180px, 1fr);
+  grid-template-columns: minmax(200px, 1.2fr) auto minmax(180px, 1fr);
   gap: 10px;
   align-items: center;
   padding-top: 10px;
@@ -160,9 +157,10 @@
 .criteria-row label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
   color: var(--text);
+  font-size: 14px;
 }
 
 .criteria-row input[type="radio"] {
@@ -178,43 +176,146 @@
 }
 
 .criteria-row.passed input[disabled] {
-  background: #eef1f4;
+  background: var(--surface-sunken);
   color: var(--muted);
 }
 
-[data-saved-images],
-.saved-images {
-  display: block;
-  margin-top: 6px;
+/* Every image field: a dashed "Choose file" square, with each image beside it as a square of the same size. */
+.image-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.image-field-label {
   color: var(--muted);
   font-size: 12px;
 }
 
-.image-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 100%;
-  min-height: 28px;
-  margin: 4px 4px 0 0;
-  padding: 4px 4px 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: #f8fafc;
-  color: var(--text);
-  vertical-align: middle;
+.image-tiles {
+  --tile: 104px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
 }
 
-.image-pill button {
-  display: inline-grid;
+.image-tiles [data-saved-images],
+.image-tiles .saved-images {
+  display: contents;
+}
+
+.image-pick,
+.image-pill {
+  position: relative;
+  flex: 0 0 var(--tile);
+  width: var(--tile);
+  height: var(--tile);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunken);
+}
+
+.image-pick {
+  display: grid;
   place-items: center;
-  min-width: 22px;
-  min-height: 22px;
-  padding: 0 6px;
-  border: 0;
-  border-radius: 50%;
-  background: #e8edf2;
+  align-content: center;
+  gap: 2px;
+  border-style: dashed;
   color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.image-pick::before {
+  content: "+";
+  font-size: 26px;
+  line-height: 1;
+}
+
+.image-pick:hover,
+.image-pick:focus-within {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.image-pick:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* The real file input covers the tile, so a tap, click, or keyboard press opens the picker. */
+.image-pick input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.image-pill {
+  display: block;
+  padding: 0;
+}
+
+.image-pill .photo-thumb {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+}
+
+.contain-images .photo-thumb img,
+[data-report-logo-tile] .photo-thumb img {
+  object-fit: contain;
+  background: #fff;
+}
+
+.image-pill-name {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  padding: 2px 6px;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.image-pill time {
+  display: none;
+}
+
+.image-pill button:not(.photo-thumb) {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 60%);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.image-pill button[data-mark-inspection-image],
+.image-pill button[data-mark-work-evidence] {
+  right: auto;
+  left: 4px;
 }
 
 .photo-mark-dialog {
@@ -236,30 +337,19 @@
   width: 100%;
   max-height: 62vh;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: #111d27;
   touch-action: none;
 }
 
-.signature-strip {
-  display: grid;
-  grid-template-columns: repeat(3, max-content) minmax(0, 1fr);
-  gap: 8px;
-  align-items: center;
-  margin-top: 12px;
-}
 
-.signature-strip [data-signature-status] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
-}
 
-[data-signature-canvas] {
+[data-signature-canvas],
+.signature-pad {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
+  /* Always white: the ink is dark and the drawing is stored as an image for the printed report. */
   background: #fff;
   touch-action: none;
 }
@@ -271,12 +361,12 @@
 }
 
 .form-message.success {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .auth-page {
   min-height: 100vh;
-  background: #eef3f1;
+  background: var(--bg);
 }
 
 .auth-shell {
@@ -292,14 +382,20 @@
   width: min(420px, 100%);
   padding: 28px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.auth-card h2 {
+  margin-bottom: 4px;
 }
 
 .plain-link {
   min-height: 0;
   padding: 0;
   border: 0;
+  justify-self: start;
+  font-weight: 500;
   background: transparent;
   color: var(--blue);
   text-align: left;
@@ -327,8 +423,8 @@
   align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: var(--radius);
+  background: var(--surface-alt);
 }
 
 [data-open-inspection-session] {
@@ -369,10 +465,6 @@
   width: 100%;
 }
 
-.check-notes {
-  grid-column: 1 / -1;
-}
-
 .form-actions {
   display: flex;
   justify-content: flex-end;
@@ -404,8 +496,8 @@
   padding: 24px;
   margin-bottom: 18px;
   color: #fff;
-  background: var(--green);
-  border-radius: 8px;
+  background: var(--hero);
+  border-radius: var(--radius);
 }
 
 .today-hero span {
@@ -418,6 +510,7 @@
 
 .today-hero h2 {
   margin: 0;
+  color: inherit;
   font-size: 24px;
 }
 
@@ -434,7 +527,20 @@
   background: transparent;
 }
 
+.today-hero p {
+  margin-top: 6px;
+  opacity: .9;
+  font-size: 14px;
+}
+
 .today-hero .primary {
   background: #fff;
-  color: var(--green);
+  color: var(--hero);
+}
+
+.split-actions-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-left: auto;
 }

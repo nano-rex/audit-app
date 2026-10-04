@@ -5,17 +5,24 @@
       <section class="work-grid settings-grid">
         <article class="panel theme-settings">
           <h2>Workspace preferences</h2>
-          <label class="checkbox-line theme-toggle"><input type="checkbox" data-theme-toggle> Dark mode</label>
+          <label>Appearance<select data-theme-choice>
+            <option value="">Organization default</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">Follow device</option>
+          </select></label>
+          <p class="muted" data-theme-choice-note></p>
           <label>Items per page<select data-pagination-size><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option></select></label>
           <p class="muted">This preference is saved on this device and applies to pages.</p>
         </article>
         <article class="panel" data-company-admin-setting hidden>
-          <h2>Optional sections</h2>
+          <h2>Workflow options</h2>
           <p class="muted">Choose whether users can access these operational sections. Super users always retain access.</p>
           <form id="feature-visibility-form" class="inline-form">
             <label class="checkbox-line"><input name="findingsEnabled" type="checkbox"> History &amp; Findings</label>
-            <label class="checkbox-line"><input name="correctiveActionsEnabled" type="checkbox"> Corrective Actions</label>
-            <button class="primary" type="submit">Save section visibility</button>
+            <label class="checkbox-line"><input name="requirePhotoEveryAsset" type="checkbox"> Require a photo of every inspected asset</label>
+            <p class="muted">When this is off, only assets with a failed check need a photo before an inspection can be completed.</p>
+            <button class="primary" type="submit">Save workflow options</button>
             <p data-feature-visibility-message role="status"></p>
           </form>
         </article>
@@ -42,7 +49,7 @@
           </form>
           <div class="list compact-list" data-audit-type-records></div>
         </article>
-        <article class="panel" data-super-only-setting hidden>
+        <article class="panel settings-wide" data-super-only-setting hidden>
           <h2>Scoring</h2>
           <form id="scoring-settings-form" class="inline-form">
             <label>Pass Mark<input name="passMark" type="number" min="0" max="100"></label>
@@ -50,28 +57,30 @@
             <label>Excellent From<input name="excellentFrom" type="number" min="0" max="100"></label>
             <label>Good From<input name="goodFrom" type="number" min="0" max="100"></label>
             <label>Needs Improvement From<input name="needsImprovementFrom" type="number" min="0" max="100"></label>
-            <fieldset><legend>Category Weights</legend><p>Used in Weighted mode; 1 gives the standard weight.</p><div data-category-weights></div></fieldset>
+            <fieldset class="category-weights"><legend>Category Weights</legend><p class="muted">Used in Weighted mode; 1 gives the standard weight.</p><div data-category-weights></div></fieldset>
             <p data-scoring-message role="status"></p>
             <button class="primary" type="submit">Save Scoring</button>
           </form>
         </article>
-        <article class="panel" data-super-only-setting hidden>
-          <h2>Report & System</h2>
+        <article class="panel settings-wide" data-super-only-setting hidden>
+          <h2>Report &amp; System</h2>
           <form id="system-settings-form" class="inline-form">
             <label>App Title<input name="appTitle"></label>
             <label>App Subtitle<input name="appSubtitle"></label>
             <label>Business Unit Label<input name="businessUnitLabel"></label>
-            <label>To-do Heading<input name="todayHeading"></label>
             <label>Report Heading<input name="reportHeading"></label>
             <label>Login Title<input name="loginTitle"></label>
             <label>Company Name<input name="companyName"></label>
             <label>Department Header<input name="departmentHeader"></label>
-            <label>Report Logo<input type="file" accept="image/png,image/jpeg,image/webp" data-report-logo-upload></label>
+            <div class="image-field">
+              <span class="image-field-label">Report Logo</span>
+              <div class="image-tiles">
+                <label class="image-pick"><input type="file" accept="image/png,image/jpeg,image/webp" data-report-logo-upload aria-label="Upload report logo"><span>Choose file</span></label>
+                <div class="saved-images" data-report-logo-tile></div>
+              </div>
+            </div>
             <input type="hidden" name="logoUrl">
-            <button type="button" class="outline" data-remove-report-logo>Remove Logo</button>
             <p data-report-logo-message role="status"></p>
-            <label>Notification Channels<input name="channels" placeholder="In-App, Email, WhatsApp, Push"></label>
-            <label>Future Integrations<textarea name="integrations" placeholder="CMMS, vendor portal, AI summary, AI defect detection"></textarea></label>
             <button class="primary" type="submit">Save Settings</button>
           </form>
         </article>

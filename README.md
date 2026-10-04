@@ -1,25 +1,72 @@
 # Audit App
 
-The application has two platform versions:
+A facilities audit application: schedule an audit, walk a guided checklist of an outlet's
+fixed assets and building fixtures, record findings with photos, assign and close work orders, sign off, and
+report.
 
-- `android/` - native Android app, builds an APK using the local SDK
-- `web/` - browser version backed by a local Python SQLite API
+There are two separate versions:
 
-The product model is one configurable audit system. Checks for different operational areas are combined into the same inspection workflow.
+- `web/` — the browser application, backed by a Python server and SQLite. This is the main one.
+- `android/` — a native offline Android app with its own local database. It does not
+  synchronise with the web application.
 
-The first screen is `Today`, which is organized for on-site work: scheduled visits, pending uploads, follow-up counts, and quick actions for starting inspections or scanning QR codes.
+## Run the web application
 
-The `Inspections` screen is the guided field workflow. It records outlet, zone/location, inspector, checklist item scores, evidence status, and notes into SQLite.
+Python 3.9 or newer:
 
-The `Work Orders` screen tracks inspection findings and manual issues through assignment, repair, verification, and outlet confirmation.
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python web/server.py
+```
 
-The `Equipment` screen tracks editable equipment items with name, description, type, operational status, code, model, serial number, brand, outlet Location, and installation date.
+Then open `http://127.0.0.1:41883`. The repository includes a database in `web/data/`; when
+none exists, the first start creates one with seed records (outlets, roles, sample accounts).
+The starter accounts and their passwords are defined in `web/backend/seed_data.py` and
+`web/backend/control.py`; each must choose a new password at first sign-in. The Super account
+is kept in its own database (`web/data/control/`), separate from every organization.
 
-The `Reports` screen consolidates outlet rankings, score charts, critical issues, and exportable summaries.
+Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SECURE_COOKIES`,
+`AUDIT_TRUST_PROXY`, and `PORT`. They are described in
+[production-readiness.md](production-readiness.md).
 
-Managers and directors can manage `Departments` and `Outlets`, which supply the selectable department and outlet choices across users, work orders, schedules, inspections, equipment, and reports. Each outlet can also have Locations for inspection and equipment placement.
+## The workflow
 
-The `Users` screen supports account creation, editing, deletion, activation, role assignment, department assignment, title, email, password reset, and responsibilities. The `Roles` screen lets admin users configure app-section access for non-admin roles.
+1. An administrator sets up users and roles, outlets and their locations, fixed assets and fixtures
+   and finishes with inspection criteria, and the categories, priorities, and audit types used by findings.
+2. An auditor schedules an audit (or chooses **Schedule and start now**), optionally limited to some locations, and works through
+   the checklist: tick what passes, or use **Pass all** for an asset; record a remark and
+   finding details for what fails; attach photos.
+3. Completing the inspection calculates the score and records a finding per failed check. **Findings**
+   lists each failed item once, with **Create work request**.
+4. On **Maintenance > Work Requests**, a request becomes a work order (or is declined when no work is
+   needed). On **Maintenance > Work Orders**, the assignee closes the order when done; its request and
+   findings close with it.
+5. On **Sign-off**, the auditor, verifier, and acknowledger sign (drawn, uploaded, or the signature saved
+   on their account). Once every linked work order is closed, a verifier closes the audit, which becomes read-only.
+6. Reports, charts, and CSV, Excel, JSON, and PDF exports are available throughout.
+
+The dashboard's **Waiting on you** list shows each signed-in user their next step in this
+chain. Full instructions are in [USER_GUIDE.txt](USER_GUIDE.txt).
+
+## Documentation
+
+| File | Contents |
+| --- | --- |
+| [USER_GUIDE.txt](USER_GUIDE.txt) | Step-by-step use of the web application |
+| [scope.md](scope.md) | What the application covers, where it differs from the original specification, and what is deferred |
+| [backend-architecture.md](backend-architecture.md) | Server modules, conventions, storage, and how to run the checks |
+| [production-readiness.md](production-readiness.md) | Configuration, deployment, measurements, and open items |
+| [web/README.md](web/README.md) | Layout of the web folder and the fixed-asset import tool |
+| [android/README.md](android/README.md) | Building the Android app |
+
+## Tests
+
+```sh
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m unittest discover -s tests
+node tests/test_frontend.cjs
+```
 
 ## Android
 
@@ -28,45 +75,12 @@ cd android
 ./build.sh
 ```
 
-APK output:
+The APK is written to `android/build/audit-app-debug.apk`. The build expects the SDK and JDK
+layout described in [android/README.md](android/README.md).
 
-```text
-android/build/audit-app-debug.apk
-```
+## Data storage
 
-## Web
-
-Application Python modules are grouped in `web/backend/`, with `web/server.py` as the entry point.
-The web backend supports Python 3.9 and newer.
-
-Run the local SQLite-backed web server:
-
-```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python web/server.py
-```
-
-Then open `http://127.0.0.1:41883`.
-
-See [backend architecture](backend-architecture.md) for module responsibilities and test commands,
-[production readiness](production-readiness.md) for deployment limits and load-test results,
-and [requirements progress](requirements-progress.md) for implementation evidence and deferred work.
-
-## Data Storage
-
-The Android version uses a local SQLite database.
-
-The web version uses a local Python API backed by SQLite in the configured data directory.
-
-All persistent web records and image bytes are stored in the configured SQLite database.
-Images use SQLite BLOBs; checklist answers, permissions, settings, and image metadata use typed
-relational rows linked to their owning records. JSON is used for HTTP messages and exports, not
-as database document columns. Set `AUDIT_DATA_DIR` to use another data directory.
-
-On the first startup of an older database, a SQLite backup is created in `web/data/backups/`,
-legacy media files are copied into BLOBs, and JSON columns are migrated and removed. Stop the
-old server before starting the new release. Old media files are retained for rollback but are
-no longer read by the app. Use SQLite’s backup API for live WAL databases; a complete SQLite
-backup includes all images. Rolling back code requires restoring the matching pre-migration
-database and legacy media files.
+The web application keeps every persistent record, and the bytes of every image, in the
+SQLite database in the data directory. A SQLite backup is therefore a complete backup; take
+it with SQLite's backup API while the server is running. JSON is used for HTTP messages and
+exports, not as stored documents.

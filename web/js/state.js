@@ -4,7 +4,6 @@ const brandingDefaults = {
   appTitle: "Audit App",
   appSubtitle: "Facilities audit workspace",
   businessUnitLabel: "Facilities",
-  todayHeading: "inspections for today",
   reportHeading: "audit report",
   loginTitle: "Audit App",
 };
@@ -14,12 +13,11 @@ const allTabs = [
   { id: "today", label: "Dashboard" },
   { id: "inspections", label: "Inspections" },
   { id: "findings", label: "History & Findings" },
-  { id: "work-orders", label: "Work Orders" },
+  { id: "work-orders", label: "Maintenance" },
   { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
-  { id: "corrective-actions", label: "Corrective Actions" },
   { id: "notifications", label: "Notifications" },
-  { id: "categories", label: "Categories" },
+  { id: "categories", label: "Assets" },
   { id: "departments", label: "Departments" },
   { id: "outlets", label: "Outlets" },
   { id: "users", label: "Users" },
@@ -27,24 +25,22 @@ const allTabs = [
   { id: "settings", label: "Settings" },
   { id: "account", label: "Account" },
 ];
+// The Super account sees every regular page plus these two restricted ones; the server validates the same list.
 const superTabs = [
   { id: "super-dashboard", label: "Super Dashboard" },
-  { id: "super-inspections", label: "Super Inspections" },
-  { id: "super-findings", label: "Super History & Findings" },
-  { id: "super-work-orders", label: "Super Work Orders" },
-  { id: "super-equipment", label: "Super Fixed Assets" },
-  { id: "super-reports", label: "Super Reports" },
-  { id: "super-corrective-actions", label: "Super Corrective Actions" },
-  { id: "super-notifications", label: "Super Notifications" },
-  { id: "super-categories", label: "Super Categories" },
-  { id: "super-outlets", label: "Super Outlets" },
-  { id: "super-users", label: "Super Users" },
   { id: "super-settings", label: "Super Settings" },
-  { id: "super-account", label: "Super Account" },
 ];
-
-const superTabTargets = Object.fromEntries(superTabs.map((tab) => [tab.id, tab.id.replace(/^super-/, "")]));
-const contextParents = { reports: "today", findings: "inspections", "corrective-actions": "inspections", equipment: "categories" };
+const contextParents = { reports: "today", findings: "inspections", equipment: "categories" };
+// Opening a page from the bar or menu lands on this sub-page when the user may see it.
+const defaultContextChild = { categories: "equipment" };
+// Mirrors TRANSITIONS in web/backend/workflow.py, which remains the authority.
+const workOrderTransitions = {
+  Open: ["Assigned", "In Progress", "Pending", "Closed"],
+  Assigned: ["In Progress", "Pending", "Closed"],
+  "In Progress": ["Assigned", "Pending", "Closed"],
+  Pending: ["Assigned", "In Progress", "Closed"],
+  Closed: [],
+};
 const defaultNavbarTabs = ["today", "inspections", "findings", "equipment", "reports"];
 const setupOptions = {
   departments: [],
@@ -81,8 +77,6 @@ let activeFindingRow = null;
 let inspectionHistoryCache = [];
 let inspectionHistorySearch = "";
 let photoMarkState = null;
-let signatureState = null;
-const lastInspectionSessionKey = "ottotree:lastInspectionSessionId";
 const departmentFilters = { search: "" };
 const categoryFilters = { search: "" };
 const outletFilters = { search: "" };
@@ -90,15 +84,30 @@ const userFilters = { search: "", role: "", department: "" };
 const roleFilters = { search: "" };
 const notificationFilters = { search: "", status: "" };
 const historyFilters = { dateFrom: "", dateTo: "", outlet: "", location: "", auditor: "", department: "", category: "", priority: "", status: "", pic: "" };
-const findingFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "", auditId: "" };
+const findingFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "active", auditId: "" };
 const workOrderFilters = { search: "", outlet: "", location: "", department: "", category: "", priority: "", status: "" };
 const equipmentFilters = {
   search: "",
+  kind: "asset",
+  category: "",
   outlet: "",
   location: "",
   type: "",
   brand: "",
 };
+// What each kind of inspectable item is called, and the checks it starts with.
+const itemKinds = {
+  asset: { label: "Fixed Asset", plural: "fixed assets" },
+  fixture: { label: "Fixture & Finish", plural: "fixtures and finishes" },
+};
+const defaultFixtureCriteria = [
+  "Clean and free from stains or marks",
+  "Intact with no cracks, leaks, or loose parts",
+  "Works as intended",
+  "Safe with no hazard to users",
+];
+// The checklist can be narrowed to one kind of item or one category, for example one department's items.
+const inspectionFilter = { kind: "", category: "" };
 const defaultInspectionCriteria = [
   "Present and correctly placed",
   "Clean and free from visible damage",

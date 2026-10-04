@@ -1,29 +1,33 @@
     <section id="categories" class="tab-panel">
       <nav class="sub-tabs contextual-tabs" aria-label="Category sections">
-        <button class="active" type="button" data-context-tab="categories">Categories</button>
         <button type="button" data-context-tab="equipment">Fixed Assets</button>
+        <button type="button" data-context-tab="fixtures">Fixtures &amp; Finishes</button>
+        <button class="active" type="button" data-context-tab="categories">Categories</button>
       </nav>
-      <section class="panel filter">
-        <h2>Categories</h2>
-        <label>Search<input id="category-search" placeholder="Search categories"></label>
-        <button class="primary" type="button" data-open-category>Add Category</button>
-      </section>
-      <section class="work-grid">
-        <article class="panel">
-          <h2>Description / Audit Categories</h2>
-          <div class="admin-list" data-category-records></div>
-          <section class="help-block" aria-label="Category setup help">
-            <h3>How Categories Work</h3>
-            <p>Categories describe the type of issue found during an inspection. They help users classify findings consistently and make reports easier to group by issue type.</p>
-            <dl>
-              <dt>Name</dt>
-              <dd>The category shown when creating a finding or work order.</dd>
-              <dt>Sequence</dt>
-              <dd>Controls the display order. Lower numbers appear first.</dd>
-              <dt>Active</dt>
-              <dd>Inactive categories remain saved for reference but are hidden from selection lists.</dd>
-            </dl>
-          </section>
-        </article>
+      <section class="panel list-panel">
+        <header class="panel-head">
+          <h2>Categories</h2>
+          <div class="panel-actions">
+            <button class="primary" type="button" data-open-category>Add Category</button>
+          </div>
+        </header>
+        <div class="filter">
+          <label>Search<input id="category-search" placeholder="Search categories"></label>
+        </div>
+        <div class="admin-list" data-category-records></div>
+        <section class="help-block" aria-label="Category setup help">
+          <h3>How Categories Work</h3>
+          <p>Categories describe the type of issue found during an inspection. They help users classify findings consistently and make reports easier to group by issue type.</p>
+          <dl>
+            <dt>Name</dt>
+            <dd>The category shown when creating a finding or work order.</dd>
+            <dt>Department</dt>
+            <dd>The department that normally handles findings in this category. It is filled in for each new finding and can be changed there.</dd>
+            <dt>Sequence</dt>
+            <dd>Controls the display order. Lower numbers appear first.</dd>
+            <dt>Active</dt>
+            <dd>Inactive categories remain saved for reference but are hidden from selection lists.</dd>
+          </dl>
+        </section>
       </section>
     </section>

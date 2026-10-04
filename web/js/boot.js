@@ -4,13 +4,12 @@ let inspectionsInitialized = false;
 const tabLoads = new Map();
 
 function showTabLoading(tabId) {
-  const targetTabId = superTabTargets[tabId] || tabId;
+  const targetTabId = tabId;
   const targets = {
-    today: [["[data-outlets]", "Loading dashboard…"], ["[data-recent]", "Loading recent audits…"], ["[data-rankings]", "Loading rankings…"], ["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
+    today: [["[data-today-schedules]", "Loading scheduled work…"], ["[data-bars]", "Loading scores…"], ["[data-dashboard-charts]", "Loading charts…"]],
     reports: [["[data-report-charts]", "Loading report…"], ["[data-rankings]", "Loading report…"], ["[data-bars]", "Loading report…"]],
     findings: [["[data-inspection-history]", "Loading history…"], ["[data-findings]", "Loading findings…"]],
-    "work-orders": [["[data-work-orders]", "Loading work orders…"]],
-    "corrective-actions": [["[data-corrective-actions]", "Loading corrective actions…"]],
+    "work-orders": [["[data-work-orders]", "Loading work orders…"], ["[data-work-requests]", "Loading work requests…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
     categories: [["[data-category-records]", "Loading categories…"]],
     // Departments and roles are loaded with the initial setup catalog. Keep
@@ -34,6 +33,43 @@ function showLoadError(error) {
   notice.textContent = `Could not load data: ${error.message}. Select the tab again to retry, or reload the page.`;
 }
 
+// An action that fails must say so. Forms without their own message area report here:
+// inside the open dialog when there is one, otherwise in the banner at the top of the page.
+function showActionError(error) {
+  const text = error?.message || String(error || "") || "The action could not be completed.";
+  const dialog = document.querySelector("dialog[open]");
+  if (!dialog) {
+    let notice = document.getElementById("load-error");
+    if (!notice) {
+      notice = document.createElement("p");
+      notice.id = "load-error";
+      notice.setAttribute("role", "alert");
+      document.body.prepend(notice);
+    }
+    notice.textContent = `That could not be completed: ${text}`;
+    return;
+  }
+  let note = dialog.querySelector("[data-action-error]");
+  if (!note) {
+    note = document.createElement("p");
+    note.className = "form-message";
+    note.dataset.actionError = "";
+    note.setAttribute("role", "alert");
+    (dialog.querySelector("form") || dialog).append(note);
+  }
+  note.textContent = text;
+  note.scrollIntoView?.({ block: "nearest" });
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault?.();
+    showActionError(event.reason);
+  });
+  // A message belongs to one attempt; drop it when the dialog closes.
+  document.addEventListener("close", (event) => event.target.querySelector?.("[data-action-error]")?.remove(), true);
+}
+
 async function loadTabData(tabId) {
   if (!appReady) return;
   if (tabLoads.has(tabId)) return tabLoads.get(tabId);
@@ -42,8 +78,7 @@ async function loadTabData(tabId) {
     today: loadDashboard,
     reports: async () => { await loadDashboard(); await loadReport(); },
     findings: () => Promise.all([loadInspectionHistory(), loadFindings()]),
-    "work-orders": loadWorkOrders,
-    "corrective-actions": loadWorkOrders,
+    "work-orders": () => Promise.all([loadWorkOrders(), loadWorkRequests()]),
     equipment: loadEquipment,
     categories: async () => {
       if (!categoryCache.length) await loadSetup();
@@ -62,12 +97,8 @@ async function loadTabData(tabId) {
       await Promise.all([loadGuidedSchedules(), loadInspectionHistory()]);
     },
   };
-  if (tabId.startsWith("super-")) {
-    const target = superTabTargets[tabId];
-    if (target === "dashboard") loaders[tabId] = loadSuperDashboard;
-    else if (target === "settings") loaders[tabId] = loadSuperSettings;
-    else loaders[tabId] = loaders[target];
-  }
+  loaders["super-dashboard"] = loadSuperDashboard;
+  loaders["super-settings"] = loadSuperSettings;
   if (!loaders[tabId]) return;
   const pending = Promise.resolve().then(loaders[tabId]).then(() => {
     document.getElementById("load-error")?.remove();
@@ -85,15 +116,18 @@ function loadApp() {
 async function initializeApp() {
   appReady = false;
   if (!await requireLogin()) return;
-  const activeTab = document.querySelector(".tab-panel.active")?.id;
+  const activeTab = activeTabId || document.querySelector(".tab-panel.active")?.id;
+  const contextTab = activeContextTab;
   await Promise.all([loadBranding(), loadSetup()]);
   applyNavbarTabs();
   updateSetupSelects();
   setInspectionSignatures(inspectionSignatures());
   appReady = true;
   const tab = allowedAppTabs().some((item) => item.id === activeTab) ? activeTab : allowedAppTabs()[0]?.id || "today";
-  showTab(tab);
-  await loadTabData(tab);
+  loadAttention().catch(() => {});
+  if (contextTab && tab === activeTab) showContextTab(contextTab);
+  else showTab(tab);
+  await loadTabData(activeTabId || tab);
 }
 
 wireAuth();

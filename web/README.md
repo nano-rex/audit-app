@@ -1,55 +1,51 @@
 # Audit App Web
 
-SQLite-backed web version of the audit application.
+The browser application and its Python server. For running, configuration, and the workflow,
+see the [repository README](../README.md); for server modules, see
+[backend architecture](../backend-architecture.md).
 
-See [production readiness and measured performance](../production-readiness.md) for the audit findings, 100-user benchmark, configuration, and remaining release work.
+## Layout
 
-## Structure
+- `server.py` — entry point; serves the API and the static application on `127.0.0.1`.
+- `backend/` — the server's Python modules.
+- `index.html` — the page shell. Its `<!-- include: ... -->` comments are expanded by the server.
+- `login.html`, `register.html` — sign-in and registration pages.
+- `html/tabs/` — one file per page; `html/dialogs/` — dialog forms.
+- `js/` — browser scripts, loaded as plain globals in the order listed in `index.html`.
+- `css/` — stylesheets. Colours, font, corner radius, and density are tokens in `base.css`;
+  palettes are selected by attributes that `js/theme.js` sets from the organization's theme.
+- `fonts/` — Noto Sans SC (Latin range, regular and bold) under the SIL Open Font License; see
+  `fonts/OFL-NotoSansSC.txt`.
+- `data/` — the SQLite database and its backups (override with `AUDIT_DATA_DIR`).
 
-- `server.py` serves the SQLite API and static web app.
-- `index.html` is the small page shell. It uses `<!-- include: ... -->` comments that are expanded by `server.py`.
-- `html/tabs/` contains each main tab panel.
-- `html/dialogs/` contains modal form markup.
-- `js/` contains browser scripts split by responsibility.
-- `css/` contains stylesheets loaded directly by the HTML entry points; `styles.css` remains a compatibility entry point.
-- `data/` contains the local SQLite database. Prototype data can be recreated from setup screens.
+## Pages
 
-Run:
+| Page | Sub-pages | Use |
+| --- | --- | --- |
+| Dashboard | Reports | What is waiting on you, scheduled audits, overview figures and charts; filtered reports and exports |
+| Inspections | History, Findings | Guided checklist; past inspections, PDFs, and audit closure; findings raised by audits |
+| Work Orders | | Corrective actions and manually raised issues |
+| Notifications | | In-app notices addressed to you |
+| Assets | Assets & Fixtures, Categories | The register of fixed assets and of fixtures and finishes, with inspection criteria; categories and their responsible departments |
+| Outlets | Zones, Locations | Outlets and the places inside them |
+| Users | Departments, Roles | Accounts, departments, and role permissions |
+| Settings | | Theme, items per page, and workflow options |
+| Account | | Profile, signature, password, sign out |
 
-```sh
-python3 server.py
-```
+The Super account also has Super Dashboard and Super Settings (company databases, priority
+levels, audit types, scoring, and report branding).
 
-Python 3.9 or later is required. Optional settings: `AUDIT_DATA_DIR` overrides the database directory, `AUDIT_WORKERS` sets the active request limit (default 8), and `AUDIT_SECURE_COOKIES=1` marks login cookies for HTTPS-only use. The app stays bound to `127.0.0.1`.
+## Importing fixed assets
 
-Then open:
-
-```text
-http://127.0.0.1:41883
-```
-
-Data is stored in the configured SQLite database under `data/`.
-
-The first screen is `Today`, backed by SQLite schedules and audit status.
-
-Use `Inspections` for the guided checklist workflow. Submissions write one audit row plus item-level checklist rows to SQLite.
-
-Use `Work Orders` for follow-up issues. Low-scoring inspection items create work orders automatically, and users can also create them manually.
-
-Use `Fixed Assets` for the QR/asset registry and fixed asset condition records. Fixed asset `Code` is the canonical unique key, and QR codes are generated from the same `Code`.
-
-Import XLSX fixed asset listings from the repo-local `Fixed_Assets/` folder with:
+A fixed asset's `Code` is its unique key, and its QR code is generated from it. To import
+XLSX asset listings from a `Fixed_Assets/` folder in the repository, run from the repository root:
 
 ```sh
 python3 tools/import_fixed_assets.py
 ```
 
-Or pass a device-specific folder explicitly:
+or from another folder:
 
 ```sh
 python3 tools/import_fixed_assets.py /path/to/Fixed_Assets
 ```
-
-Use `Reports` for the monthly summary, KPI metrics, outlet rankings, critical issues, and CSV/JSON exports.
-
-Use `Categories`, `Departments`, `Outlets`, and `Users` for configurable setup data used by the audit workflow.

@@ -6,8 +6,11 @@ async function resetScheduleForm() {
   form.querySelector('button[value="default"]').textContent = "Schedule";
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
   await updateScheduleLocationSelect();
-  form.elements.status.value = "Pending";
+  form.elements.scheduledDate.value = todayIsoDate();
+  form.elements.auditor.value = currentUser?.name || "";
   form.querySelector("[data-delete-current-schedule]").hidden = true;
+  // An audit that happens now is scheduled and opened in one step.
+  form.querySelector("[data-schedule-start-now]").hidden = !(currentUser?.inspectionPermissions || []).includes("auditor");
 }
 
 async function openScheduleEditor(row) {
@@ -16,14 +19,14 @@ async function openScheduleEditor(row) {
   await resetScheduleForm();
   form.elements.scheduleId.value = row.id;
   form.elements.outlet.value = row.outlet;
-  await updateScheduleLocationSelect(row.zone || "");
+  await updateScheduleLocationSelect(row.visit_locations || []);
   form.elements.scheduledDate.value = row.scheduled_date;
   form.elements.auditor.value = row.auditor;
-  form.elements.status.value = row.status || "Pending";
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
   form.querySelector('button[value="default"]').textContent = "Save Changes";
   form.querySelector("[data-delete-current-schedule]").hidden = false;
+  form.querySelector("[data-schedule-start-now]").hidden = true;
   dialog.showModal();
 }
 
@@ -141,6 +144,8 @@ function openCategoryEditor(row = null) {
   form.elements.description.value = row?.description || "";
   form.elements.sequence.value = row?.sequence || "";
   form.elements.active.checked = row ? Boolean(row.active) : true;
+  updateSelectOptions(form.elements.responsibleDepartment, setupOptions.departments, true, "No default department");
+  form.elements.responsibleDepartment.value = row?.department || "";
   form.querySelector("h2").textContent = row ? "Edit Category" : "Category Setup";
   form.querySelector('button[type="submit"], button[value="default"]').textContent = row ? "Save Changes" : "Save Category";
   dialog.showModal();
@@ -172,21 +177,6 @@ async function updateWorkOrderLocationSelect(selected = "") {
   }
 }
 
-function workOrderCompletionPhotos() {
-  const form = document.getElementById("work-order-form");
-  return parseStoredImages(form?.dataset.completionPhotos || "[]");
-}
-
-function setWorkOrderCompletionPhotos(images) {
-  const form = document.getElementById("work-order-form");
-  if (!form) return;
-  form.dataset.completionPhotos = JSON.stringify(images || []);
-  const container = form.querySelector("[data-work-order-completion-photos]");
-  if (container) {
-    container.innerHTML = renderSavedImageList(images || [], "data-delete-work-order-completion-photo");
-  }
-}
-
 async function loadWorkOrderComments(workOrderId = "") {
   const section = document.querySelector("[data-work-order-comments-section]");
   const list = document.querySelector("[data-work-order-comments]");
@@ -206,14 +196,26 @@ async function loadWorkOrderComments(workOrderId = "") {
     : `<article><div><b>No comments</b><span>Add the first follow-up note.</span></div></article>`;
 }
 
-async function openWorkOrderEditor(row = null) {
+// Closing is final: say so when it is chosen.
+function updateWorkOrderStage() {
+  const form = document.getElementById("work-order-form");
+  if (!form || form.dataset.mode === "finding") return;
+  const closing = form.elements.status.value === "Closed" && form.dataset.currentStatus !== "Closed";
+  setText("[data-work-order-stage-hint]", closing ? "Closing records today's date. A closed work order cannot be edited." : "");
+}
+
+document.querySelector('#work-order-form [name="status"]')?.addEventListener("change", updateWorkOrderStage);
+
+// A new work order is made from a work request (requestId), prefilled from it as row.
+async function openWorkOrderEditor(row = null, requestId = "") {
   activeFindingRow = null;
   const dialog = document.getElementById("work-order-dialog");
   const form = document.getElementById("work-order-form");
   const isEdit = Boolean(row?.id);
   form.reset();
-  form.querySelector("[data-corrective-fields]").hidden = false;
-  form.querySelector("[data-verification-fields]").hidden = false;
+  form.dataset.mode = "work-order";
+  form.dataset.workRequestId = isEdit ? "" : String(requestId || "");
+  setText("[data-work-order-message]", "");
   form.dataset.savedImages = JSON.stringify(parseStoredImages(row?.images_json || "[]"));
   form.querySelector("[data-work-order-evidence]").innerHTML = renderWorkOrderEvidence(storedImagesFromDataset(form));
   updateSetupSelects();
@@ -230,7 +232,6 @@ async function openWorkOrderEditor(row = null) {
     form.elements.assignee.value = row.assignee || "";
     form.elements.dueDate.value = row.due_date || "";
     form.elements.vendor.value = row.vendor || "";
-    form.elements.slaStatus.value = row.sla_status || "";
     form.elements.cost.value = row.cost || "";
     form.elements.pic.value = row.pic || "";
     form.elements.title.value = row.title || "";
@@ -238,20 +239,23 @@ async function openWorkOrderEditor(row = null) {
     form.elements.cause.value = row.cause || "";
     form.elements.recommendation.value = row.recommendation || "";
     form.elements.requiredAction.value = row.required_action || "";
-    form.elements.actionTaken.value = row.action_taken || "";
-    form.elements.completionDate.value = row.completion_date || "";
-    form.elements.completionRemark.value = row.completion_remark || "";
-    form.elements.verifiedBy.value = row.verified_by || "";
-    form.elements.verifiedAt.value = row.verified_at || "";
     form.elements.closedAt.value = row.closed_at || "";
-    form.elements.verificationRemark.value = row.verification_remark || "";
     form.querySelector("h2").textContent = isEdit ? "Edit Work Order" : "Create Work Order";
     form.querySelector('button[type="submit"]').textContent = isEdit ? "Save Changes" : "Save Work Order";
   } else {
     form.querySelector("h2").textContent = "Create Work Order";
     form.querySelector('button[type="submit"]').textContent = "Save Work Order";
   }
-  setWorkOrderCompletionPhotos(parseStoredImages(row?.completion_photo || "[]"));
+  const closed = row?.status === "Closed";
+  form.querySelector("[data-work-order-closed]").hidden = !closed;
+  form.querySelector('button[type="submit"]').hidden = closed;
+  if (closed) form.querySelector("h2").textContent = "Closed Work Order";
+  // Offer only the steps the workflow allows from here.
+  const current = isEdit ? row.status || "Assigned" : "";
+  form.dataset.currentStatus = current;
+  updateSelectOptions(form.elements.status, isEdit ? [current, ...(workOrderTransitions[current] || [])] : ["Assigned", "Open"]);
+  form.elements.status.value = current || (row?.status === "Open" ? "Open" : "Assigned");
+  updateWorkOrderStage();
   await loadWorkOrderComments(row?.id || "");
   dialog.showModal();
 }
@@ -289,24 +293,38 @@ async function openZoneEditor(row = null) {
   dialog.showModal();
 }
 
-function resetEquipmentForm() {
+function resetEquipmentForm(kind = "asset") {
   const form = document.getElementById("equipment-form");
   form.reset();
   form.elements.equipmentId.value = "";
   form.dataset.savedImages = "[]";
-  form.querySelector("[data-equipment-photos]").innerHTML = '<span class="muted">No photos attached.</span>';
-  form.querySelector("h2").textContent = "Register Fixed Asset";
-  form.querySelector('button[type="submit"]').textContent = "Save Fixed Asset";
+  form.querySelector("[data-equipment-photos]").innerHTML = "";
+  setEquipmentFormKind(kind);
+  form.querySelector("h2").textContent = `Register ${itemKinds[kind].label}`;
+  form.querySelector('button[type="submit"]').textContent = `Save ${itemKinds[kind].label}`;
   updateSetupSelects();
-  renderEquipmentCriteria();
+  updateSelectOptions(form.elements.itemCategory, setupOptions.categories, true, "No category");
+  renderEquipmentCriteria(kind === "fixture" ? defaultFixtureCriteria : defaultInspectionCriteria);
   updateEquipmentNameOptions();
+}
+
+// A fixture or finish is a part of the building: it has no code, serial, or warranty to record.
+function setEquipmentFormKind(kind) {
+  const form = document.getElementById("equipment-form");
+  form.elements.kind.value = kind;
+  form.dataset.kind = kind;
+  const fixture = kind === "fixture";
+  form.elements.name.placeholder = fixture ? "Wall paint, floor tiles, water pipe, toilet, sink" : "Speaker, TV, amplifier, furniture";
+  setText("[data-condition-label]", fixture ? "Condition" : "Operational Status");
 }
 
 async function openEquipmentEditor(row) {
   const dialog = document.getElementById("equipment-dialog");
   const form = document.getElementById("equipment-form");
-  resetEquipmentForm();
+  const kind = row.kind === "fixture" ? "fixture" : "asset";
+  resetEquipmentForm(kind);
   form.elements.equipmentId.value = row.id;
+  form.elements.itemCategory.value = row.category || "";
   form.elements.name.value = row.name || row.asset_id || "";
   form.elements.code.value = row.code || row.asset_id || "";
   form.elements.qrCode.value = row.code || row.asset_id || row.qr_code || row.qrCode || "";
@@ -329,46 +347,10 @@ async function openEquipmentEditor(row) {
   form.querySelector("[data-equipment-photos]").innerHTML = renderSavedImageList(photos, "data-delete-equipment-photo");
   form.elements.description.value = row.description || row.notes || "";
   renderEquipmentCriteria(parseInspectionCriteria(row.inspection_criteria));
-  form.querySelector("h2").textContent = "Edit Fixed Asset";
+  form.querySelector("h2").textContent = `Edit ${itemKinds[kind].label}`;
   form.querySelector('button[type="submit"]').textContent = "Save Changes";
   dialog.showModal();
 }
-
-async function resetNewAuditForm() {
-  const form = document.getElementById("new-audit-form");
-  form.reset();
-  await loadSetup();
-  updateSetupSelects();
-  const now = new Date();
-  form.elements.auditDate.value = todayIsoDate();
-  form.elements.auditTime.value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  form.elements.auditor.value = currentUser?.name || "";
-  form.querySelector("[data-new-audit-message]").textContent = "";
-}
-
-document.getElementById("new-audit-form")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const button = form.querySelector('button[type="submit"]');
-  if (button.disabled || !form.reportValidity()) return;
-  button.disabled = true;
-  const message = form.querySelector("[data-new-audit-message]");
-  try {
-    const result = await requestJson("/api/audits/start", "POST", {
-      businessUnit: currentUnit, outlet: form.elements.outlet.value,
-      auditDate: form.elements.auditDate.value, auditTime: form.elements.auditTime.value,
-      auditType: form.elements.auditType.value, remarks: form.elements.remarks.value,
-    });
-    document.getElementById("new-audit").close();
-    showTab("inspections");
-    await loadGuidedSchedules();
-    setText("[data-current-audit-reference]", result.auditRef);
-  } catch (error) {
-    message.textContent = `Unable to create audit: ${error.message}`;
-  } finally {
-    button.disabled = false;
-  }
-});
 
 async function saveInspectionSession(complete = false) {
   const form = document.getElementById("inspection-form");
@@ -389,13 +371,13 @@ async function saveInspectionSession(complete = false) {
     form.elements.inspectionSessionId.value = result.id;
     if (complete) form.dataset.completed = "true";
     setCurrentInspectionName(result.inspectionName || `${payload.outlet}_${payload.auditDate}_${result.id}`, "Editing");
-    localStorage.setItem(lastInspectionSessionKey, result.id);
     updateInspectionProgress();
     loadInspectionHistory();
     if (complete) {
       setCurrentInspectionName(result.inspectionName, "Completed");
       document.querySelector("[data-save-inspection-progress]").disabled = true;
       loadDashboard();
+      await openSignoff(result.id);
     }
   } catch (error) {
     alert(`Unable to save inspection: ${error.message}`);
@@ -423,16 +405,21 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
   const payload = {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
-    zone: formValue(form, "zone", "Unassigned"),
+    locations: chosenVisitLocations(form),
     scheduledDate: formValue(form, "scheduledDate", "Today"),
     auditor: formValue(form, "auditor", "Unassigned"),
     remarks: formValue(form, "remarks", ""),
-    status: formValue(form, "status", "Pending"),
   };
   const id = formValue(form, "scheduleId", "");
-  await requestJson(id ? `/api/schedules/${id}` : "/api/schedules", id ? "PATCH" : "POST", payload);
+  if (!form.reportValidity()) return;
+  const saved = await requestJson(id ? `/api/schedules/${id}` : "/api/schedules", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
   resetScheduleForm();
+  if (event.submitter?.value === "start" && saved.id) {
+    await applyInspectionSchedule({ id: saved.id });
+    loadGuidedSchedules().catch(showLoadError);
+    return;
+  }
   loadApp();
 });
 
@@ -467,25 +454,22 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     assignee: formValue(form, "assignee", "Technical Support"),
     dueDate: formValue(form, "dueDate", ""),
     vendor: formValue(form, "vendor", ""),
-    slaStatus: formValue(form, "slaStatus", ""),
     cost: Number(formValue(form, "cost", "0")) || 0,
     pic: formValue(form, "pic", ""),
-    actionTaken: formValue(form, "actionTaken", ""),
-    completionDate: formValue(form, "completionDate", ""),
-    completionRemark: formValue(form, "completionRemark", ""),
-    completionPhoto: workOrderCompletionPhotos(),
-    verifiedBy: formValue(form, "verifiedBy", ""),
-    verifiedAt: formValue(form, "verifiedAt", ""),
-    closedAt: formValue(form, "closedAt", ""),
-    verificationRemark: formValue(form, "verificationRemark", ""),
+    workRequestId: Number(form.dataset.workRequestId) || undefined,
   };
   if (activeFindingRow) {
+    if (!payload.description.trim()) {
+      setText("[data-work-order-message]", "Describe what is wrong before saving the finding.");
+      return;
+    }
     activeFindingRow.dataset.findingDetails = JSON.stringify({
-      priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
+      category: payload.category, priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
       cause: payload.cause, recommendation: payload.recommendation, requiredAction: payload.requiredAction,
     });
-    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description;
-    activeFindingRow.querySelector('select[name*="-category-"]').value = payload.category;
+    // The remark is a single-line field; keep the description readable there.
+    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description.replace(/\s*\n+\s*/g, "; ").trim();
+    renderFindingSummary(activeFindingRow);
     const asset = activeFindingRow.closest("[data-equipment-id]");
     asset.dataset.savedImages = JSON.stringify(payload.images);
     asset.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(payload.images);
@@ -494,7 +478,13 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     updateInspectionProgress();
     return;
   }
-  await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
+  try {
+    await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
+  } catch (error) {
+    // Workflow rules (missing completion evidence, verifier permission) are explained in the dialog.
+    setText("[data-work-order-message]", error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });
@@ -503,16 +493,17 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
   event.preventDefault();
   const form = event.currentTarget;
   const id = formValue(form, "equipmentId", "");
-  const code = formValue(form, "code", `EQ-${Date.now()}`);
+  // An empty code is generated by the server (AST-00012, FXT-00012).
+  const code = formValue(form, "code", "").trim();
   const payload = {
     businessUnit: currentUnit,
+    kind: form.elements.kind.value,
+    category: form.elements.itemCategory.value,
     name: formValue(form, "name", code),
     code,
-    assetId: code,
-    qrCode: code,
     outlet: formValue(form, "outlet", ""),
     location: formValue(form, "location", ""),
-    type: formValue(form, "type", "Fixed Asset"),
+    type: formValue(form, "type", ""),
     operationalStatus: formValue(form, "operationalStatus", "Operational"),
     brand: formValue(form, "brand", ""),
     model: formValue(form, "model", ""),
@@ -529,6 +520,7 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
     replacementFlag: formValue(form, "operationalStatus", "Operational") === "Replace",
     inspectionCriteria: collectEquipmentCriteria(form),
   };
+  if (!form.reportValidity()) return;
   await requestJson(id ? `/api/equipment/${id}` : "/api/equipment", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
   resetEquipmentForm();
@@ -558,6 +550,7 @@ document.getElementById("category-form").addEventListener("submit", async (event
     description: formValue(form, "description", ""),
     sequence: Number(formValue(form, "sequence", "0")) || 0,
     active: form.elements.active.checked,
+    department: form.elements.responsibleDepartment.value,
   };
   await requestJson(id ? `/api/setup/categories/${id}` : "/api/setup/categories", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
@@ -589,6 +582,7 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
   const id = formValue(form, "userId", "");
   const payload = {
     name: formValue(form, "name", "New User"),
+    username: formValue(form, "username", ""),
     email: formValue(form, "email", "user@example.com"),
     role: formValue(form, "role", ""),
     department: formValue(form, "department", ""),
@@ -681,8 +675,6 @@ document.getElementById("scoring-settings-form")?.addEventListener("submit", asy
 document.getElementById("system-settings-form")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  const channels = formValue(form, "channels", "In-App").split(",").map((item) => item.trim()).filter(Boolean);
-  const integrations = formValue(form, "integrations", "").split(",").map((item) => item.trim()).filter(Boolean);
   await requestJson("/api/settings", "POST", {
     settings: {
       "report.companyName": formValue(form, "companyName", "Ottotree"),
@@ -691,17 +683,8 @@ document.getElementById("system-settings-form")?.addEventListener("submit", asyn
       "report.appTitle": formValue(form, "appTitle", "Ottotree Audit"),
       "report.appSubtitle": formValue(form, "appSubtitle", "Loudspeaker & Mini Studio operations"),
       "report.businessUnitLabel": formValue(form, "businessUnitLabel", "Ottotree"),
-      "report.todayHeading": formValue(form, "todayHeading", "inspections for today"),
       "report.reportHeading": formValue(form, "reportHeading", "audit report"),
       "report.loginTitle": formValue(form, "loginTitle", "Ottotree Audit"),
-      "system.emailEnabled": channels.includes("Email"),
-      "system.whatsappEnabled": channels.includes("WhatsApp"),
-      "system.pushEnabled": channels.includes("Push"),
-      "system.preventiveMaintenanceEnabled": integrations.includes("Preventive Maintenance"),
-      "system.cmmsEnabled": integrations.includes("CMMS"),
-      "system.aiPhotoDetectionEnabled": integrations.includes("AI Photo Defect Detection"),
-      "system.aiSummaryEnabled": integrations.includes("AI Audit Summary"),
-      "system.aiRecommendationEnabled": integrations.includes("AI Corrective Recommendation"),
     },
   });
   loadApp();
@@ -713,9 +696,9 @@ document.getElementById("feature-visibility-form")?.addEventListener("submit", a
   try {
     await requestJson("/api/settings", "POST", { settings: {
       "system.findingsEnabled": Boolean(form.elements.findingsEnabled.checked),
-      "system.correctiveActionsEnabled": Boolean(form.elements.correctiveActionsEnabled.checked),
+      "system.requirePhotoEveryAsset": Boolean(form.elements.requirePhotoEveryAsset.checked),
     } });
-    setText("[data-feature-visibility-message]", "Section visibility saved.");
+    setText("[data-feature-visibility-message]", "Workflow options saved.");
     await loadApp();
   } catch (error) {
     setText("[data-feature-visibility-message]", error.message);
@@ -734,7 +717,7 @@ document.getElementById("location-form").addEventListener("submit", async (event
     area: formValue(form, "area", ""),
     displayOrder: Number(formValue(form, "displayOrder", "0")) || 0,
     size: formValue(form, "size", ""),
-    equipmentIds: [...form.elements.equipmentIds.selectedOptions].map((option) => Number(option.value)),
+    equipmentIds: [...form.querySelectorAll('[data-location-asset-options] input:checked')].map((input) => Number(input.value)),
   };
   try {
     await requestJson(id ? `/api/locations/${id}` : "/api/locations", id ? "PATCH" : "POST", payload);
@@ -766,11 +749,6 @@ document.getElementById("zone-form").addEventListener("submit", async (event) =>
   loadApp();
 });
 
-wireForm("captain-form", "/api/captain-logins", (form) => ({
-  outlet: formValue(form, "outlet", ""),
-  captainName: formValue(form, "captainName", "Unnamed Captain"),
-}));
-
 
 document.querySelector("[data-report-logo-upload]")?.addEventListener("change", async (event) => {
   const form = document.getElementById("system-settings-form");
@@ -779,12 +757,20 @@ document.querySelector("[data-report-logo-upload]")?.addEventListener("change", 
   try {
     const [image] = await readFilesAsStoredImages(event.target.files);
     if (image) form.elements.logoUrl.value = image.url;
+    renderReportLogo();
     setText("[data-report-logo-message]", "Logo uploaded. Save Settings to apply it.");
   } catch (error) {
     setText("[data-report-logo-message]", error.message);
   } finally { save.disabled = false; }
 });
-document.querySelector("[data-remove-report-logo]")?.addEventListener("click", () => {
+function renderReportLogo() {
+  const url = document.getElementById("system-settings-form")?.elements.logoUrl.value;
+  renderImageTile(document.querySelector("[data-report-logo-tile]"), url ? { url, name: "Report logo" } : {}, "data-remove-report-logo", "Report logo");
+}
+
+document.querySelector("[data-report-logo-tile]")?.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-remove-report-logo]")) return;
   document.getElementById("system-settings-form").elements.logoUrl.value = "";
+  renderReportLogo();
   setText("[data-report-logo-message]", "Logo removed. Save Settings to apply it.");
 });

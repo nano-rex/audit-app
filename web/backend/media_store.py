@@ -1,5 +1,6 @@
 """Validated private image bytes stored as BLOBs in the application SQLite database."""
 import base64
+from collections import OrderedDict
 import hashlib
 from io import BytesIO
 from pathlib import Path
@@ -10,7 +11,7 @@ import threading
 from contextlib import nullcontext
 from backend.relational_values import ACTIVE_CONNECTION
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 
 
 class MediaStore:
@@ -19,6 +20,8 @@ class MediaStore:
     max_bytes = 10 * 1024 * 1024
     _schema_lock = threading.Lock()
     _initialized_paths = set()
+    _thumbnail_lock = threading.Lock()
+    _thumbnails = OrderedDict()
 
     def __init__(self, database_path):
         self.database_path = Path(database_path)
@@ -66,6 +69,29 @@ class MediaStore:
         with self.connect() as db:
             row = db.execute("SELECT content, mime_type FROM media_images WHERE id = ?", (identifier,)).fetchone()
         return (bytes(row[0]), row[1]) if row else None
+
+    def thumbnail(self, identifier, size=240):
+        """A small JPEG for lists, so a page of evidence does not download every full photo."""
+        key = (str(self.database_path), identifier, size)
+        with self._thumbnail_lock:
+            cached = self._thumbnails.get(key)
+            if cached is not None:
+                self._thumbnails.move_to_end(key)
+                return cached
+        stored = self.read(identifier)
+        if stored is None:
+            return None
+        with Image.open(BytesIO(stored[0])) as picture:
+            picture = ImageOps.exif_transpose(picture)
+            picture.thumbnail((size, size))
+            output = BytesIO()
+            picture.convert("RGB").save(output, "JPEG", quality=80)
+        body = output.getvalue()
+        with self._thumbnail_lock:
+            self._thumbnails[key] = body
+            while len(self._thumbnails) > 256:
+                self._thumbnails.popitem(last=False)
+        return body
 
     def exists(self, identifier):
         self.validate_identifier(identifier)

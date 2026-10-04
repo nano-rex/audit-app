@@ -1,100 +1,170 @@
-# Audit App performance review — 14 September 2026
+# Production readiness
 
-This pass implements and tests improvements to the shared web application. It does not certify that every bug has been found, deploy a service, or modify the existing application database. The installed data was inspected read-only: 2,330 assets, one inspection session, no completed audits or work orders, and five users. All write tests used temporary databases.
+The application is a working prototype that runs as one Python process over one SQLite
+database. It has not been deployed or certified for production. This page records what the
+server does today, how to run it behind a proxy, what has been measured, and what is still
+open. Earlier review notes are in the git history of this file.
 
-## Changes implemented
-
-| Problem | Result |
-| --- | --- |
-| Public static handler could serve database files and Python source | Only the public HTML entry points, JavaScript directory, and CSS directory can be served; resolved paths must remain in their permitted directories |
-| Server restart reset built-in account credentials and reactivated accounts | Existing accounts retain their passwords, activation status, roles, and reset flags |
-| Fast SHA-256 password hashes | New passwords use PBKDF2-SHA256 with 600,000 iterations; legacy hashes are upgraded after successful login |
-| Section permissions were largely enforced only in the UI | API checks section permissions; shared selection lists remain available to permitted workflows; inspectors can create work orders from failed checks |
-| SQLite connections survived context-manager exit | Connections explicitly commit or roll back and close; WAL mode, a 15-second busy timeout, and targeted indexes support concurrent access |
-| One unrestricted thread per request | Eight active request workers by default, with a 256-connection listen backlog and a 30-second accepted-connection timeout |
-| Repeated asset queries and JSON compression | Shared, pre-encoded asset, dashboard, and setup responses; bounded to 32 entries, expiring after five seconds and cleared after local database writes |
-| Every screen loaded at startup | Startup loads authentication, branding, setup, and the active tab; other screens load on navigation; duplicate tab requests are combined |
-| Thousands of asset rows rendered together | Fixed Assets displays 100 rows per page; filters still search the entire loaded list |
-| Static files always downloaded again; CSS discovered through imports | ETags and conditional requests, gzip, cached HTML assembly, and direct stylesheet links; static edits are detected within about one second |
-| Dashboard parsed every inspection's saved evidence to count drafts | A SQL count reads no evidence payloads |
-| Report and follow-up counts used an eight-row preview | Counts cover all matching open work orders; critical issues include both High and Priority classifications |
-| Concurrent completion generated duplicate audits | Completion is serialized in a transaction; completed inspections reject later edits with HTTP 409; the UI prevents duplicate clicks and offers New Inspection |
-| Progress could round an unfinished large checklist to 100% | Completion requires every item; incomplete completion requests are rejected consistently |
-| UTC dates could show yesterday in Malaysia | Browser date defaults use the device's local calendar day |
-| Invalid JSON shapes or unbounded body lengths | Top-level objects and inspection-item arrays are validated; request bodies are capped at 20 MiB |
-| Export names could inject response headers | Download filenames are sanitized and quoted |
-
-The five-second response cache is shared only for data that is already shared by these API endpoints. Authentication and permission checks run before cache access. Writes from another process, such as an import tool, become visible after cache expiry. This is not a cross-process cache.
-
-## Verification
-
-From the repository root:
-
-```sh
-python3 -m unittest discover -s tests -v
-node tests/test_frontend.cjs
-python3 tools/load_test.py --users 100
-```
-
-The earlier review ran 11 backend regression tests. The current backend suite has 43 tests. Frontend tests parse browser scripts and exercise startup loading, request coalescing, asset pagination, and local dates in a JavaScript VM; they are not full browser or visual tests. Node.js is not installed in the current workspace, so those tests were not rerun in the latest review. The Android APK was not rebuilt or device-tested.
-
-The load tool starts a loopback server and creates its own temporary database. It seeds 2,500 assets and 300 draft inspections, each containing a synthetic 16 KiB evidence string. A barrier starts 100 simulated, already-authenticated clients together. Each requests the HTML shell, dashboard, and full asset list, then saves a draft: 400 requests total. It verifies the number of drafts actually persisted, rather than relying only on HTTP success. `--baseline` uses `web/server.py` from git HEAD with the current static files and the same synthetic workload. The baseline commit for this review was `d4c5012`; after committing these changes, HEAD will no longer refer to that baseline.
-
-Historical result from the original review on this shared ARM64 environment (four reported CPUs, approximately 2.7 GiB RAM):
-
-| Operation | Median | 95th percentile | Mean response bytes |
-| --- | ---: | ---: | ---: |
-| HTML shell | 1.05 s | 1.56 s | 8,379 |
-| Dashboard | 1.03 s | 1.23 s | 1,111 |
-| Full asset list | 0.99 s | 1.05 s | 42,654 |
-| Save draft | 1.27 s | 1.92 s | 105 |
-| Entire four-request client flow | 4.40 s | 5.04 s | — |
-
-All 400 requests succeeded and all 100 drafts persisted. Total harness time was 5.78 seconds. The baseline timed out on dashboard and asset reads, reported SQLite lock failures, and persisted zero test drafts. The baseline result is a failure under this scenario, not a reliable completed-work throughput measurement.
-
-These figures exclude login hashing, TLS, internet latency, actual image uploads, PDF generation, sustained traffic, and browser rendering. The repeated synthetic evidence string is highly compressible. The client and server share one machine. This establishes a reproducible improvement, not a guarantee for 100 real users in every workflow.
-
-## Deployment path
-
-1. Stage one application process on a Linux host with local SSD storage. Four vCPUs and 4–8 GiB RAM are a starting capacity estimate; validate it using production-shaped data. Begin with `AUDIT_WORKERS=8`. Increasing threads without measurements made this workload worse.
-2. Put TLS termination, request buffering, request-size limits, and login/registration rate limiting in a reverse proxy. Keep the application bound to loopback. Set `AUDIT_SECURE_COOKIES=1` when the site is served only over HTTPS. Do not expose the repository or database directory through the proxy's static-file root. Nginx supports request-rate limits through its [limit_req module](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html); tune limits for users sharing an outlet's public IP address.
-3. Before a public production launch, move HTTP handling into a maintained WSGI/ASGI application and server. This code still uses `http.server`, which Python explicitly [does not recommend for production](https://docs.python.org/3/library/http.server.html). The local changes and load result do not remove that limitation.
-4. Sessions are stored in SQLite and survive restarts; processes using the same local database can read them. Expired rows are cleaned during startup and when an expired token is used. Add login throttling before public launch, and keep the database on local storage. Rotate prototype credentials before external access.
-5. Keep SQLite on local storage while the workload remains modest. WAL allows readers and a writer to overlap, but still permits only one writer at a time and is unsuitable for a database shared over a network filesystem. See [SQLite WAL constraints](https://www.sqlite.org/wal.html). Move to PostgreSQL when measured write contention, durable job workers, or multi-host operation requires it.
-6. Move photo bytes out of JSON fields into private object storage, with size limits and thumbnails. Add database-side pagination and filters to assets, findings, work orders, and inspection history as data grows. Current asset pagination limits browser DOM size; the API still returns the full requested asset set.
-7. Run a sustained staging test with realistic photos, audit history, login bursts, and exports. Measure errors, p95 latency, memory, disk latency, and SQLite busy errors. Suggested initial acceptance criteria: no lost or duplicate writes, zero unexpected server errors, and p95 under two seconds for routine API operations. These are proposed targets, not a measured production SLA.
-
-Configuration supported now:
+## Configuration
 
 ```sh
 AUDIT_DATA_DIR=/absolute/path/to/audit-data \
 AUDIT_WORKERS=8 \
 AUDIT_SECURE_COOKIES=1 \
+AUDIT_TRUST_PROXY=1 \
 PORT=41883 \
 python3 web/server.py
 ```
 
-Use `AUDIT_SECURE_COOKIES=1` only behind HTTPS; otherwise browsers will not send the session cookie over HTTP. The default database remains under `web/data/`. No external dependency was added to the Python server.
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `AUDIT_DATA_DIR` | `web/data` | Directory holding the SQLite database and its backups |
+| `AUDIT_WORKERS` | `8` | Requests handled at once; more threads made the measured workload slower |
+| `AUDIT_SECURE_COOKIES` | off | `1` marks the session cookie HTTPS-only. Use it only behind HTTPS, otherwise browsers will not send the cookie |
+| `AUDIT_TRUST_PROXY` | off | `1` takes the client address from the last `X-Forwarded-For` entry. Use it only behind a reverse proxy you control |
+| `PORT` | `41883` | Listening port. The server always binds to `127.0.0.1` |
+| `AUDIT_CONTROL_DB` | `<data dir>/control/control.db` | The Super accounts' own database; see Super accounts |
+| `AUDIT_SESSION_COOKIE` | from `PORT` | Name of the session cookie; see Running several organizations |
 
-## Remaining correctness and release risks
+## What the server does
 
-- The Android app is separate and offline, with synchronization deferred. Its current schema upgrade preserves existing records and creates missing tables, but still needs an APK build and device upgrade/restore test before release.
-- Web permissions are section-level, not outlet ownership or tenant isolation. Define those access rules before exposing the application to separate organizations.
-- Full endpoint field validation, login throttling, and every inspection-to-work-order edge case are not covered by this test suite. Existing prototype account credentials and administrative reset behavior still require a release review.
+- **Static files:** only the HTML entry points and the `js/` and `css/` directories are served.
+  Responses carry ETags, gzip, `X-Content-Type-Options`, `X-Frame-Options: SAMEORIGIN`, and
+  `Referrer-Policy: same-origin`.
+- **Passwords and sessions:** PBKDF2-SHA256 with 600,000 iterations; older hashes are upgraded
+  at sign-in. Sessions are stored as token hashes in SQLite and survive restarts. Deactivation,
+  password reset, and password change revoke sessions. An account flagged to change its
+  password (created on the default password, or reset by an administrator) is refused every
+  request except reading its own account, changing the password, and signing out.
+- **Sign-in limit:** five failed attempts for one identifier from one client address within 15
+  minutes return HTTP 429 with `Retry-After`. Every attempt performs one password hash, so
+  response time does not reveal which accounts exist. The limiter is held in memory: it
+  resets on restart and is not shared between processes.
+- **Company databases:** the Super account can create, switch, and remove databases. The
+  selected one is recorded in the data directory and reopened after a restart; a database is
+  brought up to the current schema when it is selected.
+- **Requests:** authentication is checked before a request body is read. Bodies are capped at
+  20 MiB (64 KiB for sign-in routes) and must be JSON objects.
+- **Access:** page permissions are enforced by the API, not only by the interface. Work-order
+  steps, verification, signatures, and audit closure check the caller's capabilities.
+- **Errors:** expected failures return JSON with a 4xx status; unexpected ones are logged and
+  return a JSON 500.
+- **SQLite:** WAL mode, a 15-second busy timeout, foreign keys enforced, and explicit
+  commit/rollback/close per request. Audit completion and closure are serialised in a
+  transaction, so concurrent requests cannot create duplicates.
+- **Caching:** dashboard, report, setup, and asset responses are cached in memory for five
+  seconds and cleared after a local write. Writes from another process appear after expiry.
 
-## Rollout and rollback
+## Deployment path
 
-Back up the database using SQLite's backup API before restarting with the changes. For a running WAL database, do not back up only the main `.db` file using an ordinary file copy. Keep the backup outside any public document root and test restoring it into a separate directory.
+1. Run one application process on a Linux host with local SSD storage. Four vCPUs and 4–8 GiB
+   of RAM are a starting estimate; validate it with production-shaped data.
+2. Put TLS termination, request buffering, request-size limits, and rate limiting in a reverse
+   proxy, and keep the application bound to loopback. Set `AUDIT_SECURE_COOKIES=1` and
+   `AUDIT_TRUST_PROXY=1`. Do not expose the repository or data directory through the proxy.
+   Without `AUDIT_TRUST_PROXY=1`, every client appears to come from the proxy, so five failed
+   sign-ins for one username lock that username for everyone for 15 minutes.
+3. The application limits registrations to ten per hour per client address, and password-reset
+   requests to one per account per 15 minutes. Add proxy rate limits if you need tighter ones.
+4. In a database created by this release, each starter account must change its password at
+   first sign-in. A database created earlier keeps whatever passwords its accounts have;
+   change any that are still the published ones.
+5. Before a public launch, move HTTP handling to a maintained WSGI/ASGI server. The code uses
+   `http.server`, which Python [does not recommend for production](https://docs.python.org/3/library/http.server.html).
+6. Keep SQLite on local storage while the workload is modest. WAL allows one writer at a time
+   and is unsuitable for network filesystems ([SQLite WAL](https://www.sqlite.org/wal.html)).
+   Move to PostgreSQL when measured write contention or multi-host operation requires it.
 
-Restarting applies WAL and creates indexes idempotently. The existing live database was not migrated during this review. The response cache is in memory and requires no migration; SQLite-backed sessions remain valid across restart.
+## Super accounts
 
-Retain the previous code release and a verified database backup. After successful logins or password changes, hashes may use the new PBKDF2 format, so rolling back to the old SHA-only verifier would break those logins. Keep the compatible verifier in any rollback release, or restore the pre-rollout backup with explicit acceptance of losing subsequent data. Do not reset user passwords to prototype defaults as a rollback mechanism.
+Super accounts, their sessions, sign-in history, and page order are kept in a control database
+(`control/control.db` under the data directory, or `AUDIT_CONTROL_DB`), separate from every
+organization's database. An organization database holds only its own people; the Super role
+cannot be assigned in it, and its users cannot take a Super account's username or email.
 
-## Follow-up code review — 20 September 2026
+- On the first start of this release, any Super account found in an organization database is
+  moved to the control database with its name and password; drafts it owned stay with it and
+  its sign-in history moves with it. If no Super account exists anywhere, a starter account
+  (`super`) is created and must change its published password at first sign-in.
+- Back up the control database with the organization databases; without it nobody can sign in
+  as Super. It is ignored by git.
+- Instances run for different organizations can share Super accounts by pointing
+  `AUDIT_CONTROL_DB` at the same file on the same host.
 
-- Asset, dashboard, and report value hydration now batches relational value reads instead of opening a connection for each populated row. Media-table setup now runs once per database file per process rather than on every image-bearing request.
-- SQLite foreign-key enforcement is enabled on every application connection, and the initialized test database passes `PRAGMA foreign_key_check`.
-- Authentication now resolves the stored session, active user, and effective permissions with one SQLite connection per request. Logout also reads and deletes a session in one connection; administrator deactivation and password reset share one session-revocation operation.
-- Android Manager/Director role switching now opens a registered dashboard tab, and its audit-area cards switch the active area.
-- Verification: 43 backend tests pass; pyflakes and `git diff --check` pass. The 100-user harness completed 400 requests with no HTTP/server errors and persisted all 100 drafts. Latest measured p95s were 1.21 s for the HTML shell, 1.29 s for dashboard, 1.53 s for the full asset list, and 3.03 s for saving a draft; the four-request client flow had a 6.91 s p95. Authentication reuse and batched relational hydration improved the burst flow, while SQLite draft writes still exceed a two-second target. This is a synthetic regression/load signal, not a production guarantee.
-- The current workspace lacks Node.js and the Android SDK/JDK executables are x86-64 on ARM64, so frontend and Android build/device checks could not be rerun here.
+## Running several organizations
+
+Each organization can run as its own instance: a separate process with its own data directory
+and port. Instances share nothing; each has its own database, sessions, uploads, and theme.
+
+```sh
+AUDIT_DATA_DIR=/srv/audit/company-a PORT=41891 python3 web/server.py
+AUDIT_DATA_DIR=/srv/audit/company-b PORT=41892 python3 web/server.py
+```
+
+- Give each instance its own data directory. Two instances must not point at the same one.
+- Browsers share cookies between ports of one host, so each instance names its session cookie
+  after its port (`ottotree_session_41891`); the default port keeps `ottotree_session`. Set
+  `AUDIT_SESSION_COOKIE` to choose a name, for example when instances are moved to other ports.
+- Behind a reverse proxy, give each instance its own host name (`a.audit.example`,
+  `b.audit.example`). Serving instances under paths of one host name (`/a/`, `/b/`) is not
+  supported: the pages request `/api/...` from the root.
+- A service manager can run one unit per instance, for example a systemd template
+  `audit-app@.service` with `EnvironmentFile=/etc/audit-app/%i.env` holding that instance's
+  `AUDIT_DATA_DIR`, `PORT`, and other settings.
+
+## Backup and rollback
+
+Back up with SQLite's backup API; do not copy only the main `.db` file of a running WAL
+database. A complete backup includes all images. Keep backups outside any public document root
+and test restoring one into a separate directory.
+
+Starting a new release applies schema changes and indexes idempotently. On the first start
+with a database from before the SQLite-only storage change, a verified backup is written to
+`backups/` under the data directory before conversion; rolling back past that point means
+restoring that backup. After a sign-in or password change, hashes use PBKDF2, so a rollback
+release must keep the compatible verifier.
+
+## Measured
+
+The load tool (`tools/load_test.py --users 100`) starts a loopback server on a temporary
+database with 2,500 assets and 300 draft inspections, then has 100 already-authenticated
+clients each request the page shell, dashboard, and asset list and save a draft.
+
+Latest run on this shared ARM64 host (four CPUs, about 2.7 GiB RAM), on 2 October 2026 with
+the current code: all 400 requests succeeded and all 100 drafts were stored. The
+95th-percentile times were about 1.6 s for the page shell, 1.3 s for the dashboard, 1.4 s for
+the asset list, and 3.6 s for saving a draft; runs on this host vary by several tenths of a
+second. Draft saves therefore miss a two-second target in this burst test.
+
+These figures exclude sign-in hashing, TLS, network latency, image uploads, PDF generation,
+sustained traffic, and browser rendering, and the client shares the machine with the server.
+They are a regression signal, not a capacity guarantee.
+
+## Verified, and not
+
+- 73 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
+- The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
+  Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
+  from outside the repository and is not an automated test here.
+- Not verified: the photo marking tool, QR scanning, real phone cameras, browsers other than
+  Chromium, sustained or production-shaped load, and the Android app (not rebuilt or
+  device-tested; its SDK and JDK binaries do not run on this host).
+
+## Open items
+
+- **Committed data:** `web/data/ottotree_audit_web.db` is tracked in git with user rows and
+  password hashes. Its accounts were created before starter accounts were required to change
+  their passwords, and those starter passwords are published in `web/backend/seed_data.py`.
+- **One intermittent test failure** was seen once in about ten full runs of the backend suite
+  on 2 October 2026: after the database create/switch test, every later request in that test
+  class was answered 401. It did not recur in repeated runs and its cause was not found.
+- **Access scope** is by page, not by outlet or tenant. Department/PIC accounts see only their
+  own work orders and findings; other roles see every outlet.
+- **Lists are paginated in the browser.** The API returns the full asset, finding, work-order,
+  and history lists.
+- **Draft saves** rewrite the whole checklist on every save. Re-saving a 400-check draft
+  takes about 0.3 s here (2.1 s before the `value_nodes` parent index was added) and a
+  2,000-check draft about 1.1 s. The load test does not exercise this: its 100 simultaneous
+  saves are small new drafts, and their time is commit and file-close cost on this host's
+  disk, queued one writer at a time. Keeping an idle connection open and
+  `synchronous=NORMAL` were both tried and made no measurable difference here.

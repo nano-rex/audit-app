@@ -2,7 +2,7 @@
 from backend.relational_values import load_value, save_value
 import time
 from backend.common import hash_password
-from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, SUPER_ROLE
+from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, DEFAULT_THEME_SETTINGS, OTTOTREE_THEME
 
 
 def seed_schedules(db):
@@ -145,11 +145,10 @@ def add_locations_to_default_zone(db, outlet, now=None):
 
 
 def seed_users(db):
+    """Starter accounts for a new database. Their passwords are in this file, so each must be changed at first sign-in."""
     now = int(time.time() * 1000)
-    db.execute("UPDATE OR IGNORE users SET email = 'super@sudo' WHERE lower(email) = 'super@audit-app.local'")
-    db.execute("DELETE FROM users WHERE lower(email) = 'super@audit-app.local'")
+    # The Super account is not an organization user; it lives in the control database.
     rows = [
-        ("Super User", "super", SUPER_ROLE, "super@sudo", "SSD", "Super", "Full app control", "doas"),
         ("Ottotree System Administrator", "admin", ADMIN_ROLE, "admin@ottotree.local", "SSD", "System Administrator", "Ottotree system administrator staff", DEFAULT_PASSWORD),
         ("Gavin", "gavin", "System Support Executive", "gavin@audit.local", "SSD", "System Support Executive", "System support executive", "123456"),
         ("Jacky", "jacky", "System Support Officer", "jacky@audit.local", "SSD", "System Support Officer", "System support officer", "123456"),
@@ -157,12 +156,13 @@ def seed_users(db):
         ("Hui", "hui", "Facilities Executive", "hui@audit.local", "FMS", "Facilities Executive", "Facilities executive", "123456"),
     ]
     for row in rows:
-        if db.execute("SELECT 1 FROM users WHERE email = ?", (row[2],)).fetchone():
+        # Checked by email (it used to compare the role, so every start re-hashed every password).
+        if db.execute("SELECT 1 FROM users WHERE lower(email) = ?", (row[3],)).fetchone():
             continue
         db.execute(
             """
             INSERT INTO users (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
             ON CONFLICT(email) DO UPDATE SET username = COALESCE(users.username, excluded.username)
             """,
             (row[0], row[1], row[2], row[3], row[4], hash_password(row[7]), row[5], row[6], now),
@@ -171,31 +171,17 @@ def seed_users(db):
 
 def seed_roles(db):
     now = int(time.time() * 1000)
-    full_permissions = save_value(db, [tab[0] for tab in APP_TABS])
     admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("settings",)]
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
         ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
-        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "corrective-actions", "notifications", "reports"]),
+        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "notifications", "reports"]),
         ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
-        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
-        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "corrective-actions", "notifications"]),
+        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "notifications"]),
+        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "notifications"]),
         ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "findings", "work-orders", "notifications"]),
         ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "findings", "work-orders", "notifications"]),
     ]
-    if not db.execute("SELECT id FROM roles WHERE name = ?", (SUPER_ROLE,)).fetchone():
-        db.execute("UPDATE roles SET name = ?, description = 'Built-in full access role' WHERE name = 'Admin'", (SUPER_ROLE,))
-    db.execute(
-        """
-        INSERT OR IGNORE INTO roles (name, description, permissions_data_id, protected, created_at)
-        VALUES (?, 'Built-in full access role', ?, 1, ?)
-        """,
-        (SUPER_ROLE, full_permissions, now),
-    )
-    db.execute(
-        "UPDATE roles SET permissions_data_id = ?, protected = 1 WHERE name = ?",
-        (full_permissions, SUPER_ROLE),
-    )
     for name, description, permissions in role_rows:
         db.execute(
             """
@@ -224,6 +210,23 @@ def seed_roles(db):
                    (save_value(db, ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
 
 
+def retire_corrective_actions_page(db):
+    """Corrective Actions was a second view of Work Orders with the same access; fold its permission into Work Orders."""
+    def merged(permissions):
+        return list(dict.fromkeys("work-orders" if page == "corrective-actions" else page for page in permissions))
+
+    for role in db.execute("SELECT id, permissions_data_id FROM roles WHERE permissions_data_id IS NOT NULL").fetchall():
+        permissions = load_value(role["permissions_data_id"]) or []
+        if "corrective-actions" in permissions:
+            db.execute("UPDATE roles SET permissions_data_id = ? WHERE id = ?", (save_value(db, merged(permissions)), role["id"]))
+    for user in db.execute("SELECT id, permission_overrides_data_id FROM users WHERE permission_overrides_data_id IS NOT NULL").fetchall():
+        overrides = load_value(user["permission_overrides_data_id"]) or {}
+        if "corrective-actions" in overrides.get("permissions", []):
+            overrides["permissions"] = merged(overrides["permissions"])
+            db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?", (save_value(db, overrides), user["id"]))
+    db.execute("DELETE FROM app_settings WHERE key = 'system.correctiveActionsEnabled'")
+
+
 def seed_priority_levels(db):
     now = int(time.time() * 1000)
     for row in DEFAULT_PRIORITY_LEVELS:
@@ -249,7 +252,11 @@ def seed_audit_types(db):
 
 
 def seed_settings(db):
+    company = db.execute("SELECT value_data_id FROM app_settings WHERE key = 'report.companyName'").fetchone()
+    company = load_value(company[0]) if company else DEFAULT_REPORT_SETTINGS["companyName"]
+    theme = DEFAULT_THEME_SETTINGS | (OTTOTREE_THEME if str(company).strip().lower() == "ottotree" else {})
     settings = {
+        **{f"theme.{key}": value for key, value in theme.items()},
         **{f"scoring.{key}": value for key, value in DEFAULT_SCORING_SETTINGS.items()},
         **{f"report.{key}": value for key, value in DEFAULT_REPORT_SETTINGS.items()},
         **{f"system.{key}": value for key, value in DEFAULT_SYSTEM_SETTINGS.items()},

@@ -3,6 +3,7 @@ import re
 import os
 import threading
 from collections import OrderedDict
+from contextvars import ContextVar
 from pathlib import Path
 
 
@@ -13,6 +14,29 @@ DATA_DIR = Path(os.environ.get("AUDIT_DATA_DIR", str(ROOT / "data"))).resolve()
 
 
 DB_PATH = DATA_DIR / "ottotree_audit_web.db"
+
+
+# Browsers share cookies between ports of the same host, so instances running side by side
+# (one per organization) each need their own session cookie name. The default port keeps the
+# original name so existing sign-ins survive.
+def _session_cookie_name():
+    name = os.environ.get("AUDIT_SESSION_COOKIE", "").strip()
+    if not name:
+        port = os.environ.get("PORT", "41883").strip()
+        name = "ottotree_session" if port == "41883" else f"ottotree_session_{port}"
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", name):
+        raise SystemExit("AUDIT_SESSION_COOKIE may use only letters, digits, hyphens, and underscores")
+    return name
+
+
+SESSION_COOKIE = _session_cookie_name()
+
+# Lets one thread initialize another database without redirecting concurrent requests.
+DB_PATH_OVERRIDE = ContextVar("audit_db_path_override", default=None)
+
+
+def active_db_path():
+    return DB_PATH_OVERRIDE.get() or DB_PATH
 
 
 LOUDSPEAKER_OUTLETS = ("STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS")
@@ -43,6 +67,18 @@ DEFAULT_INSPECTION_CRITERIA = [
     "Operational during inspection",
     "Label, cable, or accessory is complete",
 ]
+
+
+# Fixtures & finishes are parts of the building itself (paint, tiles, pipes, sanitary ware).
+DEFAULT_FIXTURE_CRITERIA = [
+    "Clean and free from stains or marks",
+    "Intact with no cracks, leaks, or loose parts",
+    "Works as intended",
+    "Safe with no hazard to users",
+]
+
+
+ITEM_KINDS = ("asset", "fixture")
 
 
 DEFAULT_PRIORITY_LEVELS = [
@@ -76,7 +112,6 @@ DEFAULT_REPORT_SETTINGS = {
     "appTitle": "Ottotree Audit",
     "appSubtitle": "Loudspeaker & Mini Studio operations",
     "businessUnitLabel": "Ottotree",
-    "todayHeading": "inspections for today",
     "reportHeading": "audit report",
     "loginTitle": "Ottotree Audit",
 }
@@ -84,23 +119,45 @@ DEFAULT_REPORT_SETTINGS = {
 
 DEFAULT_SYSTEM_SETTINGS = {
     "findingsEnabled": True,
-    "correctiveActionsEnabled": True,
-    "emailEnabled": False,
-    "whatsappEnabled": False,
-    "pushEnabled": False,
-    "cmmsEnabled": False,
-    "preventiveMaintenanceEnabled": False,
-    "aiPhotoDetectionEnabled": False,
-    "aiSummaryEnabled": False,
-    "aiRecommendationEnabled": False,
+    # When off, only assets with a failed check need photo evidence before an inspection can be completed.
+    "requirePhotoEveryAsset": True,
 }
+
+
+# An organization's look. Each company database stores its own; the Super account edits it.
+THEME_CHOICES = {
+    "preset": ("default", "ottotree", "ocean", "plum", "ember", "slate"),
+    "font": ("system", "noto-sans-sc", "serif"),
+    "corners": ("rounded", "square", "soft"),
+    "density": ("comfortable", "compact"),
+    "mode": ("system", "light", "dark"),
+}
+
+
+DEFAULT_THEME_SETTINGS = {
+    "preset": "default",
+    "accent": "",          # "#rrggbb" replaces the preset's accent colour; empty keeps it.
+    "font": "system",
+    "corners": "rounded",
+    "density": "comfortable",
+    "mode": "system",      # The organization's default appearance.
+    "userChoice": True,    # Whether each user may pick light or dark for themselves.
+}
+
+
+# Accent colour of each palette, used where CSS is not available (the PDF report).
+THEME_PRESET_ACCENTS = {"default": "#47735f", "ottotree": "#1e99b4", "ocean": "#2563eb", "plum": "#7c3aed", "ember": "#c2410c", "slate": "#475569"}
+
+
+# The theme modelled on Ottotree's PM checklist reports: teal accent and Noto Sans SC.
+OTTOTREE_THEME = {"preset": "ottotree", "font": "noto-sans-sc"}
 
 
 APP_TABS = (
     ("today", "Dashboard"),
     ("inspections", "Inspections"),
     ("findings", "History & Findings"),
-    ("work-orders", "Work Orders"),
+    ("work-orders", "Maintenance"),
     ("equipment", "Fixed Assets"),
     ("reports", "Reports"),
     ("categories", "Categories"),
@@ -108,7 +165,6 @@ APP_TABS = (
     ("outlets", "Outlets"),
     ("users", "Users"),
     ("roles", "Roles"),
-    ("corrective-actions", "Corrective Actions"),
     ("notifications", "Notifications"),
     ("settings", "Settings"),
 )

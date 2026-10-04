@@ -20,9 +20,42 @@ async function loadGuidedSchedules() {
   renderGuidedSchedules();
 }
 
+// Drafts started without a schedule (older inspections) are work in progress too, so they are
+// listed with the schedules instead of only in History.
+function unscheduledDrafts() {
+  return inspectionHistoryCache.filter((row) => !row.schedule_id && row.status !== "Completed" && !row.closed_at);
+}
+
 function renderGuidedSchedules() {
-  const page = paginateList("scheduled-work", guidedSchedules, "", renderGuidedSchedules);
-  setHtml("[data-guided-schedules]", (page.items.length ? page.items.map(scheduleRow).join("") : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
+  const finished = (row) => ["Completed", "Cancelled"].includes(row.status);
+  const work = [
+    ...guidedSchedules.filter((row) => !finished(row)).map((row) => ({ kind: "schedule", row })),
+    ...unscheduledDrafts().map((row) => ({ kind: "draft", row })),
+    ...guidedSchedules.filter(finished).map((row) => ({ kind: "schedule", row })),
+  ];
+  const page = paginateList("scheduled-work", work, "", renderGuidedSchedules);
+  setHtml("[data-guided-schedules]", (page.items.length
+    ? page.items.map((entry) => entry.kind === "draft" ? unscheduledDraftRow(entry.row) : scheduleRow(entry.row)).join("")
+    : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
+}
+
+function unscheduledDraftRow(row) {
+  const status = inspectionHistoryProgressStatus(row);
+  const auditor = (currentUser?.inspectionPermissions || []).includes("auditor");
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(auditTitle(row, ""))}</b>
+        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(lastSaved(row))}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(null))}</span>
+      </div>
+      <span class="row-actions">
+        <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
+        <button type="button" class="primary" data-open-inspection-session="${Number(row.id)}">Open</button>
+        ${auditor ? `<button type="button" class="danger" data-delete-inspection-session="${Number(row.id)}">Delete</button>` : ""}
+      </span>
+    </article>
+  `;
 }
 
 function openScheduledInspection(row) {
@@ -39,10 +72,6 @@ function showInspectionSubtab(tabId) {
     panel.classList.toggle("active", panel.dataset.inspectionPanel === tabId);
   });
 }
-async function loadChecklist() {
-  await updateInspectionLocationSelect();
-}
-
 async function loadInspectionItems() {
   const form = document.getElementById("inspection-form");
   if (!form || !checklistContainer) return;
@@ -60,9 +89,13 @@ async function loadInspectionItems() {
   const equipmentData = await equipmentResponse.json();
   const locationData = await locationResponse.json();
   const zoneData = await zoneResponse.json();
-  inspectionItems = equipmentData.items;
+  // A visit scheduled for particular locations shows only those; an empty list means all.
+  const scope = new Set(visitLocations(form));
+  const inScope = (name) => !scope.size || scope.has(name);
+  inspectionItems = equipmentData.items.filter((item) => inScope(item.location || item.zone || "Unassigned"));
   inspectionPageDrafts = new Map();
-  const locationNames = new Set(locationData.items.map((location) => location.name));
+  renderInspectionFilter();
+  const locationNames = new Set(locationData.items.map((location) => location.name).filter(inScope));
   inspectionItems.forEach((item) => {
     const location = item.location || item.zone || "Unassigned";
     locationNames.add(location);
@@ -82,15 +115,26 @@ async function loadInspectionItems() {
   updateInspectionProgress();
 }
 
+function visitLocations(form) {
+  try {
+    const value = JSON.parse(form.dataset.visitLocations || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (error) {
+    return [];
+  }
+}
+
 function renderInspectionZones(locations, zones, equipment) {
   const locationNames = locations.map((location) => location.name);
   const locationSet = new Set(locationNames);
   const assigned = new Set();
-  const normalizedZones = zones.map((zone) => ({
-    ...zone,
-    locations: (zone.locations || []).filter((name) => locationSet.has(name)),
-  }));
-  normalizedZones.forEach((zone) => zone.locations.forEach((name) => assigned.add(name)));
+  // A location listed in two zones is inspected once, under the first; a second copy would
+  // split its items from the tab that shows it.
+  const normalizedZones = zones.map((zone) => {
+    const own = (zone.locations || []).filter((name) => locationSet.has(name) && !assigned.has(name));
+    own.forEach((name) => assigned.add(name));
+    return { ...zone, locations: own };
+  });
   const unassigned = locationNames.filter((name) => !assigned.has(name));
   let zoneOne = normalizedZones.find((zone) => zone.name.toLowerCase() === "zone-1");
   if (!zoneOne) {
@@ -128,7 +172,7 @@ function inspectionZoneCard(zoneName, locations, equipment) {
 function inspectionLocationShell(location) {
   return `<section class="inspection-location" data-inspection-location="${escapeAttr(location)}" hidden>
     <header><h4>${escapeHtml(location)}</h4><span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span></header>
-    <div data-location-items>${loadingMarkup("Loading fixed assets…")}</div>
+    <div data-location-items>${loadingMarkup("Loading items…")}</div>
   </section>`;
 }
 
@@ -147,7 +191,6 @@ function captureInspectionPageDrafts(location) {
         item: criterionRow.dataset.criterion,
         passed: formData.get(`equipment-${equipmentId}-criterion-${index}`) === "pass",
         notApplicable: false,
-        category: "",
         notes: formData.get(`equipment-${equipmentId}-notes-${index}`) || "",
         images,
       });
@@ -160,9 +203,13 @@ function renderInspectionLocationItems(location) {
   const section = [...document.querySelectorAll("[data-inspection-location]")].find((node) => node.dataset.inspectionLocation === location);
   const container = section?.querySelector("[data-location-items]");
   if (!container) return;
-  const items = inspectionLocationEquipment.get(location) || [];
-  const page = paginateList(`inspection-location-${location}`, items, location, () => renderInspectionLocationItems(location));
-  container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`) + page.controls;
+  const all = inspectionLocationEquipment.get(location) || [];
+  const items = all.filter(matchesInspectionFilter);
+  const page = paginateList(`inspection-location-${location}`, items, { location, ...inspectionFilter }, () => renderInspectionLocationItems(location));
+  const empty = all.length
+    ? `<article class="check-item"><div><span>Filtered</span><strong>Nothing in this location matches the filter.</strong></div></article>`
+    : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
+  container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : empty) + page.controls;
   applyInspectionSessionItems();
   page.items.forEach((equipment) => {
     const rows = container.querySelectorAll(`[data-equipment-id="${equipment.id}"] [data-criterion]`);
@@ -170,6 +217,7 @@ function renderInspectionLocationItems(location) {
       const draft = inspectionPageDrafts.get(`${equipment.id}:${criterionRow.dataset.criterion}`);
       if (!draft) return;
       criterionRow.dataset.findingDetails = JSON.stringify(draft);
+      renderFindingSummary(criterionRow);
       const id = equipment.id;
       const index = [...criterionRow.parentElement.querySelectorAll("[data-criterion]")].indexOf(criterionRow);
       const check = criterionRow.querySelector("[data-inspection-check]");
@@ -182,18 +230,35 @@ function renderInspectionLocationItems(location) {
   });
 }
 
-function inspectionLocationCard(location, items) {
-  return `
-    <section class="inspection-location" data-inspection-location="${escapeAttr(location)}" hidden>
-      <header>
-        <h4>${escapeHtml(location)}</h4>
-        <span class="status-pill status-untouched" data-location-status="${escapeAttr(location)}">(0%)</span>
-      </header>
-      ${items.length
-        ? items.map(inspectionItemCard).join("")
-        : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`}
-    </section>
-  `;
+function matchesInspectionFilter(item) {
+  return (!inspectionFilter.kind || (item.kind || "asset") === inspectionFilter.kind)
+    && (!inspectionFilter.category || (item.category || "") === inspectionFilter.category);
+}
+
+// Offer the categories the outlet's items actually use, and say how much of the checklist is shown.
+function renderInspectionFilter() {
+  const select = document.querySelector("[data-inspection-filter-category]");
+  if (!select) return;
+  const categories = [...new Set(inspectionItems.map((item) => item.category || "").filter(Boolean))].sort();
+  if (inspectionFilter.category && !categories.includes(inspectionFilter.category)) inspectionFilter.category = "";
+  updateSelectOptions(select, categories, true, "All categories");
+  select.value = inspectionFilter.category;
+  const kind = document.querySelector("[data-inspection-filter-kind]");
+  if (kind) kind.value = inspectionFilter.kind;
+  const shown = inspectionItems.filter(matchesInspectionFilter).length;
+  const filtered = Boolean(inspectionFilter.kind || inspectionFilter.category);
+  setText("[data-inspection-filter-summary]", filtered
+    ? `Showing ${shown} of ${inspectionItems.length} items. Progress below counts the shown items; the whole checklist must be finished to complete the inspection.`
+    : `${inspectionItems.length} items to inspect.`);
+}
+
+function applyInspectionFilter() {
+  renderInspectionFilter();
+  // Re-render the locations already opened; the others are filtered when they are opened.
+  document.querySelectorAll("[data-inspection-location]").forEach((section) => {
+    if (section.dataset.loaded) renderInspectionLocationItems(section.dataset.inspectionLocation);
+  });
+  updateInspectionProgress();
 }
 
 function inspectionItemCard(item) {
@@ -201,10 +266,11 @@ function inspectionItemCard(item) {
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
-        <span>${escapeHtml(item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
+        <span>${escapeHtml(item.kind === "fixture" ? "Fixture & finish" : item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.category || "No category")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
         <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
       </div>
-      <label>Images<input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images><small data-saved-images></small></label>
+      <button class="outline pass-all" type="button" data-pass-all>Pass all</button>
+      <div class="image-field"><span class="image-field-label">Images</span><div class="image-tiles"><label class="image-pick"><input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images aria-label="Add images"><span>Choose file</span></label><div class="saved-images" data-saved-images></div></div></div>
       ${criteria.map((criterion, index) => `
         <div class="criteria-row" data-criterion="${escapeAttr(criterion)}">
           <label><input type="checkbox" name="equipment-${item.id}-criterion-${index}" value="pass" data-inspection-check='${escapeAttr(JSON.stringify({
@@ -214,13 +280,26 @@ function inspectionItemCard(item) {
             type: item.type || item.equipment_type || "Fixed Asset",
             outlet: item.outlet,
             location: item.location || item.zone || "",
+            category: item.category || "",
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
-          <input name="equipment-${item.id}-notes-${index}" placeholder="Required when unchecked">
+          <button class="outline" type="button" data-record-finding>Finding details</button>
+          <input name="equipment-${item.id}-notes-${index}" placeholder="Remark if not passed">
+          <small class="finding-summary" data-finding-summary hidden></small>
         </div>
       `).join("")}
     </article>
   `;
+}
+
+function renderFindingSummary(criterionRow) {
+  const summary = criterionRow?.querySelector("[data-finding-summary]");
+  if (!summary) return;
+  const details = parseStoredObject(criterionRow.dataset.findingDetails);
+  // Every item carries its category; a priority means finding details were recorded for this criterion.
+  const parts = details.priority ? [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean) : [];
+  summary.textContent = parts.length ? `Finding: ${parts.join(" · ")}` : "";
+  summary.hidden = !parts.length;
 }
 
 function renderInspectionImages(images) {
@@ -383,13 +462,15 @@ async function loadInspectionHistory() {
   inspectionHistoryCache = data.items || [];
   updateHistoryFilterSelects();
   renderInspectionHistory();
+  // Scheduled Work also lists drafts without a schedule, which come from this list.
+  if (document.querySelector("[data-guided-schedules]")) renderGuidedSchedules();
 }
 
 function renderInspectionHistory() {
   const search = inspectionHistorySearch.toLowerCase();
   const rows = inspectionHistoryCache.filter((row) => {
     const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-    const haystack = [row.audit_ref, row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
+    const haystack = [row.audit_ref, row.inspection_name, scheduleLabel(row.schedule_id), row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
       && (!historyFilters.dateFrom || row.audit_date >= historyFilters.dateFrom)
       && (!historyFilters.dateTo || row.audit_date <= historyFilters.dateTo)
@@ -410,14 +491,13 @@ function renderInspectionHistory() {
 }
 
 function inspectionHistoryRow(row) {
-  const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "No saved time";
   const status = inspectionHistoryProgressStatus(row);
   return `
     <article>
       <div>
-        <b>${escapeHtml(row.audit_ref || "")} · ${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
-        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(savedAt)}</span>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
+        <b>${escapeHtml(auditTitle(row, ""))}</b>
+        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(lastSaved(row))}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(row.schedule_id))} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
@@ -450,13 +530,15 @@ function collectInspectionPayload(complete = false) {
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const criterion = criterionRow.dataset.criterion;
       const passed = formData.get(`equipment-${row.dataset.equipmentId}-criterion-${index}`) === "pass";
+      const details = parseStoredObject(criterionRow.dataset.findingDetails);
       items.push({
-        ...parseStoredObject(criterionRow.dataset.findingDetails),
+        ...details,
         equipmentId: row.dataset.equipmentId,
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
-        category: "",
+        // A finding may be given its own category; otherwise the item's category applies (it also drives weighted scoring).
+        category: details.category || equipment?.category || "",
         passed,
         notApplicable: false,
         score: passed ? 100 : 0,
@@ -481,7 +563,7 @@ function collectInspectionPayload(complete = false) {
       location: equipment.location || equipment.zone || "",
       section: equipment.name || equipment.asset_id || "Fixed Asset",
       item: criterion,
-      category: "",
+      category: equipment.category || "",
       passed: false,
       notApplicable: false,
       score: 0,
@@ -493,7 +575,7 @@ function collectInspectionPayload(complete = false) {
   return {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
-    zone: "All Locations",
+    zone: form.dataset.zoneLabel || "All Locations",
     auditDate: formValue(form, "auditDate", todayIsoDate()),
     auditor: formValue(form, "auditor", "Unnamed Inspector"),
     auditTime: form.elements.auditTime.value || null,
@@ -510,52 +592,10 @@ function inspectionSignatures() {
   return parseStoredObject(form?.dataset.signatures || "{}");
 }
 
+// Signatures are given on the Sign-off page; the checklist only carries them through a save.
 function setInspectionSignatures(signatures = {}) {
-  const signaturePermissions = { auditedBy: "auditor", verifiedBy: "verifier", acknowledgedBy: "acknowledger" };
-  document.querySelectorAll("[data-open-signature]").forEach((button) => {
-    button.disabled = !(currentUser?.inspectionPermissions || []).includes(signaturePermissions[button.dataset.openSignature]);
-  });
   const form = document.getElementById("inspection-form");
-  if (!form) return;
-  form.dataset.signatures = JSON.stringify(signatures || {});
-  const labels = {
-    auditedBy: "Audited",
-    verifiedBy: "Verified",
-    acknowledgedBy: "Acknowledged",
-  };
-  const html = Object.entries(labels).map(([key, label]) => {
-    const signed = Boolean(imageSource(signatures?.[key]));
-    return `<span class="status-pill ${signed ? "status-complete" : "status-untouched"}">${label}: ${signed ? "Signed" : "Unsigned"}</span>`;
-  }).join("");
-  setHtml("[data-signature-status]", html);
-}
-
-function openSignatureDialog(kind) {
-  const dialog = document.getElementById("signature-dialog");
-  const form = document.getElementById("signature-form");
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  const signatures = inspectionSignatures();
-  const labels = {
-    auditedBy: "Audited By",
-    verifiedBy: "Verified By",
-    acknowledgedBy: "Acknowledged By",
-  };
-  form.reset();
-  form.elements.signatureName.value = currentUser?.name || "";
-  form.elements.signatureName.readOnly = true;
-  setText("[data-signature-title]", labels[kind] || "Signature");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const savedSignature = signatures[kind] || currentUser?.signatureImage;
-  if (imageSource(savedSignature)) {
-    const image = new Image();
-    image.addEventListener("load", () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height));
-    image.src = imageSource(savedSignature);
-  }
-  signatureState = { kind, drawing: false, lastX: 0, lastY: 0 };
-  dialog.showModal();
+  if (form) form.dataset.signatures = JSON.stringify(signatures || {});
 }
 
 function inspectionProgress(payload = collectInspectionPayload(false)) {
@@ -586,6 +626,10 @@ function updateInspectionProgress() {
 
 function updateInspectionStatusPills(payload) {
   const summary = [];
+  if (inspectionFilter.kind || inspectionFilter.category) {
+    const shown = new Set(inspectionItems.filter(matchesInspectionFilter).map((item) => String(item.id)));
+    payload = { ...payload, items: payload.items.filter((item) => shown.has(String(item.equipmentId))) };
+  }
   document.querySelectorAll("[data-inspection-location]").forEach((section) => {
     const location = section.dataset.inspectionLocation;
     const items = payload.items.filter((item) => item.location === location);
@@ -593,14 +637,17 @@ function updateInspectionStatusPills(payload) {
     const status = statusForProgress(done, items.length);
     const progress = inspectionProgress({ items });
     const pill = section.querySelector("[data-location-status]");
+    // A location without fixed assets has nothing to inspect; do not show it as outstanding.
+    const className = items.length ? status.className : "status-none";
+    const label = items.length ? `(${progress}%)` : "None";
     if (pill) {
-      pill.className = `status-pill ${status.className}`;
-      pill.textContent = `(${progress}%)`;
+      pill.className = `status-pill ${className}`;
+      pill.textContent = label;
     }
     document.querySelectorAll("[data-location-nav-status]").forEach((navPill) => {
       if (navPill.dataset.locationNavStatus !== location) return;
-      navPill.className = `status-pill ${status.className}`;
-      navPill.textContent = `(${progress}%)`;
+      navPill.className = `status-pill ${className}`;
+      navPill.textContent = label;
     });
   });
   document.querySelectorAll("[data-inspection-zone]").forEach((section) => {
@@ -627,7 +674,7 @@ function openInspectionLocation(location) {
   if (section && !section.dataset.loaded) {
     const items = inspectionLocationEquipment.get(location) || [];
     const container = section.querySelector("[data-location-items]");
-    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>No Fixed Assets</span><strong>No fixed assets are assigned to this location.</strong></div></article>`;
+    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
     section.dataset.loaded = "true";
     if (items.length) renderInspectionLocationItems(location);
   }
@@ -662,19 +709,27 @@ function openFirstInspectionLocation() {
   if (first) openInspectionLocation(first.dataset.openInspectionLocation);
 }
 
+// Failed checks always need photo evidence; passed ones only when the workflow option asks for every asset.
+function inspectionItemNeedsPhoto(item) {
+  if (item.notApplicable) return false;
+  return !item.passed || setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
+}
+
 function isInspectionReadyToComplete(payload) {
-  return Boolean(payload.items.length && payload.items.every((item) => (item.notApplicable || (item.images || []).length) && isInspectionItemComplete(item)));
+  return Boolean(payload.items.length && payload.items.every((item) => (!inspectionItemNeedsPhoto(item) || (item.images || []).length) && isInspectionItemComplete(item)));
 }
 
 function updateInspectionActions(progress, payload) {
   const button = document.querySelector("[data-save-inspection-progress]");
-  if (button) button.textContent = isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
   const form = document.getElementById("inspection-form");
+  const completed = form?.dataset.completed === "true";
+  if (button) button.textContent = completed ? "Inspection Completed" : isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
   const id = form ? formValue(form, "inspectionSessionId", "") : "";
-  const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && form?.dataset.completed !== "true";
+  const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && !completed;
   if (button) button.disabled = !editable;
-  const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
-  if (signaturesButton) signaturesButton.disabled = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
+  // A completed or view-only checklist is shown as recorded.
+  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
+  if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
   const link = document.querySelector("[data-export-inspection-pdf]");
   if (!link) return;
   if (id) {
@@ -688,7 +743,7 @@ function updateInspectionActions(progress, payload) {
 
 function validateInspectionComplete(payload) {
   if (!payload.items.length) return "No inspection items are loaded for this location.";
-  const missingImage = payload.items.find((item) => !item.notApplicable && !item.images.length);
+  const missingImage = payload.items.find((item) => inspectionItemNeedsPhoto(item) && !item.images.length);
   if (missingImage) return `Upload image(s) for ${missingImage.section}.`;
   const missingRemark = payload.items.find((item) => !item.passed && !item.notApplicable && !item.notes.trim());
   if (missingRemark) return `Enter a remark for unchecked criterion: ${missingRemark.section} - ${missingRemark.item}.`;
@@ -710,9 +765,10 @@ function applyInspectionSessionItems() {
       const item = saved.find((entry) => entry.item === criterionRow.dataset.criterion) || saved[index];
       if (!item) return;
       criterionRow.dataset.findingDetails = JSON.stringify({
-        priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
+        category: item.category, priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
         cause: item.cause, recommendation: item.recommendation, requiredAction: item.requiredAction,
       });
+      renderFindingSummary(criterionRow);
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
       checkbox.checked = Boolean(item.passed);
@@ -734,10 +790,13 @@ async function openInspectionSession(id) {
   form.elements.inspectionSessionId.value = session.id;
   form.dataset.completed = String(session.status === "Completed");
   form.dataset.closed = String(Boolean(session.closed_at));
+  form.dataset.ownerId = session.owner_user_id ? String(session.owner_user_id) : "";
   setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
   setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
+  form.dataset.visitLocations = JSON.stringify(session.visit_locations || []);
+  form.dataset.zoneLabel = session.zone || "All Locations";
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";
   form.elements.auditor.value = session.auditor || "";
@@ -755,14 +814,4 @@ async function openInspectionSession(id) {
   showTab("inspections");
   showInspectionSubtab("guided");
   showGuidedContent(true);
-}
-
-async function restoreLastInspectionSession() {
-  const id = localStorage.getItem(lastInspectionSessionKey);
-  if (!id) return;
-  try {
-    await openInspectionSession(id);
-  } catch (error) {
-    localStorage.removeItem(lastInspectionSessionKey);
-  }
 }

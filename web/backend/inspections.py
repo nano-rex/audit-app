@@ -3,14 +3,27 @@ from backend.relational_values import load_value, save_value, hydrate_many
 from datetime import datetime
 from backend.scoring import summarize as summarize_score
 from backend.audit_metadata import allocate_reference
-from backend.reminders import notify_work_order
-from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date, sla_status, work_order_ref
+from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date
+from backend.workflow import WorkflowError
 from backend.database import connect, first_category, first_department, first_outlet, insert_record
+
+
+def require_photo_evidence(items, settings):
+    """A failed check always needs a photo; a passed one only when every inspected asset must have one."""
+    every_asset = settings.get("system.requirePhotoEveryAsset") is not False
+    for item in items:
+        if item.get("notApplicable") or item.get("images"):
+            continue
+        if every_asset or not item.get("passed"):
+            name = item.get("section") or item.get("item") or "each inspected asset"
+            raise WorkflowError(f"Add a photo for {name} before completing the inspection")
 
 
 def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
     settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
+    require_photo_evidence(items, settings)
+    category_departments = {row["name"]: row["department"] for row in db.execute("SELECT name, department FROM categories WHERE COALESCE(department, '') != ''")}
     summary = summarize_score(items, settings)
     audit_date = normalize_audit_date(payload.get("auditDate"))
     outlet = payload.get("outlet") or first_outlet(db)
@@ -35,8 +48,9 @@ def finalize_inspection(db, session_id, payload, now):
         priority_row = db.execute("SELECT classification FROM priority_levels WHERE name = ?", (priority,)).fetchone()
         if not priority_row:
             raise ValueError("Select a configured priority for every finding")
-        department = item.get("assignedDepartment") or item.get("department") or first_department(db)
         category = item.get("category") or first_category(db)
+        # Without an explicit choice, a finding goes to the department responsible for its category.
+        department = item.get("assignedDepartment") or item.get("department") or category_departments.get(category) or first_department(db)
         pic = item.get("pic", "")
         location = item.get("location") or payload.get("zone", "Unassigned")
         comment = item.get("notes") or item.get("item", "Inspection finding")
@@ -45,36 +59,30 @@ def finalize_inspection(db, session_id, payload, now):
         finding_id = insert_record(db, "findings", {
             "audit_id": audit_id, "audit_ref": reference, "business_unit": unit, "outlet": outlet, "location": location,
             "category": category, "priority": priority, "priority_classification": priority_row["classification"],
-            "assigned_department": department, "pic": pic, "comment": comment, "status": "Assigned",
+            "assigned_department": department, "pic": pic, "comment": comment, "status": "Open",
             "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
             "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
-            "source_item_id": item_id, "created_at": now, "updated_at": now,
+            "source_item_id": item_id, "equipment_id": int(item["equipmentId"]) if str(item.get("equipmentId") or "").isdigit() else None,
+            "item_name": item.get("section") or "", "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
         })
         finding_reference = finding_ref(finding_id, audit_date)
         db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (finding_reference, finding_id))
         db.execute("UPDATE inspection_items SET finding_id = ? WHERE id = ?", (finding_id, item_id))
-        order_id = insert_record(db, "work_orders", {
-            "business_unit": unit, "outlet": outlet, "zone": location, "request_type": department, "category": category,
-            "priority": priority, "title": f"{finding_reference} - {item.get('section', 'Fixed Asset')} - {item.get('item', 'Finding')}",
-            "description": comment, "assignee": pic or department, "pic": pic, "status": "Assigned",
-            "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
-            "required_action": item.get("requiredAction", ""), "images_data_id": images,
-            "due_date": due_date, "sla_status": sla_status("Assigned", due_date),
-            "source_audit_id": audit_id, "source_item_id": item_id, "source_finding_id": finding_id,
-            "outlet_confirmed": 0, "created_at": now,
-        })
-        db.execute("UPDATE work_orders SET work_order_ref = ? WHERE id = ?", (work_order_ref(order_id, audit_date), order_id))
-        notify_work_order(db, order_id, "Assigned")
     db.execute("UPDATE inspection_sessions SET status = 'Completed', progress = 100, audit_id = ?, updated_at = ? WHERE id = ?", (audit_id, now, session_id))
     db.execute("UPDATE schedules SET status = 'Completed' WHERE id = (SELECT schedule_id FROM inspection_sessions WHERE id = ?)", (session_id,))
     return audit_id
+
+
+def visit_locations_of(reference):
+    """The locations chosen for a visit or its audit; empty means every location."""
+    return (load_value(reference) or []) if reference else []
 
 
 def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, closed_at, closed_by, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
+            SELECT id, closed_at, closed_by, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, signatures_data_id, owner_user_id, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
@@ -86,6 +94,9 @@ def inspection_sessions():
     for row in rows:
         item = dict(row)
         session_items = load_value(item.pop("items_data_id") or "[]")
+        signatures = load_value(item.pop("signatures_data_id") or "{}") or {}
+        # Which sign-off roles are done, so lists can show what is still missing without loading each audit.
+        item["signed"] = [key for key in ("auditedBy", "verifiedBy", "acknowledgedBy") if (signatures.get(key) or {}).get("url")]
         item["inspection_name"] = normalized_inspection_name(item)
         item["locations"] = sorted({entry.get("location", "") for entry in session_items if entry.get("location")})
         item["categories"] = sorted({entry.get("category", "") for entry in session_items if entry.get("category")})
@@ -108,8 +119,7 @@ def inspection_session(session_id):
                 """
                 SELECT finding_ref, location, category, priority, priority_classification, assigned_department, pic, comment,
                        cause, recommendation, required_action, images_data_id, due_date,
-                       status, corrective_action, completion_date, completion_photo_data_id,
-                       completion_remark, verified_by, verified_at, verification_remark, closed_at
+                       status, closed_at
                 FROM findings
                 WHERE audit_id = ?
                 ORDER BY id
@@ -121,6 +131,7 @@ def inspection_session(session_id):
     data = dict(row)
     data["items"] = load_value(data.pop("items_data_id") or "[]")
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
+    data["visit_locations"] = visit_locations_of(data.pop("locations_data_id", None))
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
@@ -130,5 +141,5 @@ def inspection_session(session_id):
 
 def schedule_items():
     with connect() as db:
-        rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.scheduled_date, schedules.id DESC").fetchall()
-    return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}"} for row in rows]}
+        rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref, inspection_sessions.inspection_name, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.status IN ('Completed', 'Cancelled'), schedules.scheduled_date, schedules.id DESC").fetchall()
+    return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"])} for row in rows]}

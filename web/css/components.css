@@ -1,6 +1,6 @@
 .loading-state {
   align-items: center;
-  color: var(--muted, #66736c);
+  color: var(--muted);
   display: flex;
   gap: .65rem;
   justify-content: center;
@@ -28,14 +28,11 @@
   .loading-spinner { animation-duration: 1.8s; }
 }
 
-.stats article,
-.outlets article,
-.unit-card {
+.stats article {
   padding: 18px;
 }
 
-.stats span,
-.outlets b {
+.stats span {
   display: block;
   margin-bottom: 10px;
   color: var(--muted);
@@ -44,10 +41,9 @@
   text-transform: uppercase;
 }
 
-.stats strong,
-.outlets strong {
+.stats strong {
   display: block;
-  color: var(--green);
+  color: var(--accent);
   font-size: 26px;
 }
 
@@ -55,39 +51,17 @@
   color: var(--orange);
 }
 
-.outlets strong,
 .list strong {
   color: var(--blue);
 }
 
-.outlets strong {
-  font-size: 24px;
-}
-
 .excellent,
 .list .excellent {
-  color: #24c362;
+  color: var(--success);
 }
 
 .monitor {
   color: var(--orange);
-}
-
-.unit-card {
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.unit-card.active {
-  background: var(--green-soft);
-  border-color: var(--green);
-}
-
-.unit-card.active strong,
-.unit-card.active b {
-  color: var(--green);
 }
 
 .list {
@@ -102,7 +76,7 @@
   min-width: 0;
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .compact-list article {
@@ -140,15 +114,10 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #f8ac30;
-  color: #fff;
+  background: var(--orange);
+  color: var(--on-accent);
   font-style: normal;
   font-weight: 700;
-}
-
-.flow-list {
-  display: grid;
-  gap: 12px;
 }
 
 .admin-list {
@@ -156,17 +125,19 @@
   gap: 14px;
 }
 
-.users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-.users-table { border-collapse: collapse; min-width: 760px; width: 100%; }
+.users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.users-table { border-collapse: collapse; width: 100%; }
 .users-table th,
-.users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; white-space: nowrap; }
-.users-table th { background: var(--green-soft); color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; }
+.users-table th { white-space: nowrap; }
+/* Names, addresses, and roles wrap inside their cells so the whole table fits without cutting text. */
+.users-table td { overflow-wrap: break-word; }
+.users-table th { background: var(--table-head); color: var(--table-head-text); font-size: 11px; text-transform: uppercase; }
 .users-table tbody tr:last-child td { border-bottom: 0; }
-.users-table tbody tr:hover { background: var(--green-soft); }
-.users-table .user-name { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+.users-table tbody tr:hover { background: var(--accent-soft); }
 .users-table .user-name strong,
 .users-table .user-name small,
-.users-table .user-alert { display: block; overflow: hidden; text-overflow: ellipsis; }
+.users-table .user-alert { display: block; }
 .users-table .user-name small,
 .users-table .user-alert { color: var(--muted); font-size: 11px; margin-top: 3px; }
 .users-table .user-alert { color: var(--orange); }
@@ -183,8 +154,8 @@
   gap: 14px;
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface, #fff);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 
 .department-card-heading {
@@ -195,7 +166,7 @@
 }
 
 .department-code {
-  color: var(--green);
+  color: var(--accent);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: .04em;
@@ -211,15 +182,15 @@
 .department-card-copy p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
 .department-card .row-actions { margin-left: 0; }
 
-.settings-page .settings-grid { grid-template-columns: minmax(280px, 620px); }
+.settings-page .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .settings-page .theme-settings { display: grid; gap: 14px; margin-bottom: 0; }
 .settings-page .theme-settings h2 { margin-bottom: 0; }
 .settings-page .theme-toggle { align-items: center; color: var(--text); display: flex; font-size: 14px; gap: 10px; }
-.settings-page .theme-toggle input { accent-color: var(--green); min-height: auto; width: 20px; }
+.settings-page .theme-toggle input { accent-color: var(--accent); min-height: auto; width: 20px; }
 
 .admin-group {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 14px;
 }
 
@@ -236,11 +207,32 @@
   list-style: none;
 }
 
+/* Title and detail lines stack on the left; the actions stay on the right, centred against the whole row. */
 .admin-group li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px;
-  align-items: start;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.admin-group li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-group li:last-child {
+  padding-bottom: 0;
+}
+
+.admin-group li > * {
+  grid-column: 1;
+}
+
+.admin-group li > .row-actions {
+  grid-column: 2;
+  grid-row: 1 / span 4;
 }
 
 .admin-group li > b,
@@ -255,27 +247,10 @@
   font-size: 12px;
 }
 
-.flow-list span {
-  display: grid;
-  grid-template-columns: 28px 1fr;
-  gap: 10px;
-  align-items: center;
-  color: var(--text);
-}
-
-.flow-list b {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  color: #fff;
-  background: var(--green);
-}
-
 .filter {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Filters take as many columns as fit; actions live in the panel header, not among them. */
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: 16px;
   align-items: end;
 }
@@ -308,15 +283,11 @@ dialog label {
   min-width: 44px;
   max-width: 100%;
   padding: 10px;
-  border-radius: 7px;
-  color: #fff;
+  border-radius: var(--radius-sm);
+  color: var(--on-accent);
   background: var(--blue);
   text-align: right;
   font-weight: 700;
-}
-
-.bars .excellent-bar {
-  background: #24c362;
 }
 
 .legend {
@@ -329,7 +300,7 @@ dialog label {
 }
 
 .donut {
-  width: min(280px, 72vw);
+  width: min(240px, 100%);
   aspect-ratio: 1;
   margin: 0 auto;
   border-radius: 50%;
@@ -342,7 +313,7 @@ dialog label {
   position: absolute;
   inset: 30%;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
 }
 
 .donut[hidden] {
@@ -359,69 +330,23 @@ dialog label {
   gap: 18px;
 }
 
-.account-photo-row {
+.account-images {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 12px 32px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: var(--radius);
+  background: var(--surface-alt);
 }
 
-.account-photo-row > div {
-  display: grid;
-  gap: 10px;
-  min-width: min(260px, 100%);
-}
-
-.account-photo-row label,
-.account-signature label {
-  display: grid;
-  gap: 6px;
-}
-
-.account-photo-row input[type="file"],
-.account-signature input[type="file"] {
-  width: 100%;
-  min-height: 42px;
-  padding: 8px;
-  background: #fff;
-}
-
-.account-signature {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px 16px;
-  align-items: center;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.account-signature h3,
-.account-signature p {
-  grid-column: 1 / -1;
-}
-
-.account-signature h3 {
+.account-images > p {
+  flex-basis: 100%;
   margin: 0;
-  font-size: 15px;
-}
-
-.account-signature p {
-  color: var(--muted);
   font-size: 12px;
 }
 
-[data-database-management] > p {
-  max-width: 720px;
-  margin-bottom: 16px;
-}
-
-[data-database-message],
 [data-account-message] {
   min-height: 18px;
   color: var(--muted);
@@ -432,9 +357,20 @@ dialog label {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 16px 0;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 0 0;
   width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.list-pager button,
+.list-pager input,
+.list-pager select {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
 }
 
 .list-pager label {
@@ -449,26 +385,19 @@ dialog label {
   min-width: 0;
 }
 
-[data-account-photo] {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-[data-account-signature] {
-  max-width: 280px;
-  max-height: 120px;
-  object-fit: contain;
-}
-
 [data-editor-panel][hidden] {
   display: none;
 }
 
+.sub-tabs button {
+  font-weight: 500;
+}
+
 .sub-tabs button.active {
-  color: var(--green);
-  background: var(--green-soft);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 700;
 }
 
 .legend-swatch {
@@ -479,17 +408,15 @@ dialog label {
   border-radius: 50%;
 }
 
-.empty p {
-  padding: 72px 0;
-  text-align: center;
-  color: var(--muted);
-}
-
 dialog {
   width: min(680px, 94vw);
-  border: 0;
-  border-radius: 10px;
+  max-height: calc(100dvh - 32px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
 }
 
 dialog::backdrop {
@@ -506,16 +433,27 @@ dialog header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   border-bottom: 1px solid var(--border);
   margin: -22px -24px 4px;
-  padding: 18px 24px;
+  padding: 14px 24px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+dialog header h2 {
+  margin: 0;
 }
 
 dialog header button {
   border: 0;
-  min-height: 0;
+  min-height: 32px;
+  min-width: 32px;
   padding: 4px;
   color: var(--muted);
+  font-size: 16px;
 }
 
 .zone-location-picker {
@@ -528,16 +466,31 @@ dialog header button {
   font-size: 15px;
 }
 
-.zone-location-picker [data-zone-location-options] {
+.visit-location-picker {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.visit-location-picker legend {
+  margin-bottom: 6px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.zone-location-picker [data-zone-location-options],
+.visit-location-picker [data-visit-location-options],
+.asset-picker [data-location-asset-options] {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 8px;
   max-height: min(420px, 52vh);
   overflow: auto;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: var(--radius);
+  background: var(--surface-alt);
 }
 
 .zone-location-option {
@@ -547,8 +500,8 @@ dialog header button {
   align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .zone-location-option small {
@@ -557,41 +510,23 @@ dialog header button {
 
 .zone-location-option.disabled {
   color: var(--muted);
-  background: #eef1f5;
+  background: var(--surface-sunken);
   opacity: 0.72;
-}
-
-fieldset,
-.guide {
-  border: 1px solid var(--border);
-  border-radius: 8px;
 }
 
 fieldset {
   display: flex;
   flex-wrap: wrap;
   gap: 14px;
-}
-
-.guide {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  background: var(--green-soft);
-  font-size: 12px;
-}
-
-.question-card {
-  display: grid;
-  gap: 8px;
-  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
 }
 
 .help-block {
   margin-top: 18px;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-  color: #3f4b45;
+  color: var(--text-soft);
 }
 
 .help-block h3 {
@@ -602,7 +537,7 @@ fieldset {
 .help-block p,
 .help-block dd,
 .help-block li {
-  color: #637169;
+  color: var(--text-soft);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -639,8 +574,8 @@ fieldset {
 .inspection-name-display {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: var(--radius);
+  background: var(--surface-alt);
   color: var(--blue);
   font-size: 14px;
   font-weight: 800;
@@ -652,8 +587,8 @@ fieldset {
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
+  border-radius: var(--radius);
+  background: var(--surface);
 }
 
 .inspection-zone-tabs {
@@ -671,20 +606,20 @@ fieldset {
 }
 
 .inspection-zone-tabs button.active {
-  background: var(--green-soft);
-  border-color: var(--green);
-  color: var(--green);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 700;
 }
 
 .inspection-zone {
   margin-bottom: 14px;
-  background: #f8fafc;
+  background: var(--surface-alt);
 }
 
 .inspection-location-nav {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 8px;
 }
 
@@ -696,19 +631,28 @@ fieldset {
   min-height: 48px;
   padding: 8px 10px;
   border-color: var(--border);
-  background: #fff;
-  color: var(--ink);
+  background: var(--surface);
+  color: var(--text);
   text-align: left;
+  /* Location names can be long; show all of the name on as many lines as it needs. */
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.inspection-location-nav button .status-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .inspection-location-nav button.active {
-  border-color: var(--green);
-  background: var(--green-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .inspection-location-nav button span {
   min-width: 0;
   font-weight: 800;
+  overflow-wrap: break-word;
 }
 
 .inspection-location[hidden] {
@@ -742,19 +686,24 @@ fieldset {
   font-weight: 800;
 }
 
+.status-none {
+  color: var(--muted);
+  background: var(--surface-sunken);
+}
+
 .status-untouched {
   color: var(--red);
-  background: #ffe8e8;
+  background: var(--red-soft);
 }
 
 .status-progress {
   color: var(--orange);
-  background: #fff1dc;
+  background: var(--orange-soft);
 }
 
 .status-complete {
-  color: var(--green);
-  background: var(--green-soft);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .button-link.disabled {
@@ -802,3 +751,751 @@ fieldset {
 .audit-chart-label strong { flex-shrink: 0; }
 .audit-chart-track { height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; }
 .audit-chart-track span { display: block; height: 100%; background: var(--blue); }
+
+#work-order-form[data-mode="finding"] [data-work-order-only] { display: none; }
+.criteria-row.passed [data-record-finding] { visibility: hidden; }
+.finding-summary { grid-column: 1 / -1; color: var(--muted); }
+.finding-summary[hidden],
+.criteria-row.passed .finding-summary { display: none; }
+
+/* Row actions are compact and the same size in cards, lists, and tables. */
+.row-actions button,
+.row-actions .button-link {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.users-table td.row-actions {
+  display: table-cell;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.users-table td.row-actions button {
+  margin: 2px 0;
+}
+
+/* Buttons that follow a card's intro text, and the intro line of a page. */
+.panel:not(.filter) > button,
+.panel:not(.filter) > .button-link {
+  margin: 0 8px 14px 0;
+}
+
+.list-pager label {
+  white-space: nowrap;
+}
+
+.list-pager label > input,
+.list-pager label > select {
+  width: 72px;
+}
+
+.tab-panel > p,
+.tab-panel > section > p {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.audit-chart-label {
+  font-size: 13px;
+}
+
+.inline-form > button,
+.inline-form > .button-link {
+  justify-self: start;
+}
+
+.settings-grid .detail-list,
+.detail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.detail-list dt {
+  color: var(--muted);
+}
+
+.detail-list dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+[data-current-audit-reference] {
+  display: block;
+  margin: 2px 0 10px;
+}
+
+.inspection-item > label {
+  margin-top: 8px;
+}
+
+dialog header h2 {
+  color: var(--text);
+}
+
+/* Settings cards hold whole forms; give them room and let their contents wrap instead of spilling out. */
+.settings-grid {
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+}
+
+.settings-grid .form-grid {
+  grid-template-columns: 1fr;
+}
+
+.form-actions {
+  flex-wrap: wrap;
+}
+
+.compact-list article {
+  flex-wrap: wrap;
+}
+
+.compact-list article > div {
+  flex: 1 1 160px;
+}
+
+/* Unread count on the Notifications button, or on the page menu while that button does not fit. */
+.tab-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--red);
+  color: var(--surface);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.menu-button {
+  position: relative;
+}
+
+.menu-button .tab-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  margin: 0;
+}
+
+.count-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.attention-grid {
+  margin-bottom: 24px;
+}
+
+.attention-grid .panel {
+  margin-bottom: 0;
+}
+
+.attention-grid .list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.inspection-item {
+  position: relative;
+}
+
+.pass-all {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+#change-password-dialog[data-forced="true"] [data-close-dialog],
+#change-password-dialog:not([data-forced="true"]) [data-forced-logout] {
+  display: none;
+}
+
+
+/* Fixtures and finishes have no code, serial, or warranty details. */
+#equipment-form[data-kind="fixture"] [data-asset-only] {
+  display: none;
+}
+
+.kind-pill {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.inspection-filter {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 260px)) minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.inspection-filter p {
+  margin: 0;
+}
+
+/* Evidence thumbnails open the photo viewer. */
+.photo-thumb {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  cursor: zoom-in;
+}
+
+.photo-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-viewer {
+  width: min(1100px, 96vw);
+  height: min(820px, calc(100dvh - 32px));
+  overflow: hidden;
+}
+
+.photo-viewer[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.photo-viewer header,
+.photo-viewer footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin: 0;
+  padding: 10px 16px;
+  position: static;
+}
+
+.photo-viewer footer {
+  border-top: 1px solid var(--border);
+}
+
+.photo-viewer footer p {
+  flex: 1 1 200px;
+  margin: 0;
+  text-align: center;
+}
+
+.photo-viewer header h2 {
+  min-width: 0;
+  flex: 1 1 160px;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+}
+
+.photo-viewer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.photo-viewer-tools button {
+  min-height: 36px;
+  min-width: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.photo-viewer-tools output {
+  min-width: 52px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.photo-viewer-stage {
+  position: relative;
+  overflow: hidden;
+  background: #10161b;
+  cursor: zoom-in;
+  touch-action: none;
+  user-select: none;
+}
+
+.photo-viewer-stage.zoomed {
+  cursor: grab;
+}
+
+.photo-viewer-stage.zoomed:active {
+  cursor: grabbing;
+}
+
+.photo-viewer-stage img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  max-width: none;
+  transform-origin: 0 0;
+  will-change: transform;
+  -webkit-user-drag: none;
+}
+
+/* Inside a checklist card, generic span rules would stack the parts of an evidence chip. */
+/* Text that comes from records (names, codes, titles) wraps instead of being cut off. */
+h2,
+h3,
+h4,
+.inspection-name-display,
+.check-item strong,
+.department-card-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.menu-tab-row > button,
+.form-actions button,
+.form-actions .button-link,
+.quick-actions button,
+.quick-actions .button-link,
+.inline-form > button {
+  white-space: normal;
+  line-height: 1.25;
+  padding-block: 8px;
+}
+
+.status-pill {
+  white-space: nowrap;
+}
+
+.asset-picker input[type="search"] {
+  width: 100%;
+}
+
+.asset-picker [data-location-asset-options] {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.asset-picker .zone-location-option {
+  align-items: start;
+  color: var(--text);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.asset-picker .zone-location-option[hidden] {
+  display: none;
+}
+
+.zone-location-option span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Leave room for the Pass all button so the item's details never run underneath it. */
+.inspection-item > div:first-child {
+  padding-right: 96px;
+}
+
+/* Organization branding and the theme editor. */
+.brand {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+}
+
+.brand .brand-logo {
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.brand > :not(.brand-logo) {
+  grid-column: 2;
+}
+
+.brand:has(.brand-logo[hidden]) > * {
+  grid-column: 1 / -1;
+}
+
+.auth-card .brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.theme-presets {
+  display: block;
+  padding: 12px;
+}
+
+.theme-presets legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-presets [data-theme-presets] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.theme-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.theme-preset:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.theme-preset input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-preset:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.theme-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 40%);
+}
+
+.theme-accent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: end;
+}
+
+.theme-accent input[type="color"] {
+  width: 64px;
+  padding: 4px;
+}
+
+.theme-sample {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.theme-sample-hero {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--hero);
+  color: #fff;
+}
+
+.theme-sample-hero span {
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: .85;
+}
+
+.theme-sample .users-table {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.theme-sample .form-actions {
+  margin-top: 0;
+  pointer-events: none;
+}
+
+/* A panel's title with its actions on the same line, used above filters. */
+.panel-head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-actions > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkbox-line {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.inline-form:last-child {
+  margin-bottom: 0;
+}
+
+.inline-form > button[type="submit"],
+#account-form > button[type="submit"] {
+  justify-self: start;
+  min-width: 160px;
+}
+
+.account-security {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-security h2 {
+  margin: 0;
+}
+
+#account-form > p {
+  margin: 0;
+}
+
+.account-signature-pad {
+  flex: 1 1 320px;
+  max-width: 520px;
+}
+
+.account-signature-pad .quick-actions {
+  justify-content: flex-start;
+}
+
+.signature-pad {
+  aspect-ratio: 3 / 1;
+  height: auto;
+  cursor: crosshair;
+}
+
+/* Sign-off: one card per signature, side by side where there is room. */
+.signoff-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.signoff-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.signoff-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.signoff-card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.signoff-signature {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.signoff-signature img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.signoff-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signoff-card-actions button {
+  flex: 1 1 auto;
+}
+
+.signoff-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* One card per page: title and actions, filters, then the list. */
+.list-panel > .filter {
+  margin-block: 14px 18px;
+}
+
+.list-panel > .muted {
+  margin-top: 0;
+}
+
+/* Settings: two columns; scoring and report settings take the full width. */
+.settings-page .settings-wide {
+  grid-column: 1 / -1;
+}
+
+.settings-page .inline-form {
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  align-items: end;
+}
+
+.settings-page .inline-form > :is(fieldset, p, .image-field, button, .checkbox-line),
+.settings-page .inline-form > label:has(textarea) {
+  grid-column: 1 / -1;
+}
+
+.category-weights {
+  display: block;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.category-weights legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.category-weights > p {
+  margin: 0 0 10px;
+}
+
+[data-category-weights] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: 10px 14px;
+}
+
+/* A zone's locations can run long; show three lines and the full list on hover or in Edit. */
+.zone-locations {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Findings: one card per failed item, listing the checks it failed. */
+.finding-checks {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.finding-checks .status-pill {
+  margin-right: 6px;
+  font-size: 11px;
+}
+
+.finding-item b small {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* The item a work request is raised for, shown above its fields. */
+.work-request-source {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  font-size: 13px;
+}
+
+.work-request-source span {
+  color: var(--muted);
+}
+
+.work-request-source ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.pre-line {
+  white-space: pre-line;
+}

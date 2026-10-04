@@ -1,4 +1,6 @@
 """Http support for the audit application."""
+import logging
+import socket
 import sqlite3
 import hashlib
 import os
@@ -72,6 +74,15 @@ def api_errors(method):
             if not getattr(self, "response_started", False):
                 self.json({"error": "This record conflicts with an existing record"}, 409)
         except sqlite3.OperationalError:
+            logging.warning("Database unavailable during %s %s", self.command, self.path, exc_info=True)
             if not getattr(self, "response_started", False):
                 self.json({"error": "Database is busy; retry the request"}, 503)
+        except (ConnectionError, socket.timeout):
+            self.close_connection = True  # The client went away; there is nobody to answer.
+        except Exception:
+            # Without this, an unexpected fault drops the connection and the browser reports a network error.
+            logging.exception("Unhandled error during %s %s", self.command, self.path)
+            self.close_connection = True
+            if not getattr(self, "response_started", False):
+                self.json({"error": "The server could not complete this request"}, 500)
     return guarded

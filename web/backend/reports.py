@@ -9,8 +9,9 @@ from backend import config
 from backend.accounts import branding_settings
 from backend.common import rating, sla_status
 from backend.report_filters import report_scope
+from backend.inspections import visit_locations_of
 from backend.database import connect
-from backend.work_orders import finding_items
+from backend.work_orders import finding_items, with_current_sla
 
 
 def dashboard(unit, filters=None, include_room_trends=False):
@@ -18,7 +19,6 @@ def dashboard(unit, filters=None, include_room_trends=False):
     audit_where = f"{audit_where} AND audits.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed' AND audit_id IS NOT NULL)"
     schedule_where, schedule_params = report_scope(unit, "schedules", filters)
     work_order_where, work_order_params = report_scope(unit, "work_orders", filters)
-    equipment_where, equipment_params = report_scope(unit, "equipment", filters)
     finding_where, finding_params = report_scope(unit, "findings", filters)
     session_where, session_params = report_scope(unit, "inspection_sessions", filters)
     with connect() as db:
@@ -71,48 +71,18 @@ def dashboard(unit, filters=None, include_room_trends=False):
             """,
             schedule_params,
         ).fetchone()
+        # The same details as Scheduled Work, so an audit is named and edited the same way here.
         schedules = db.execute(
             f"""
-            SELECT id, outlet, zone, scheduled_date, auditor, remarks, status, created_at
-            FROM schedules
-            WHERE {schedule_where} AND status != 'Completed'
-            ORDER BY scheduled_date ASC, created_at DESC, id DESC
+            SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref,
+                   inspection_sessions.inspection_name, inspection_sessions.progress AS progress,
+                   inspection_sessions.status AS inspection_status
+            FROM (SELECT * FROM schedules WHERE {schedule_where} AND status NOT IN ('Completed', 'Cancelled')) AS schedules
+            LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id
+            ORDER BY schedules.scheduled_date ASC, schedules.created_at DESC, schedules.id DESC
             LIMIT 5
             """,
             schedule_params,
-        ).fetchall()
-        work_orders = db.execute(
-            f"""
-            SELECT id, work_order_ref, outlet, zone, request_type, category, priority, title,
-                   description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo_data_id, verified_by, verified_at,
-                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
-                   outlet_confirmed, created_at
-            FROM work_orders
-            WHERE {work_order_where}
-            ORDER BY
-                CASE priority WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 ELSE 3 END,
-                created_at DESC
-            LIMIT 8
-            """,
-            work_order_params,
-        ).fetchall()
-        equipment_rows = db.execute(
-            f"""
-            SELECT id, asset_id, qr_code, outlet, zone, equipment_type, health_status,
-                   last_checked, replacement_flag, notes, name, description, type,
-                   operational_status, code, model, serial_number, brand, location,
-                   installation_date, temporary_relocation, warranty_date, calibration_date,
-                   expiry_date, photos_data_id, inverter_model, motor_capacity, source_file,
-                   source_sheet, inspection_criteria_data_id
-            FROM equipment
-            WHERE {equipment_where}
-            ORDER BY
-                CASE health_status WHEN 'Replace' THEN 1 WHEN 'Monitor' THEN 2 ELSE 3 END,
-                last_checked DESC
-            LIMIT 12
-            """,
-            equipment_params,
         ).fetchall()
         all_work_orders = [dict(row) for row in db.execute(
             f"""
@@ -205,7 +175,7 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "priorityIssues": len(priority_findings),
             "nonPriorityIssues": len(non_priority_findings),
             "outstandingIssues": len(open_work_orders),
-            "completedCorrectiveActions": len(completed_work_orders),
+            "closedWorkOrders": len(completed_work_orders),
             "overdueFindings": len(overdue_orders),
             "completionRate": round((len(completed_work_orders) * 100 / len(all_work_orders)) if all_work_orders else 0),
         },
@@ -219,14 +189,11 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "responseRate": response_rate,
         },
         "today": {
-            "scheduled": [dict(row) for row in schedules],
-            "pendingUploads": 0,
+            "scheduled": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"])} for row in schedules],
             "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
         },
-        "workOrders": hydrate_many(work_orders),
-        "equipment": hydrate_many(equipment_rows),
         "charts": {
             "auditScores": [{"label": row["outlet"], "score": row["average"]} for row in outlets],
             "performanceDistribution": [{"label": label, "count": count} for label, count in distribution.items()],
@@ -258,10 +225,10 @@ def report(unit, filters=None):
     data = dashboard(unit, filters, include_room_trends=True)
     where, params = report_scope(unit, "work_orders", filters)
     with connect() as db:
-        critical_orders = hydrate_many(db.execute(
+        critical_orders = with_current_sla(hydrate_many(db.execute(
             f"SELECT * FROM work_orders WHERE {where} AND priority IN ('High', 'Priority') "
             "AND status NOT IN ('Completed', 'Verified', 'Closed') ORDER BY created_at DESC, id DESC", params
-        ).fetchall())
+        ).fetchall()))
     return {
         "unit": unit,
         "monthlySummary": {
@@ -273,7 +240,7 @@ def report(unit, filters=None):
             "totalFindings": data["stats"]["priorityIssues"] + data["stats"]["nonPriorityIssues"],
             "priorityFindings": data["stats"]["priorityIssues"],
             "nonPriorityFindings": data["stats"]["nonPriorityIssues"],
-            "completedCorrectiveActions": data["stats"]["completedCorrectiveActions"],
+            "closedWorkOrders": data["stats"]["closedWorkOrders"],
             "outstandingFindings": data["stats"]["outstandingFindings"],
             "overdueFindings": data["stats"]["overdueFindings"],
             "completionRate": data["stats"]["completionRate"],
@@ -332,7 +299,7 @@ def report_xls(unit, filters=None):
     for key, value in report(unit, filters)["monthlySummary"].items():
         summary.append([key, value])
     findings = workbook.create_sheet("Findings")
-    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("corrective_action", "Corrective Action"), ("completion_date", "Completed"), ("verified_by", "Verified By")]
+    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("closed_at", "Closed")]
     findings.append([label for _, label in columns])
     for row in finding_items(unit, filters)["items"]:
         findings.append([row.get(key) or "" for key, _ in columns])

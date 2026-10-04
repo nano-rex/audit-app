@@ -40,14 +40,22 @@ async function loadBranding() {
     branding = { ...brandingDefaults };
     currentUnit = branding.businessUnitLabel;
   }
+  if (typeof setOrgTheme === "function" && branding.theme) setOrgTheme(branding.theme);
   applyBranding();
+}
+
+function showBrandLogo(url) {
+  document.querySelectorAll("[data-brand-logo]").forEach((image) => {
+    image.hidden = !url;
+    if (url) image.src = url;
+  });
 }
 
 function applyBranding() {
   document.title = branding.appTitle || brandingDefaults.appTitle;
+  showBrandLogo(branding.logoUrl);
   setText("[data-brand-title]", branding.appTitle || brandingDefaults.appTitle);
   setText("[data-brand-subtitle]", branding.appSubtitle || brandingDefaults.appSubtitle);
-  setText("[data-today-heading]", branding.todayHeading || brandingDefaults.todayHeading);
   setText("[data-report-heading]", branding.reportHeading || brandingDefaults.reportHeading);
   unitTexts.forEach((node) => {
     node.textContent = currentUnit;
@@ -123,14 +131,22 @@ function renderSavedImageList(images, deleteAttribute = "data-delete-inspection-
   if (!images.length) return "";
   return images.map((image, index) => `
     <span class="image-pill">
-      ${escapeHtml(imageLabel(image))}
+      ${photoThumbnailButton(image)}
+      <span class="image-pill-name">${escapeHtml(imageLabel(image))}</span>
       ${image?.uploadedAt ? `<time datetime="${escapeAttr(image.uploadedAt)}">${escapeHtml(new Date(image.uploadedAt).toLocaleString())}</time>` : ""}
-      ${imageSource(image) ? `<a href="${escapeAttr(imageSource(image))}" target="_blank" rel="noopener">View</a>` : ""}
       ${markAttribute && imageSource(image) ? `<button type="button" ${markAttribute}="${index}" aria-label="Mark ${escapeAttr(imageLabel(image))}">Mark</button>` : ""}
       <button type="button" ${deleteAttribute}="${index}" aria-label="Remove ${escapeAttr(imageLabel(image))}">x</button>
     </span>
   `).join("");
 }
+// One image shown as a tile beside its Choose file tile, with a corner button to remove it.
+function renderImageTile(container, image, removeAttribute, label) {
+  if (!container) return;
+  container.innerHTML = imageSource(image)
+    ? `<span class="image-pill">${photoThumbnailButton(image, label)}<button type="button" ${removeAttribute} aria-label="Remove ${escapeAttr(label.toLowerCase())}">x</button></span>`
+    : "";
+}
+
 function updateSelectOptions(select, values, includePlaceholder = false, placeholder = "Select option") {
   if (!select) return;
   const selected = select.value;
@@ -196,6 +212,8 @@ function updateEquipmentFilterSelects() {
   updateSelectOptions(document.getElementById("equipment-filter-location"), locations, true, "All locations");
   updateSelectOptions(document.getElementById("equipment-filter-type"), types, true, "All types");
   updateSelectOptions(document.getElementById("equipment-filter-brand"), brands, true, "All brands");
+  updateSelectOptions(document.getElementById("equipment-filter-category"), setupOptions.categories, true, "All categories");
+  document.getElementById("equipment-filter-category").value = equipmentFilters.category;
   document.getElementById("equipment-filter-location").value = equipmentFilters.location;
   document.getElementById("equipment-filter-type").value = equipmentFilters.type;
   document.getElementById("equipment-filter-brand").value = equipmentFilters.brand;
@@ -278,18 +296,28 @@ async function updateInspectionLocationSelect(selected = "") {
   await loadInspectionItems();
 }
 
-async function updateScheduleLocationSelect(selected = "") {
+// A visit covers every location unless particular ones are ticked; "All locations" and a
+// selection are mutually exclusive, and clearing the selection returns to All.
+async function updateScheduleLocationSelect(selected = []) {
   const form = document.getElementById("schedule-form");
   if (!form) return;
-  const outlet = formValue(form, "outlet", setupOptions.outlets[0] || "");
-  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
-  const data = await response.json();
-  const values = data.items.map((row) => row.name);
-  updateSelectOptions(form.elements.zone, values, false, "Select location");
-  if (values.includes(selected)) {
-    form.elements.zone.value = selected;
+  const outlet = formValue(form, "outlet", "");
+  const container = form.querySelector("[data-visit-location-options]");
+  if (!outlet) {
+    container.innerHTML = `<p class="muted">Select an outlet to choose locations.</p>`;
+    return;
   }
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
+  const names = (await response.json()).items.map((row) => row.name);
+  const chosen = new Set(selected.filter((name) => names.includes(name)));
+  container.innerHTML = `<label class="zone-location-option"><input type="checkbox" data-visit-all${chosen.size ? "" : " checked"}><span>All locations</span></label>`
+    + names.map((name) => `<label class="zone-location-option"><input type="checkbox" name="visitLocation" value="${escapeAttr(name)}"${chosen.has(name) ? " checked" : ""}><span>${escapeHtml(name)}</span></label>`).join("");
 }
+
+function chosenVisitLocations(form) {
+  return [...form.querySelectorAll('input[name="visitLocation"]:checked')].map((input) => input.value);
+}
+
 async function requestJson(url, method, payload) {
   const response = await authFetch(url, {
     method,
@@ -303,30 +331,11 @@ async function requestJson(url, method, payload) {
   return response.json();
 }
 
-async function postJson(url, payload) {
-  return requestJson(url, "POST", payload);
-}
-
 function formValue(form, name, fallback = "") {
   const value = new FormData(form).get(name);
   return value ? String(value) : fallback;
 }
 
-function wireForm(id, url, buildPayload) {
-  const form = document.getElementById(id);
-  if (!form) {
-    return;
-  }
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    await postJson(url, buildPayload(form));
-    const dialog = form.closest("dialog");
-    if (dialog) {
-      dialog.close();
-    }
-    loadApp();
-  });
-}
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",

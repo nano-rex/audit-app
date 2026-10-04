@@ -11,9 +11,11 @@ ACTIVE_CONNECTION = ContextVar("audit_active_connection", default=None)
 
 FIELDS = {
     "audits": {"scoring_json": "scoring_data_id"},
-    "inspection_sessions": {"items_json": "items_data_id", "signatures_json": "signatures_data_id"},
+    "inspection_sessions": {"items_json": "items_data_id", "signatures_json": "signatures_data_id", "locations_json": "locations_data_id"},
+    "schedules": {"locations_json": "locations_data_id"},
     "findings": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
     "work_orders": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
+    "work_requests": {"images_json": "images_data_id"},
     "equipment": {"photos": "photos_data_id", "inspection_criteria": "inspection_criteria_data_id"},
     "zones": {"locations_json": "locations_data_id"},
     "roles": {"permissions_json": "permissions_data_id", "inspection_permissions": "inspection_permissions_data_id"},
@@ -32,6 +34,9 @@ def initialize(db):
         PRIMARY KEY(set_id, node_id),
         FOREIGN KEY(set_id, parent_id) REFERENCES value_nodes(set_id, node_id)
     )""")
+    # Deleting a value set checks each node for children through this self-reference. Without the
+    # index every deleted node scanned the whole table, which made each draft save take seconds.
+    db.execute("CREATE INDEX IF NOT EXISTS idx_value_nodes_parent ON value_nodes(set_id, parent_id)")
 
 
 def save_value(db, value):
@@ -184,16 +189,11 @@ def data_value(db, value, fallback=None):
     return save_value(db, value)
 
 
-def hydrate(row):
-    """Expose API-compatible values, not database foreign-key identifiers."""
-    return hydrate_many([row])[0]
-
-
 def migrate_columns(db):
     initialize(db)
     from backend.media_store import MediaStore
     from backend import config
-    media = MediaStore(config.DB_PATH)
+    media = MediaStore(config.active_db_path())
     for table, fields in FIELDS.items():
         columns = {row[1] for row in db.execute(f'PRAGMA table_info("{table}")')}
         if not columns:

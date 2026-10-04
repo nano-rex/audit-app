@@ -6,6 +6,7 @@
       <label>Confirm New Password<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required></label>
       <p class="form-message" data-change-password-message></p>
       <button class="primary" type="submit">Save Password</button>
+      <button class="plain-link" type="button" data-forced-logout>Sign out instead</button>
     </form>
   </dialog>
 
@@ -31,9 +32,15 @@
   <dialog id="signature-dialog">
     <form method="dialog" id="signature-form">
       <header><h2 data-signature-title>Signature</h2><button type="button" data-close-dialog>x</button></header>
-      <label>Name<input name="signatureName" placeholder="Signer name"></label>
-      <label>Upload Signature<input name="signatureUpload" type="file" accept="image/*" data-signature-upload></label>
+      <label>Name<input name="signatureName" placeholder="Signer name" readonly></label>
+      <p class="muted">Draw your signature below, or upload an image of it.</p>
       <canvas width="720" height="260" data-signature-canvas></canvas>
+      <div class="image-field">
+        <span class="image-field-label">Upload Signature</span>
+        <div class="image-tiles">
+          <label class="image-pick"><input name="signatureUpload" type="file" accept="image/*" data-signature-upload aria-label="Upload signature image"><span>Choose file</span></label>
+        </div>
+      </div>
       <footer class="form-actions split-actions">
         <button class="outline" type="button" data-signature-clear>Clear</button>
         <button class="primary" type="submit">Save Signature</button>

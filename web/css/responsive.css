@@ -16,13 +16,8 @@
     flex: 1 1 520px;
   }
 
-  .stats,
-  .outlets {
+  .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .filter {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .inspect-layout {
@@ -31,19 +26,43 @@
 }
 
 @media (max-width: 900px) {
-  .users-table { min-width: 620px; }
   .users-table .user-email,
   .users-table .user-login { display: none; }
 }
 
 @media (max-width: 600px) {
-  .users-table { min-width: 500px; }
-  .users-table .user-department { display: none; }
-  .users-table th,
-  .users-table td { padding: 9px 8px; }
+  /* A table of seven columns cannot fit a phone: show each user as a card with every field. */
+  .users-table thead { display: none; }
+  .users-table,
+  .users-table tbody,
+  .users-table tr,
+  .users-table td { display: block; width: 100%; }
+  .users-table tr { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .users-table tbody tr:last-child { border-bottom: 0; }
+  .users-table td { padding: 2px 0; border: 0; }
+  .users-table .user-email,
+  .users-table .user-login,
+  .users-table .user-department { display: block; color: var(--muted); font-size: 13px; }
+  .users-table td.row-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding-top: 8px; white-space: normal; }
 }
 
 @media (max-width: 920px) {
+  .settings-page .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* The header wraps to several rows here; keeping it pinned would cover the page. */
+  .app-header {
+    position: static;
+  }
+
+  .admin-group li > .row-actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
   main {
     padding: 18px 24px;
   }
@@ -63,12 +82,10 @@
 
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout {
     grid-template-columns: 1fr;
   }
 
-  .filter,
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -98,14 +115,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .signature-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 
-  .signature-strip [data-signature-status] {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 680px) {
@@ -125,10 +135,6 @@
   .account-strip {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .account-strip span {
-    flex-basis: 100%;
   }
 
   .tabs {
@@ -162,10 +168,8 @@
   }
 
   .panel,
-  .stats article,
-  .outlets article,
-  .question-card {
-    border-radius: 8px;
+  .stats article {
+    border-radius: var(--radius);
   }
 
   .panel {
@@ -173,11 +177,8 @@
     margin-bottom: 16px;
   }
 
-  .stats,
-  .outlets,
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout,
   .filter,
   .form-grid,
@@ -186,23 +187,41 @@
     grid-template-columns: 1fr;
   }
 
+  .inspection-filter {
+    grid-template-columns: 1fr;
+  }
+
+  /* Give each criterion the full width so its wording is not cut. */
+  .criterion-edit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-viewer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+
+  /* Figures stay two to a row on a phone so the page is not a long column of single numbers. */
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .stats,
-  .outlets,
   .chart-grid,
   .work-grid,
-  .unit-grid,
   .inspect-layout {
     gap: 12px;
     margin-bottom: 16px;
   }
 
-  .stats article,
-  .outlets article {
+  .stats article {
     padding: 14px;
   }
 
   .stats strong,
-  .outlets strong,
   .list strong {
     font-size: 20px;
   }
@@ -223,6 +242,24 @@
   .pager {
     justify-content: stretch;
     flex-wrap: wrap;
+  }
+
+  /* Phones: the count on its own line, then Previous, the page number, and Next. */
+  .list-pager {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    justify-items: center;
+  }
+
+  .list-pager > span,
+  .list-pager > label:first-of-type {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: space-between;
+  }
+
+  .list-pager [data-pager-edge] {
+    display: none;
   }
 
   .quick-actions > *,
@@ -251,32 +288,19 @@
     flex-direction: column;
   }
 
+  /* One location per row on a phone, so a long name reads on one or two lines. */
   .inspection-location-nav {
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .inspection-location-nav button {
     min-height: 44px;
   }
 
-  .signature-strip {
-    grid-template-columns: 1fr;
-  }
 
-  .account-signature {
-    grid-template-columns: 1fr;
-  }
-
-  .account-signature button {
-    width: 100%;
-  }
-
-  .signature-strip button {
-    width: 100%;
-  }
 
   .donut {
-    width: min(240px, 78vw);
+    width: min(220px, 100%);
   }
 
   dialog {
@@ -296,7 +320,7 @@
     z-index: 1;
     margin: -18px -18px 2px;
     padding: 14px 18px;
-    background: #fff;
+    background: var(--surface);
   }
 
   .mark-toolbar {
@@ -309,6 +333,7 @@
   }
 
   .zone-location-picker [data-zone-location-options],
+  .visit-location-picker [data-visit-location-options],
   .permission-picker [data-role-permissions] {
     grid-template-columns: 1fr;
   }
@@ -345,11 +370,6 @@
   .row-actions > button,
   .row-actions > .button-link {
     flex: 1 1 42%;
-  }
-
-  .image-pill {
-    width: 100%;
-    justify-content: space-between;
   }
 
   .auth-shell {

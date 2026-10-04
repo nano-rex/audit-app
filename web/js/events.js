@@ -4,7 +4,6 @@ document.querySelectorAll("[data-open]").forEach((button) => {
     if (button.dataset.open === "schedule") {
       await resetScheduleForm();
     }
-    if (button.dataset.open === "new-audit") await resetNewAuditForm();
     dialog.showModal();
   });
 });
@@ -22,7 +21,8 @@ document.addEventListener("click", async (event) => {
     return;
   }
   if (event.target.closest("[data-back-to-schedules]")) {
-    if (!confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;
+    const readOnly = document.getElementById("inspection-form")?.dataset.completed === "true";
+    if (!readOnly && !confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;
     showGuidedContent(false);
     await loadGuidedSchedules();
     return;
@@ -50,7 +50,7 @@ document.addEventListener("click", async (event) => {
 
   const menuOpenTab = event.target.closest("[data-menu-open-tab]");
   if (menuOpenTab) {
-    showTab(menuOpenTab.dataset.menuOpenTab);
+    openTab(menuOpenTab.dataset.menuOpenTab);
     document.getElementById("tab-menu").hidden = true;
     document.querySelector("[data-menu-toggle]")?.setAttribute("aria-expanded", "false");
     return;
@@ -93,6 +93,7 @@ document.addEventListener("click", async (event) => {
     try {
       await requestJson("/api/inspection-sessions/close", "POST", { id: Number(closeInspectionButton.dataset.closeInspectionSession) });
       await loadInspectionHistory();
+      if (signoffSession) await openSignoff(signoffSession.id);
     } catch (error) {
       alert(error.message);
     }
@@ -102,9 +103,6 @@ document.addEventListener("click", async (event) => {
   const deleteInspectionButton = event.target.closest("[data-delete-inspection-session]");
   if (deleteInspectionButton && confirm("Delete this inspection history item?")) {
     await requestJson(`/api/inspection-sessions/${deleteInspectionButton.dataset.deleteInspectionSession}`, "DELETE");
-    if (localStorage.getItem(lastInspectionSessionKey) === deleteInspectionButton.dataset.deleteInspectionSession) {
-      localStorage.removeItem(lastInspectionSessionKey);
-    }
     loadInspectionHistory();
     return;
   }
@@ -175,6 +173,12 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const attentionButton = event.target.closest("[data-attention-type]");
+  if (attentionButton) {
+    openAttentionItem(attentionButton.dataset.attentionType, Number(attentionButton.dataset.attentionId), attentionButton.dataset.attentionView).catch(showLoadError);
+    return;
+  }
+
   const editWorkOrderButton = event.target.closest("[data-edit-work-order]");
   if (editWorkOrderButton) {
     openWorkOrderEditor(JSON.parse(editWorkOrderButton.dataset.editWorkOrder));
@@ -230,6 +234,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openNotificationButton = event.target.closest("[data-open-notification]");
+  if (openNotificationButton) {
+    const row = notificationCache.find((item) => String(item.id) === openNotificationButton.dataset.openNotification);
+    const target = row && notificationTarget(row);
+    if (!target) return;
+    if (row.status === "Unread") await requestJson(`/api/notifications/${row.id}`, "PATCH", {});
+    if (target.type === "user") showTab("users");
+    else await openAttentionItem(target.type, target.id).catch(showLoadError);
+    loadAttention().catch(() => {});
+    return;
+  }
+
   const readNotificationButton = event.target.closest("[data-read-notification]");
   if (readNotificationButton) {
     await requestJson(`/api/notifications/${readNotificationButton.dataset.readNotification}`, "PATCH", {});
@@ -272,7 +288,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
   } catch (error) {
-    alert(error.message || "The action could not be completed.");
+    showActionError(error);
   }
 });
 
@@ -352,15 +368,11 @@ document.querySelector("[data-open-role]")?.addEventListener("click", () => {
   openRoleEditor();
 });
 
-document.querySelector("[data-open-work-order]")?.addEventListener("click", async () => {
-  await openWorkOrderEditor();
-});
-
-document.querySelector("[data-open-equipment]")?.addEventListener("click", async () => {
-  resetEquipmentForm();
+document.querySelectorAll("[data-open-equipment]").forEach((button) => button.addEventListener("click", async () => {
+  resetEquipmentForm(button.dataset.openEquipment);
   await updateEquipmentLocationSelect();
   document.getElementById("equipment-dialog").showModal();
-});
+}));
 
 document.querySelector("[data-add-equipment-criterion]")?.addEventListener("click", () => {
   addEquipmentCriterion();
@@ -390,21 +402,6 @@ document.querySelector('#equipment-form select[name="outlet"]')?.addEventListene
 
 document.querySelector('#work-order-form select[name="outlet"]')?.addEventListener("change", () => {
   updateWorkOrderLocationSelect();
-});
-
-document.querySelector("[data-work-order-completion-photo]")?.addEventListener("change", async (event) => {
-  const existingImages = workOrderCompletionPhotos();
-  const newImages = await readFilesAsStoredImages(event.target.files);
-  setWorkOrderCompletionPhotos([...existingImages, ...newImages]);
-  event.target.value = "";
-});
-
-document.querySelector("[data-work-order-completion-photos]")?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-delete-work-order-completion-photo]");
-  if (!button) return;
-  const images = workOrderCompletionPhotos();
-  images.splice(Number(button.dataset.deleteWorkOrderCompletionPhoto), 1);
-  setWorkOrderCompletionPhotos(images);
 });
 
 document.querySelector(".mark-toolbar")?.addEventListener("click", (event) => {
@@ -485,95 +482,22 @@ document.getElementById("photo-mark-form")?.addEventListener("submit", async (ev
   form.closest("dialog").close();
 });
 
-document.querySelectorAll("[data-open-signature]").forEach((button) => {
-  button.addEventListener("click", () => openSignatureDialog(button.dataset.openSignature));
-});
-
-document.querySelector("[data-save-inspection-signatures]")?.addEventListener("click", async () => {
-  const id = document.getElementById("inspection-form").elements.inspectionSessionId.value;
-  if (!id) { alert("Save the inspection before saving signatures."); return; }
-  try {
-    await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures: inspectionSignatures() });
-    await openInspectionSession(id);
-    alert("Signatures saved.");
-  } catch (error) { alert(error.message); }
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointerdown", (event) => {
-  if (!signatureState) return;
-  const point = photoMarkerPoint(event);
-  signatureState.drawing = true;
-  signatureState.lastX = point.x;
-  signatureState.lastY = point.y;
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointermove", (event) => {
-  if (!signatureState?.drawing) return;
-  const canvas = event.currentTarget;
-  const ctx = canvas.getContext("2d");
-  const point = photoMarkerPoint(event);
-  ctx.strokeStyle = "#111d27";
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(signatureState.lastX, signatureState.lastY);
-  ctx.lineTo(point.x, point.y);
-  ctx.stroke();
-  signatureState.lastX = point.x;
-  signatureState.lastY = point.y;
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointerup", () => {
-  if (signatureState) signatureState.drawing = false;
-});
-
-document.querySelector("[data-signature-clear]")?.addEventListener("click", () => {
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-});
-
-document.querySelector("[data-signature-upload]")?.addEventListener("change", async (event) => {
-  const [image] = await readFilesAsStoredImages(event.target.files);
-  if (!imageSource(image)) return;
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  const source = new Image();
-  source.addEventListener("load", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const ratio = Math.min(canvas.width / source.width, canvas.height / source.height);
-    const width = source.width * ratio;
-    const height = source.height * ratio;
-    ctx.drawImage(source, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-  });
-  source.src = imageSource(image);
-  event.target.value = "";
-});
-
-document.getElementById("signature-form")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!signatureState?.kind) return;
-  const form = event.currentTarget;
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const signatures = inspectionSignatures();
-  signatures[signatureState.kind] = await uploadImage({
-    name: formValue(form, "signatureName", ""),
-    dataUrl: canvas.toDataURL("image/png"),
-    signedAt: todayIsoDate(),
-  });
-  setInspectionSignatures(signatures);
-  form.closest("dialog").close();
-});
-
 document.querySelector('#schedule-form select[name="outlet"]')?.addEventListener("change", () => {
   updateScheduleLocationSelect();
 });
 
+document.querySelector("#schedule-form [data-visit-location-options]")?.addEventListener("change", (event) => {
+  const container = event.currentTarget;
+  const all = container.querySelector("[data-visit-all]");
+  const picks = [...container.querySelectorAll('input[name="visitLocation"]')];
+  if (event.target === all) picks.forEach((input) => { input.checked = false; });
+  all.checked = !picks.some((input) => input.checked);
+});
+
 document.querySelector('#inspection-form select[name="outlet"]')?.addEventListener("change", () => {
+  // Chosen locations belong to the outlet they were chosen for.
+  document.getElementById("inspection-form").dataset.visitLocations = "[]";
+  document.getElementById("inspection-form").dataset.zoneLabel = "All Locations";
   updateInspectionLocationSelect();
 });
 
@@ -602,33 +526,58 @@ checklistContainer?.addEventListener("change", async (event) => {
   }
   updateInspectionProgress();
   if (input.checked) return;
-  const detail = JSON.parse(input.dataset.inspectionCheck);
-  const department = setupOptions.departments[0] || "";
-  const category = setupOptions.categories[0] || "";
+  await openFindingEditor(row);
+});
+
+// The department that normally handles a category, when one is set on it.
+function categoryDepartment(name) {
+  return categoryCache.find((row) => row.name === name)?.department || "";
+}
+
+document.querySelector("[data-inspection-filter-kind]")?.addEventListener("change", (event) => {
+  inspectionFilter.kind = event.target.value;
+  applyInspectionFilter();
+});
+
+document.querySelector("[data-inspection-filter-category]")?.addEventListener("change", (event) => {
+  inspectionFilter.category = event.target.value;
+  applyInspectionFilter();
+});
+
+// Choosing a category on a finding or work order brings its responsible department with it.
+document.querySelector('#work-order-form [name="category"]')?.addEventListener("change", (event) => {
+  const department = categoryDepartment(event.target.value);
+  if (department) event.target.form.elements.requestType.value = department;
+});
+
+// A failed criterion is recorded with the work-order form, limited to the fields a finding keeps.
+async function openFindingEditor(row) {
+  const detail = JSON.parse(row.querySelector("[data-inspection-check]").dataset.inspectionCheck);
+  const saved = parseStoredObject(row.dataset.findingDetails);
+  const notes = row.querySelector('input[name*="-notes-"]');
   await openWorkOrderEditor({
     outlet: detail.outlet,
     zone: detail.location,
-    request_type: department,
-    category,
-    priority: "High",
+    request_type: saved.assignedDepartment || categoryDepartment(saved.category || detail.category) || setupOptions.departments[0] || "",
+    category: saved.category || detail.category || setupOptions.categories[0] || "",
+    priority: saved.priority || "High",
     status: "Assigned",
     assignee: "Technical Support",
+    pic: saved.pic || "",
     title: `${detail.name} - ${detail.criterion}`,
-    description: [
-      `Fixed asset: ${detail.name}`,
-      detail.code ? `Code: ${detail.code}` : "",
-      `Type: ${detail.type}`,
-      `Failed check: ${detail.criterion}`,
-    ].filter(Boolean).join("\n"),
+    description: notes?.value.trim() || `Failed check: ${detail.criterion}`,
+    cause: saved.cause || "",
+    recommendation: saved.recommendation || "",
+    required_action: saved.requiredAction || "",
     images_json: row.closest("[data-equipment-id]").dataset.savedImages || "[]",
   });
   activeFindingRow = row;
   const findingForm = document.getElementById("work-order-form");
+  findingForm.dataset.mode = "finding";
   findingForm.querySelector("h2").textContent = "Record Audit Finding";
   findingForm.querySelector('button[type="submit"]').textContent = "Save Finding to Draft";
-  findingForm.querySelector("[data-corrective-fields]").hidden = true;
-  findingForm.querySelector("[data-verification-fields]").hidden = true;
-});
+  findingForm.querySelector("[data-work-order-closed]").hidden = true;
+}
 
 document.querySelector("[data-work-order-evidence-upload]").addEventListener("change", async (event) => {
   const input = event.target;
@@ -694,6 +643,27 @@ checklistContainer?.addEventListener("click", (event) => {
     return;
   }
 
+  const passAllButton = event.target.closest("[data-pass-all]");
+  if (passAllButton) {
+    // Leaves alone any criterion that already has a remark: that is a recorded failure.
+    passAllButton.closest("[data-equipment-id]").querySelectorAll(".criteria-row").forEach((row) => {
+      const checkbox = row.querySelector("[data-inspection-check]");
+      const notes = row.querySelector('input[name*="-notes-"]');
+      if (checkbox.checked || checkbox.disabled || notes?.value.trim()) return;
+      checkbox.checked = true;
+      row.classList.add("passed");
+      if (notes) notes.disabled = true;
+    });
+    updateInspectionProgress();
+    return;
+  }
+
+  const findingButton = event.target.closest("[data-record-finding]");
+  if (findingButton) {
+    openFindingEditor(findingButton.closest(".criteria-row")).catch(showLoadError);
+    return;
+  }
+
   const markImageButton = event.target.closest("[data-mark-inspection-image]");
   if (markImageButton) {
     const itemRow = markImageButton.closest("[data-equipment-id]");
@@ -734,6 +704,11 @@ document.getElementById("equipment-filter-type")?.addEventListener("change", (ev
 
 document.getElementById("equipment-filter-brand")?.addEventListener("change", (event) => {
   equipmentFilters.brand = event.target.value;
+  renderEquipment();
+});
+
+document.getElementById("equipment-filter-category")?.addEventListener("change", (event) => {
+  equipmentFilters.category = event.target.value;
   renderEquipment();
 });
 
@@ -846,11 +821,6 @@ document.getElementById("work-order-filter-status")?.addEventListener("change", 
   renderWorkOrders();
 });
 
-["corrective-search", "corrective-filter-outlet", "corrective-filter-department", "corrective-filter-status"].forEach((id) => {
-  document.getElementById(id)?.addEventListener("input", renderCorrectiveActions);
-  document.getElementById(id)?.addEventListener("change", renderCorrectiveActions);
-});
-
 document.getElementById("notification-search")?.addEventListener("input", (event) => {
   notificationFilters.search = event.target.value;
   renderNotifications();
@@ -862,6 +832,10 @@ document.getElementById("notification-filter-status")?.addEventListener("change"
 });
 
 document.querySelector("[data-refresh-notifications]")?.addEventListener("click", loadNotifications);
+document.querySelector("[data-read-all-notifications]")?.addEventListener("click", async () => {
+  await requestJson("/api/notifications/all", "PATCH", {});
+  loadNotifications();
+});
 
 document.querySelector("[data-add-work-order-comment]")?.addEventListener("click", async () => {
   const form = document.getElementById("work-order-form");

@@ -12,7 +12,7 @@ from backend import config
 from backend.accounts import is_company_admin_user, branding_settings, is_super_user, public_user
 from backend.catalog import user_login_activity, equipment_items, locations, role_items, setup_records, users, zones
 from backend.database_manager import list_databases
-from backend.common import checklist, inspection_name, read_setting
+from backend.common import inspection_name, read_setting
 from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
 from backend.http_support import api_errors, static_content, static_fingerprint
@@ -20,13 +20,24 @@ from backend.inspections import inspection_session, inspection_sessions, schedul
 from backend.reports import dashboard, inspection_pdf, report, report_csv, report_xls
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
+from backend.work_requests import work_request_items
 from backend.routes import dispatch
+from backend import control
+from backend.todo import todo_items
+
+
+BODY_LIMIT = 20 * 1024 * 1024
+# Sign-in forms are small; unauthenticated callers cannot make the server buffer uploads.
+UNAUTHENTICATED_BODY_LIMIT = 64 * 1024
 
 
 class Handler(BaseHTTPRequestHandler):
 
     def end_headers(self):
         self.response_started = True
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "same-origin")
         super().end_headers()
 
     def setup(self):
@@ -34,19 +45,21 @@ class Handler(BaseHTTPRequestHandler):
         self.connection.settimeout(30)
 
     def handle_one_request(self):
+        self.response_started = False
         self._current_user_loaded = False
         self._current_user_value = None
         return super().handle_one_request()
 
-    def read_payload(self):
+    def read_payload(self, limit=BODY_LIMIT):
         try:
             if self.headers.get("Transfer-Encoding"):
                 raise ValueError("Transfer-Encoding is not supported")
             length = int(self.headers.get("Content-Length", "0"))
             if length < 0:
                 raise ValueError("Invalid Content-Length")
-            if length > 20 * 1024 * 1024:
-                self.json({"error": "Request body exceeds 20 MiB"}, 413)
+            if length > limit:
+                self.close_connection = True
+                self.json({"error": f"Request body exceeds {limit // 1024 // 1024} MiB" if limit >= 1024 * 1024 else "Request body is too large"}, 413)
                 return None
             payload = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(payload, dict):
@@ -58,6 +71,16 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, UnicodeError) as error:
             self.json({"error": str(error)}, 400)
             return None
+
+    def discard_body(self):
+        """Finish a refused request: drain a small unread body so the refusal is delivered, never a large one."""
+        self.close_connection = True
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return
+        if 0 < length <= UNAUTHENTICATED_BODY_LIMIT:
+            self.rfile.read(length)
 
     def accepts_gzip(self):
         for entry in self.headers.get("Accept-Encoding", "").split(","):
@@ -73,7 +96,8 @@ class Handler(BaseHTTPRequestHandler):
             jar.load(header)
         except cookies.CookieError:
             return ""
-        return jar.get("ottotree_session").value if jar.get("ottotree_session") else ""
+        cookie = jar.get(config.SESSION_COOKIE)
+        return cookie.value if cookie else ""
 
     def current_user(self):
         if self._current_user_loaded:
@@ -87,7 +111,10 @@ class Handler(BaseHTTPRequestHandler):
             if not session or session["expires_at"] < time.time():
                 if session:
                     db.execute("DELETE FROM auth_sessions WHERE token_hash = ?", (SESSION_TOKENS.key(token),))
-                return None
+                    return None
+                # Not an organization session: a Super account signs in through the control database.
+                self._current_user_value = control.user_for_session(SESSION_TOKENS.key(token))
+                return self._current_user_value
             row = db.execute(
                 """
                 SELECT id, name, username, role, email, department, active, reset_required,
@@ -107,12 +134,21 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if parsed.path.startswith("/api/auth/"):
             return True
+        if parsed.path.startswith("/api/media/") and self.command == "GET":
+            # The organization's logo is shown on the sign-in page, before anyone has a session.
+            with connect() as db:
+                if read_setting(db, "report.logoUrl", "") == parsed.path:
+                    return True
         user = self.current_user()
         if not user:
             self.json({"ok": False, "error": "Login required"}, status=401)
             return False
+        if user.get("resetRequired") and not (self.command == "GET" and parsed.path == "/api/account"):
+            # The account holds a temporary or default password; nothing else is available until it is replaced.
+            self.json({"ok": False, "error": "Change your password to continue", "resetRequired": True}, status=403)
+            return False
         route = parsed.path.removeprefix("/api/").split("/", 1)[0]
-        if ((route in {"audits", "inspections"} and self.command == "POST") or
+        if ((route == "audits" and self.command == "POST") or
                 (route == "inspection-sessions" and self.command == "DELETE")) and "auditor" not in user.get("inspectionPermissions", []):
             self.json({"error": "Auditor permission is required"}, 403)
             return False
@@ -130,21 +166,19 @@ class Handler(BaseHTTPRequestHandler):
             "dashboard": {"today", "reports"},
             "reports": {"reports"},
             "inspection-sessions": {"inspections"},
-            "inspections": {"inspections"},
             "audits": {"inspections"},
-            "checklist": {"inspections"},
             "equipment": {"equipment"},
             "users": {"users"},
             "roles": {"roles"},
             "settings": {"settings"},
             "schedules": {"today", "inspections"},
-            "captain-logins": {"today"},
             "findings": {"findings", "inspections"},
-            "work-orders": {"work-orders", "corrective-actions"},
+            "work-orders": {"work-orders"},
+            "work-requests": {"work-orders", "findings"},
             "notifications": {"notifications"},
             "locations": {"outlets"},
             "zones": {"outlets"},
-            "comments": {"findings", "work-orders", "corrective-actions", "inspections"},
+            "comments": {"findings", "work-orders", "inspections"},
         }
         if route == "setup":
             section = parsed.path.split("/")[3:4]
@@ -154,8 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             allowed = permissions.get(route, set())
         if route == "notifications" and self.command in {"GET", "PATCH", "DELETE"}:
             allowed = set()  # Each user can access their own addressed notifications.
-        if self.command == "POST" and route == "work-orders":
-            allowed |= {"inspections"}  # Inspectors can raise issues from failed criteria.
+        if self.command == "POST" and route == "work-requests":
+            allowed |= {"inspections"}  # Inspectors can request work for what failed.
         if self.command == "GET":
             if route == "inspection-sessions":
                 allowed |= {"findings"}
@@ -191,7 +225,12 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/media/"):
             try:
-                stored = MediaStore(config.DB_PATH).read(parsed.path.removeprefix("/api/media/"))
+                store, identifier = MediaStore(config.DB_PATH), parsed.path.removeprefix("/api/media/")
+                if parse_qs(parsed.query).get("thumb"):
+                    thumbnail = store.thumbnail(identifier)
+                    stored = (thumbnail, "image/jpeg") if thumbnail is not None else None
+                else:
+                    stored = store.read(identifier)
             except ValueError:
                 self.send_error(404)
                 return
@@ -203,7 +242,6 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", mime)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "private, max-age=3600")
-            self.send_header("X-Content-Type-Options", "nosniff")
             self.end_headers()
             self.wfile.write(body)
             return
@@ -211,15 +249,17 @@ class Handler(BaseHTTPRequestHandler):
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.json(cached_response(("dashboard", unit), lambda: dashboard(unit)))
             return
-        if parsed.path == "/api/checklist":
-            unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json({"items": checklist(unit)})
+        if parsed.path == "/api/todo":
+            self.json(todo_items(self.current_user()))
             return
         if parsed.path == "/api/schedules":
             self.json(schedule_items())
             return
         if parsed.path == "/api/work-orders":
             self.json(work_order_items(self.current_user()))
+            return
+        if parsed.path == "/api/work-requests":
+            self.json(work_request_items(self.current_user()))
             return
         if parsed.path == "/api/findings":
             self.json(finding_items(user=self.current_user()))
@@ -309,18 +349,18 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_POST(self):
         parsed = urlparse(self.path)
-        payload = self.read_payload()
-        if payload is None:
-            return
         if parsed.path.startswith("/api/auth/"):
-            if not dispatch("POST", self, parsed, payload):
+            payload = self.read_payload(UNAUTHENTICATED_BODY_LIMIT)
+            if payload is not None and not dispatch("POST", self, parsed, payload):
                 self.send_error(404)
             return
         if not self.require_auth(parsed):
+            self.discard_body()
+            return
+        payload = self.read_payload()
+        if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
-        if parsed.path in {"/api/audits", "/api/inspections"}:
-            payload["auditor"] = self.current_user()["name"]
         if parsed.path == "/api/media":
             if not isinstance(payload.get("image"), dict) or not payload["image"].get("url"):
                 self.json({"error": "An image is required"}, 400)
@@ -334,8 +374,11 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_PATCH(self):
         parsed = urlparse(self.path)
+        if not self.require_auth(parsed):
+            self.discard_body()
+            return
         payload = self.read_payload()
-        if payload is None or not self.require_auth(parsed):
+        if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
         if not dispatch("PATCH", self, parsed, payload):
@@ -352,7 +395,8 @@ class Handler(BaseHTTPRequestHandler):
     def static_file(self, request_path):
         path = "index.html" if request_path in ("", "/") else unquote(request_path).lstrip("/")
         target = (ROOT / path).resolve()
-        allowed = (path in {"index.html", "login.html", "register.html", "styles.css"}
+        allowed = (path in {"index.html", "login.html", "register.html"}
+                   or (path.startswith("fonts/") and target.is_relative_to(ROOT / "fonts") and target.suffix == ".woff2")
                    or (path.startswith("js/") and target.is_relative_to(ROOT / "js") and target.suffix == ".js")
                    or (path.startswith("css/") and target.is_relative_to(ROOT / "css") and target.suffix == ".css"))
         if not allowed or not target.is_relative_to(ROOT) or not target.is_file():
@@ -365,7 +409,7 @@ class Handler(BaseHTTPRequestHandler):
         if use_gzip:
             body = compressed
             etag = etag[:-1] + '-gzip"'
-        mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        mime = "font/woff2" if target.suffix == ".woff2" else mimetypes.guess_type(target.name)[0] or "application/octet-stream"
         if etag in [tag.strip() for tag in self.headers.get("If-None-Match", "").split(",")]:
             self.send_response(304)
             self.send_header("ETag", etag)
@@ -374,18 +418,18 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         self.send_response(200)
-        self.send_header("Content-Type", mime + "; charset=utf-8")
-        self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
+        self.send_header("Content-Type", mime if mime.startswith("font/") else mime + "; charset=utf-8")
+        # Fonts never change in place; everything else is revalidated so edits show at once.
+        self.send_header("Cache-Control", "public, max-age=604800, immutable" if mime.startswith("font/") else "public, max-age=0, must-revalidate")
         self.send_header("ETag", etag)
         self.send_header("Vary", "Accept-Encoding")
-        self.send_header("X-Content-Type-Options", "nosniff")
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
-    def json(self, payload, status=200):
+    def json(self, payload, status=200, headers=()):
         body = payload.body if isinstance(payload, PreparedJson) else json.dumps(payload, separators=(",", ":")).encode("utf-8")
         use_gzip = len(body) >= 1024 and self.accepts_gzip()
         if use_gzip:
@@ -394,6 +438,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.send_header("Cache-Control", "no-store")
         self.send_header("Vary", "Accept-Encoding")
+        for name, value in headers:
+            self.send_header(name, value)
         if use_gzip:
             self.send_header("Content-Encoding", "gzip")
         self.send_header("Content-Length", str(len(body)))

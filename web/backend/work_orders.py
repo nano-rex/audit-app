@@ -1,6 +1,7 @@
 """Work orders for the audit application."""
-from backend.relational_values import save_value, hydrate_many
+from backend.relational_values import hydrate_many
 import time
+from backend.common import sla_status
 from backend.database import connect
 from backend.report_filters import report_scope
 
@@ -56,9 +57,7 @@ def work_order_items(user=None):
         rows = db.execute(
             f"""
             SELECT id, work_order_ref, business_unit, outlet, zone, request_type, category, priority, title,
-                   description, assignee, pic, status, action_taken, completion_date,
-                   completion_remark, completion_photo_data_id, verified_by, verified_at,
-                   verification_remark, closed_at, due_date, vendor, sla_status, cost,
+                   description, assignee, pic, status, closed_at, due_date, vendor, sla_status, cost,
                    outlet_confirmed, source_finding_id, cause, recommendation, required_action, images_data_id
             FROM work_orders
             {where}
@@ -67,45 +66,27 @@ def work_order_items(user=None):
                 created_at DESC, id DESC
             """, params
         ).fetchall()
-    return {"items": hydrate_many(rows)}
+    return {"items": with_current_sla(hydrate_many(rows))}
+
+
+def with_current_sla(orders):
+    """The stored SLA status is as of the last edit; an order becomes overdue without being edited."""
+    for order in orders:
+        order["sla_status"] = sla_status(order["status"], order.get("due_date"))
+    return orders
 
 
 def sync_finding_from_work_order(db, work_order_id):
-    row = db.execute(
-        """
-        SELECT source_finding_id, status, pic, action_taken, completion_date,
-               completion_photo_data_id, completion_remark, verified_by, verified_at,
-               verification_remark, closed_at
-        FROM work_orders
-        WHERE id = ?
-        """,
-        (work_order_id,),
-    ).fetchone()
-    if not row or not row["source_finding_id"]:
+    """Findings follow their work order: the same status, person in charge, and closing date.
+    A closed work order closes the request it was made from."""
+    row = db.execute("SELECT source_finding_id, work_request_id, status, pic, closed_at FROM work_orders WHERE id = ?", (work_order_id,)).fetchone()
+    if not row:
         return
-    db.execute(
-        """
-        UPDATE findings
-        SET status = ?, pic = ?, corrective_action = ?, completion_date = ?,
-            completion_photo_data_id = ?, completion_remark = ?, verified_by = ?,
-            verified_at = ?, verification_remark = ?, closed_at = ?, updated_at = ?
-        WHERE id = ?
-        """,
-        (
-            row["status"],
-            row["pic"] or "",
-            row["action_taken"] or "",
-            row["completion_date"] or "",
-            row["completion_photo_data_id"] or save_value(db, []),
-            row["completion_remark"] or "",
-            row["verified_by"] or "",
-            row["verified_at"] or "",
-            row["verification_remark"] or "",
-            row["closed_at"] or "",
-            int(time.time() * 1000),
-            row["source_finding_id"],
-        ),
-    )
+    now = int(time.time() * 1000)
+    db.execute("UPDATE findings SET status = ?, pic = ?, closed_at = ?, updated_at = ? WHERE id = ? OR (work_request_id IS NOT NULL AND work_request_id = ?)",
+               (row["status"], row["pic"] or "", row["closed_at"] or "", now, row["source_finding_id"], row["work_request_id"]))
+    if row["work_request_id"] and row["status"] == "Closed":
+        db.execute("UPDATE work_requests SET status = 'Closed', updated_at = ? WHERE id = ?", (now, row["work_request_id"]))
 
 
 def finding_items(unit="Ottotree", filters=None, user=None):
@@ -120,8 +101,16 @@ def finding_items(unit="Ottotree", filters=None, user=None):
         params = (*params, name, email, department)
     with connect() as db:
         rows = db.execute(
-            f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor
+            f"""SELECT findings.*, audits.audit_date, audits.audit_time, audits.auditor,
+                       COALESCE(NULLIF(findings.item_name, ''), inspection_items.section, 'Item') AS item_name,
+                       COALESCE(NULLIF(findings.criterion, ''), inspection_items.item, '') AS criterion,
+                       COALESCE(equipment.kind, 'asset') AS item_kind,
+                       work_requests.request_ref, work_requests.status AS request_status,
+                       (SELECT work_order_ref FROM work_orders WHERE work_orders.source_finding_id = findings.id) AS order_ref
                 FROM findings LEFT JOIN audits ON audits.id = findings.audit_id
+                LEFT JOIN inspection_items ON inspection_items.id = findings.source_item_id
+                LEFT JOIN equipment ON equipment.id = findings.equipment_id
+                LEFT JOIN work_requests ON work_requests.id = findings.work_request_id
                 WHERE {where} ORDER BY findings.created_at DESC, findings.id DESC""", params
         ).fetchall()
     return {"items": hydrate_many(rows)}

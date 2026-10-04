@@ -1,28 +1,57 @@
+// Tasks addressed to the signed-in user, and the unread notification count shown on the bar.
+async function loadAttention() {
+  const response = await authFetch("/api/todo");
+  const data = await response.json();
+  unreadNotifications = data.unreadNotifications || 0;
+  renderUnreadBadge();
+  const items = data.items || [];
+  const count = document.querySelector("[data-attention-count]");
+  if (count) {
+    count.textContent = String(data.total || items.length);
+    count.hidden = !items.length;
+  }
+  setHtml("[data-attention]", items.length
+    ? items.map((item) => `
+      <article>
+        <div>
+          <b>${escapeHtml(item.action)}</b>
+          <span>${escapeHtml(item.title)}</span>
+          <span>${escapeHtml(item.detail)}</span>
+        </div>
+        <span class="row-actions">
+          ${item.overdue ? '<span class="status-pill status-untouched">Overdue</span>' : ""}
+          <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-view="${escapeAttr(item.view || "")}" data-attention-id="${Number(item.id)}">Open</button>
+        </span>
+      </article>`).join("")
+    : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and work orders assigned to you, appear here.</span></div></article>`);
+}
+
+async function openAttentionItem(type, id, view = "") {
+  if (type === "work_request") {
+    showTab("work-orders");
+    showMaintenanceSubtab("requests");
+    return;
+  }
+  if (type === "inspection") {
+    await (view === "signoff" ? openSignoff(id) : openInspectionSession(id));
+    return;
+  }
+  const response = await authFetch("/api/work-orders");
+  const row = ((await response.json()).items || []).find((order) => order.id === id);
+  if (!row) throw new Error("That work order is no longer available");
+  await openWorkOrderEditor(row);
+}
+
 async function loadDashboard() {
-  const response = await authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`);
+  const [response] = await Promise.all([authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`), loadAttention()]);
+  // Scheduled audits are opened from Inspections; do not offer them to accounts without that page.
+  document.querySelectorAll("[data-scheduled-panel]").forEach((node) => { node.hidden = !(currentUser?.permissions || []).includes("inspections"); });
   const data = await response.json();
   renderMainDashboard(data);
 
-  setHtml("[data-outlets]", data.outlets.map((outlet) => `
-    <article>
-      <b>${escapeHtml(outlet.outlet)}</b>
-      <strong>${outlet.average}</strong>
-      <span>Average | ${outlet.audit_count} ${outlet.audit_count === 1 ? "audit" : "audits"}</span>
-    </article>
-  `).join(""));
-
-  setHtml("[data-recent]", data.recent.map(auditRow).join(""));
-  setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
   setHtml("[data-today-schedules]", data.today.scheduled.length
     ? data.today.scheduled.map(scheduleRow).join("")
-    : `<article><div><b>No scheduled work</b><span>Create a schedule to assign outlet checks.</span></div></article>`);
-  setHtml("[data-bars]", data.outlets.map((outlet) => `
-    <label>${escapeHtml(outlet.outlet)}<span class="${outlet.latest >= 90 ? "excellent-bar" : ""}" style="--value:${outlet.latest}">${outlet.latest}</span></label>
-  `).join(""));
-  setText('[data-kpi="assigned"]', data.kpi.assigned);
-  setText('[data-kpi="completed"]', data.kpi.completed);
-  setText('[data-kpi="pending"]', data.kpi.pending);
-  setText('[data-kpi="responseRate"]', `${data.kpi.responseRate}%`);
+    : `<article><div><b>No scheduled audits</b><span>Use Schedule Visit to plan one.</span></div></article>`);
 }
 
 async function loadSuperDashboard() {
@@ -46,7 +75,7 @@ async function loadSuperDashboard() {
   setStat("roles", (roles.items || []).length);
   setStat("departments", (setupOptions.departments || []).length);
   setStat("assets", (equipment.items || []).length);
-  setStat("findings", (findings.items || []).filter((row) => !["Completed", "Closed"].includes(row.status)).length);
+  setStat("findings", (findings.items || []).filter((row) => row.status !== "Closed").length);
   setHtml("[data-super-rankings]", (dashboard.rankings || []).length
     ? dashboard.rankings.map((row, index) => rankingRow(row, index + 1)).join("")
     : `<p class="muted">No outlet performance data available.</p>`);
@@ -54,7 +83,71 @@ async function loadSuperDashboard() {
   setText("[data-super-database]", active ? active.name : "No active database");
 }
 
+const themePresets = [
+  { id: "default", label: "Forest", colour: "#47735f" },
+  { id: "ottotree", label: "Ottotree", colour: "#1e99b4" },
+  { id: "ocean", label: "Ocean", colour: "#2563eb" },
+  { id: "plum", label: "Plum", colour: "#7c3aed" },
+  { id: "ember", label: "Ember", colour: "#c2410c" },
+  { id: "slate", label: "Slate", colour: "#475569" },
+];
+
+function themeFormValue() {
+  const form = document.getElementById("theme-form");
+  return {
+    preset: form.querySelector('input[name="preset"]:checked')?.value || "default",
+    accent: form.elements.useAccent.checked ? form.elements.accent.value : "",
+    font: form.elements.font.value,
+    corners: form.elements.corners.value,
+    density: form.elements.density.value,
+    mode: form.elements.mode.value,
+    userChoice: form.elements.userChoice.checked,
+  };
+}
+
+function fillThemeForm(theme) {
+  const form = document.getElementById("theme-form");
+  if (!form) return;
+  setHtml("[data-theme-presets]", themePresets.map((preset) => `
+    <label class="theme-preset"><input type="radio" name="preset" value="${preset.id}" ${preset.id === theme.preset ? "checked" : ""}>
+      <span class="theme-swatch" style="--swatch:${preset.colour}"></span><span>${escapeHtml(preset.label)}</span></label>`).join(""));
+  form.elements.useAccent.checked = Boolean(theme.accent);
+  form.elements.accent.value = theme.accent || themePresets.find((preset) => preset.id === theme.preset)?.colour || "#47735f";
+  form.elements.accent.disabled = !theme.accent;
+  ["font", "corners", "density", "mode"].forEach((name) => { form.elements[name].value = theme[name]; });
+  form.elements.userChoice.checked = theme.userChoice !== false;
+  setText("[data-theme-message]", "");
+}
+
+document.getElementById("theme-form")?.addEventListener("input", (event) => {
+  const form = event.currentTarget;
+  if (event.target.name === "preset" && !form.elements.useAccent.checked) {
+    form.elements.accent.value = themePresets.find((preset) => preset.id === event.target.value)?.colour || form.elements.accent.value;
+  }
+  form.elements.accent.disabled = !form.elements.useAccent.checked;
+  previewOrgTheme(themeFormValue());
+  setText("[data-theme-message]", "Previewing. Save to apply for everyone.");
+});
+
+document.querySelector("[data-theme-undo]")?.addEventListener("click", () => {
+  restoreOrgTheme();
+  fillThemeForm(orgTheme);
+});
+
+document.getElementById("theme-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const theme = themeFormValue();
+  try {
+    await requestJson("/api/settings", "POST", { settings: Object.fromEntries(Object.entries(theme).map(([key, value]) => [`theme.${key}`, value])) });
+    setOrgTheme(theme);
+    setText("[data-theme-message]", "Theme saved for this organization.");
+  } catch (error) {
+    setText("[data-theme-message]", error.message);
+  }
+});
+
 async function loadSuperSettings() {
+  fillThemeForm(savedOrgTheme);
   setLoading("[data-super-settings-summary]", "Loading system settings…");
   const superSettingsGrid = document.querySelector("#super-settings .settings-grid");
   document.querySelectorAll("#settings [data-super-only-setting]").forEach((panel) => {
@@ -73,7 +166,6 @@ async function loadWorkOrders() {
   workOrderCache = data.items;
   updateWorkOrderFilterSelects();
   renderWorkOrders();
-  renderCorrectiveActions();
 }
 
 async function loadFindings() {
@@ -84,34 +176,44 @@ async function loadFindings() {
   renderFindings();
 }
 
-function renderFindings() {
+// Findings that pass the filters, gathered into one entry per inspected item.
+function findingGroups() {
   const search = findingFilters.search.toLowerCase();
   const rows = findingCache.filter((row) => {
-    const haystack = [
-      row.finding_ref,
-      row.audit_ref,
-      row.outlet,
-      row.location,
-      row.category,
-      row.priority,
-      row.assigned_department,
-      row.pic,
-      row.comment,
-      row.status,
-    ].join(" ").toLowerCase();
-    return (!search || haystack.includes(search))
+    const haystack = [row.finding_ref, row.audit_ref, row.item_name, row.criterion, row.outlet, row.location, row.category,
+      row.priority, row.assigned_department, row.pic, row.comment, row.status, row.request_ref].join(" ").toLowerCase();
+    const status = findingFilters.status === "active" ? row.status !== "Closed" : !findingFilters.status || row.status === findingFilters.status;
+    return (!search || haystack.includes(search)) && status
       && (!findingFilters.auditId || String(row.audit_id) === findingFilters.auditId)
       && (!findingFilters.outlet || row.outlet === findingFilters.outlet)
       && (!findingFilters.location || row.location === findingFilters.location)
       && (!findingFilters.department || row.assigned_department === findingFilters.department)
       && (!findingFilters.category || row.category === findingFilters.category)
-      && (!findingFilters.priority || row.priority === findingFilters.priority)
-      && (!findingFilters.status || row.status === findingFilters.status);
+      && (!findingFilters.priority || row.priority === findingFilters.priority);
   });
-  const page = paginateList("findings", rows, findingFilters, renderFindings);
-  setHtml("[data-findings]", (rows.length
-    ? page.items.map(findingRow).join("")
-    : `<article><div><b>No findings found</b><span>Completed inspections with failed criteria will appear here.</span></div></article>`) + page.controls);
+  const groups = new Map();
+  rows.forEach((row) => {
+    const key = [row.audit_id, row.equipment_id || row.item_name, row.location].join("|");
+    if (!groups.has(key)) {
+      groups.set(key, { key, findings: [], item_name: row.item_name, item_kind: row.item_kind, audit_id: row.audit_id, audit_ref: row.audit_ref,
+        outlet: row.outlet, location: row.location, department: row.assigned_department, category: row.category, priority: row.priority, images: [] });
+    }
+    const group = groups.get(key);
+    group.findings.push(row);
+    // The same photo is often attached to several checks of one item; show it once.
+    parseStoredImages(row.images_json || "[]").forEach((image) => {
+      if (!group.images.some((seen) => imageSource(seen) === imageSource(image))) group.images.push(image);
+    });
+  });
+  return [...groups.values()].map((group) => ({ ...group, findingIds: group.findings.map((row) => row.id) }));
+}
+
+function renderFindings() {
+  const groups = findingGroups();
+  const page = paginateList("findings", groups, findingFilters, renderFindings);
+  setHtml("[data-findings]", (groups.length
+    ? page.items.map(findingItemRow).join("")
+    : `<article><div><b>No findings</b><span>Items that failed a check in a completed inspection appear here.</span></div></article>`) + page.controls);
 }
 
 function renderWorkOrders() {
@@ -128,12 +230,6 @@ function renderWorkOrders() {
       row.assignee,
       row.pic,
       row.status,
-      row.action_taken,
-      row.completion_date,
-      row.completion_remark,
-      row.verified_by,
-      row.verified_at,
-      row.verification_remark,
       row.closed_at,
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
@@ -146,34 +242,15 @@ function renderWorkOrders() {
   });
   setHtml("[data-work-orders]", rows.length
     ? rows.map(workOrderRow).join("")
-    : `<article><div><b>No work orders found</b><span>Adjust search or filters, or add a new work order.</span></div></article>`);
-}
-
-function renderCorrectiveActions() {
-  const search = (document.getElementById("corrective-search")?.value || "").toLowerCase();
-  const outlet = document.getElementById("corrective-filter-outlet")?.value || "";
-  const department = document.getElementById("corrective-filter-department")?.value || "";
-  const status = document.getElementById("corrective-filter-status")?.value || "";
-  updateSelectOptions(document.getElementById("corrective-filter-outlet"), setupOptions.outlets, true, "All outlets");
-  updateSelectOptions(document.getElementById("corrective-filter-department"), setupOptions.departments, true, "All departments");
-  if (outlet) document.getElementById("corrective-filter-outlet").value = outlet;
-  if (department) document.getElementById("corrective-filter-department").value = department;
-  const rows = workOrderCache.filter((row) => {
-    const haystack = [row.work_order_ref, row.outlet, row.zone, row.request_type, row.title, row.action_taken, row.pic, row.status, row.sla_status].join(" ").toLowerCase();
-    return (!search || haystack.includes(search))
-      && (!outlet || row.outlet === outlet)
-      && (!department || row.request_type === department)
-      && (!status || row.status === status);
-  });
-  setHtml("[data-corrective-actions]", rows.length
-    ? rows.map(workOrderRow).join("")
-    : `<article><div><b>No corrective actions found</b><span>Work orders and finding follow-ups appear here.</span></div></article>`);
+    : `<article><div><b>No work orders found</b><span>Create one from a work request, or adjust the filters.</span></div></article>`);
 }
 
 async function loadNotifications() {
   const response = await authFetch("/api/notifications");
   const data = await response.json();
   notificationCache = data.items || [];
+  unreadNotifications = notificationCache.filter((row) => row.status === "Unread").length;
+  renderUnreadBadge();
   renderNotifications();
 }
 
@@ -187,6 +264,21 @@ function renderNotifications() {
   setHtml("[data-notifications]", rows.length
     ? rows.map(notificationRow).join("")
     : `<article><div><b>No notifications found</b><span>Assigned, due soon, overdue, and completed notices appear here.</span></div></article>`);
+}
+
+// Fixed assets and fixtures & finishes are separate tabs over one register.
+function setEquipmentKind(kind) {
+  equipmentFilters.kind = kind;
+  setText("[data-equipment-title]", kind === "fixture" ? "Fixtures & Finishes" : "Fixed Assets");
+  const search = document.getElementById("equipment-search");
+  if (search) search.placeholder = kind === "fixture" ? "Search fixtures and finishes" : "Search fixed assets";
+  document.querySelectorAll("#equipment [data-show-kind]").forEach((node) => { node.hidden = node.dataset.showKind !== kind; });
+  // Type and brand describe fixed assets only.
+  if (kind === "fixture") {
+    equipmentFilters.type = equipmentFilters.brand = "";
+    ["equipment-filter-type", "equipment-filter-brand"].forEach((id) => { const select = document.getElementById(id); if (select) select.value = ""; });
+  }
+  if (equipmentCache.length) renderEquipment();
 }
 
 async function loadEquipment() {
@@ -220,8 +312,11 @@ function renderEquipment() {
       brand,
       row.outlet,
       location,
+      row.category,
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
+      && (!equipmentFilters.kind || (row.kind || "asset") === equipmentFilters.kind)
+      && (!equipmentFilters.category || (row.category || "") === equipmentFilters.category)
       && (!equipmentFilters.outlet || row.outlet === equipmentFilters.outlet)
       && (!equipmentFilters.location || location === equipmentFilters.location)
       && (!equipmentFilters.type || type === equipmentFilters.type)
@@ -234,10 +329,10 @@ function renderEquipment() {
   setHtml("[data-equipment]", rows.length
     ? visible.map(equipmentRow).join("") + `<nav aria-label="Fixed asset pages">
         <button type="button" data-equipment-page="${equipmentPage - 1}" ${equipmentPage === 1 ? "disabled" : ""}>Previous</button>
-        <span>Page ${equipmentPage} of ${pages} · ${rows.length} assets</span>
+        <span>Page ${equipmentPage} of ${pages} · ${rows.length} items</span>
         <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === pages ? "disabled" : ""}>Next</button>
       </nav>`
-    : `<article><div><b>No fixed assets found</b><span>Adjust search or filters, or add a new fixed asset.</span></div></article>`);
+    : `<article><div><b>Nothing found</b><span>Adjust search or filters, or add a fixed asset or a fixture.</span></div></article>`);
 }
 
 window.addEventListener("pagination-size-changed", () => {
@@ -319,7 +414,7 @@ function auditChart(title, source, score = false) {
   const maximum = score ? 100 : Math.max(1, ...entries.map((row) => row.value));
   const hasData = entries.length && (score || entries.some((row) => row.value > 0));
   return `<article class="panel mini-chart"><h2>${escapeHtml(title)}</h2>
-    <p class="muted">${score === "percent" ? "Completed corrective actions · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
+    <p class="muted">${score === "percent" ? "Closed work orders · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
     ${hasData ? `<ol class="audit-chart">${entries.map((row) => `<li>
       <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score === "percent" ? "%" : score ? "/100" : ""}</strong></div>
       <div class="audit-chart-track" aria-hidden="true"><span style="width:${Math.min(100, row.value * 100 / maximum)}%"></span></div>
@@ -328,7 +423,7 @@ function auditChart(title, source, score = false) {
 
 function renderMainDashboard(data) {
   const stats = data.stats || {};
-  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "completedCorrectiveActions"]) {
+  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"]) {
     setText(`[data-dashboard="${key}"]`, stats[key] ?? 0);
   }
   setText('[data-dashboard="overallAuditScore"]', stats.overallAuditScore == null ? "No completed audits" : `${stats.overallAuditScore}/100`);

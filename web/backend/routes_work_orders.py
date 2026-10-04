@@ -2,21 +2,28 @@
 from backend.relational_values import data_value
 import time
 from backend.reminders import notify_work_order
-from backend.common import create_notification, priority_due_date, sla_status, work_order_ref
+from backend.common import priority_due_date, sla_status, work_order_ref
 from backend.database import connect, first_category, first_department, first_outlet
 from backend.work_orders import sync_finding_from_work_order
 from backend.workflow import WorkflowError, validate_update
+from backend.work_requests import claim_for_work_order, create_work_request, decline_work_request, link_work_order
 
 
 def post_work_orders(self, parsed, payload=None):
     now = int(time.time() * 1000)
-    payload = validate_update(payload, None, self.current_user())
+    user = self.current_user()
+    request_id = int(payload.get("workRequestId") or 0)
+    if not request_id:
+        raise WorkflowError("Create a work order from a work request", 400)
+    payload = validate_update(payload, None, user)
     with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        work_request = claim_for_work_order(db, user, request_id)
         default_outlet = first_outlet(db)
         default_department = first_department(db)
         default_category = first_category(db)
         status = payload.get("status", "Assigned")
-        verified_at, closed_at = payload["verifiedAt"], payload["closedAt"]
+        closed_at = payload["closedAt"]
         priority = payload.get("priority", "Medium")
         due_date = payload.get("dueDate") or priority_due_date(db, priority, now)
         current_sla_status = sla_status(status, due_date)
@@ -24,10 +31,9 @@ def post_work_orders(self, parsed, payload=None):
             """
             INSERT INTO work_orders
             (business_unit, outlet, zone, request_type, category, priority, title, description,
-             assignee, pic, status, action_taken, completion_date, completion_remark, completion_photo_data_id,
-             verified_by, verified_at, verification_remark, closed_at, due_date, vendor, sla_status,
+             assignee, pic, status, closed_at, due_date, vendor, sla_status,
              cost, outlet_confirmed, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
             """,
             (
                 payload.get("businessUnit", "Ottotree"),
@@ -41,13 +47,6 @@ def post_work_orders(self, parsed, payload=None):
                 payload.get("assignee", "Technical Support"),
                 payload.get("pic", ""),
                 status,
-                payload.get("actionTaken", ""),
-                payload.get("completionDate", ""),
-                payload.get("completionRemark", ""),
-                data_value(db, payload.get("completionPhoto"), []),
-                payload.get("verifiedBy", ""),
-                verified_at,
-                payload.get("verificationRemark", ""),
                 closed_at,
                 due_date,
                 payload.get("vendor", ""),
@@ -61,8 +60,25 @@ def post_work_orders(self, parsed, payload=None):
             (work_order_ref(cursor.lastrowid), cursor.lastrowid),
         )
         save_finding_details(db, cursor.lastrowid, payload)
+        db.execute("UPDATE work_orders SET source_audit_id = ?, images_data_id = COALESCE(images_data_id, ?) WHERE id = ?",
+                   (work_request["audit_id"], work_request["images_data_id"], cursor.lastrowid))
+        link_work_order(db, request_id, cursor.lastrowid, status, payload.get("pic", ""))
         notify_work_order(db, cursor.lastrowid, status)
-    self.json({"ok": True})
+    self.json({"ok": True, "id": cursor.lastrowid})
+
+
+def post_work_requests(self, parsed, payload=None):
+    self.json(create_work_request(self.current_user(), payload or {}))
+
+
+def patch_work_requests(self, parsed, payload=None):
+    record_id = parsed.path.rsplit("/", 1)[-1]
+    if not record_id.isdigit():
+        self.send_error(400)
+        return
+    if (payload or {}).get("action") != "decline":
+        raise WorkflowError("Unknown work request action", 400)
+    self.json(decline_work_request(self.current_user(), int(record_id), payload.get("remark")))
 
 
 def post_comments(self, parsed, payload=None):
@@ -84,21 +100,16 @@ def post_comments(self, parsed, payload=None):
     self.json({"ok": True})
 
 
-def post_notifications(self, parsed, payload=None):
-    with connect() as db:
-        create_notification(
-            db,
-            payload.get("title", "Notification"),
-            payload.get("message", ""),
-            payload.get("channel", "In-App"),
-            payload.get("relatedType", ""),
-            int(payload.get("relatedId") or 0),
-        )
-    self.json({"ok": True})
-
-
 def patch_notifications(self, parsed, payload=None):
     record_id = parsed.path.rsplit("/", 1)[-1]
+    if record_id == "all":
+        with connect() as db:
+            cursor = db.execute(
+                "UPDATE notifications SET status = 'Read', read_at = ? WHERE status = 'Unread' AND recipient_user_id = ?",
+                (int(time.time() * 1000), self.current_user()["id"]),
+            )
+        self.json({"ok": True, "updated": cursor.rowcount})
+        return
     if not record_id.isdigit():
         self.send_error(400)
         return
@@ -128,7 +139,7 @@ def patch_work_orders(self, parsed, payload=None):
             return
         payload = validate_update(payload, existing, user)
         status = payload["status"]
-        verified_at, closed_at = payload["verifiedAt"], payload["closedAt"]
+        closed_at = payload["closedAt"]
         priority = payload.get("priority", "Medium")
         due_date = payload.get("dueDate") or priority_due_date(db, priority, int(time.time() * 1000))
         current_sla_status = sla_status(status, due_date)
@@ -137,8 +148,7 @@ def patch_work_orders(self, parsed, payload=None):
             UPDATE work_orders
             SET business_unit = ?, outlet = ?, zone = ?, request_type = ?, category = ?,
                 priority = ?, title = ?, description = ?, assignee = ?, pic = ?, status = ?,
-                action_taken = ?, completion_date = ?, completion_remark = ?, completion_photo_data_id = ?,
-                verified_by = ?, verified_at = ?, verification_remark = ?, closed_at = ?,
+                closed_at = ?,
                 due_date = ?, vendor = ?, sla_status = ?, cost = ?
             WHERE id = ?
             """,
@@ -154,13 +164,6 @@ def patch_work_orders(self, parsed, payload=None):
                 payload.get("assignee", "Technical Support"),
                 payload.get("pic", ""),
                 status,
-                payload.get("actionTaken", ""),
-                payload.get("completionDate", ""),
-                payload.get("completionRemark", ""),
-                data_value(db, payload.get("completionPhoto"), []),
-                payload.get("verifiedBy", ""),
-                verified_at,
-                payload.get("verificationRemark", ""),
                 closed_at,
                 due_date,
                 payload.get("vendor", ""),
@@ -176,8 +179,6 @@ def patch_work_orders(self, parsed, payload=None):
         sync_finding_from_work_order(db, int(item_id))
         if status != existing["status"]:
             message = f"Status changed from {existing['status']} to {status}"
-            if payload.get("verificationRemark"):
-                message += f": {payload['verificationRemark']}"
             db.execute("INSERT INTO comments(record_type, record_id, comment, author, created_at, system_generated) VALUES ('work_order', ?, ?, ?, ?, 1)",
                        (int(item_id), message, user["name"], int(time.time() * 1000)))
             notify_work_order(db, int(item_id), status)
@@ -240,10 +241,14 @@ def delete_work_orders(self, parsed, payload=None):
         raise WorkflowError("Department/PIC users cannot delete work orders", 403)
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT source_finding_id, status FROM work_orders WHERE id = ?", (int(record_id),)).fetchone()
-        if row and (row["source_finding_id"] or row["status"] in {"Completed", "Verified", "Closed"}):
-            raise WorkflowError("Audit-linked or completed work orders must be retained")
+        row = db.execute("SELECT source_finding_id, work_request_id, status FROM work_orders WHERE id = ?", (int(record_id),)).fetchone()
+        if row and (row["source_finding_id"] or row["status"] == "Closed"):
+            raise WorkflowError("Audit-linked or closed work orders must be retained")
         cursor = db.execute("DELETE FROM work_orders WHERE id = ?", (int(record_id),))
+        if row and row["work_request_id"]:
+            now = int(time.time() * 1000)
+            db.execute("UPDATE work_requests SET status = 'Open', work_order_id = NULL, updated_at = ? WHERE id = ?", (now, row["work_request_id"]))
+            db.execute("UPDATE findings SET status = 'Requested', updated_at = ? WHERE work_request_id = ?", (now, row["work_request_id"]))
         if cursor.rowcount == 0:
             self.send_error(404)
             return

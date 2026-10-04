@@ -10,10 +10,16 @@ permissions assigned to your account.
 1. Open the Audit App website and sign in with the account provided by your
    administrator.
 2. Open Account to update your name, email, profile picture, and signature.
+   Choose a file for the picture or signature, or draw your signature in the
+   box and choose Use this drawing; then Save Account. Images appear as
+   squares beside their Choose file square; x removes one.
    Change your password there if needed. Your signed-in account is recorded as
    the auditor; you do not need to type your name into an inspection.
 3. If you cannot sign in, use Forgot Password to send a reset request. An
    administrator must review the request and reset the password.
+4. If your account was created without a password of its own, or an
+   administrator reset it, you are asked to choose a new password as soon as
+   you sign in. Nothing else is available until you do.
 
 2. COMPLETE FIRST-TIME ADMIN SETUP
 ----------------------------------
@@ -22,88 +28,182 @@ An administrator should configure these records before staff begin auditing:
 1. In Users, create accounts and assign each person's role and department.
    Configure role permissions and inspection capabilities as required.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
-   zones. Set display order where needed.
-3. In Fixed Assets, add the equipment and assign it to the correct outlet and
-   location. Configure the inspection criteria for each asset.
-4. In Settings, configure audit types, finding categories, and priority levels.
-   Each priority level has a classification and a due-day target.
+   zones. Set display order where needed. When editing a location, tick the
+   assets and fixtures that belong in it (use the filter to find them);
+   unticking one removes it from the location.
+3. In Assets, register what will be inspected at each outlet and location:
+   - On the Fixed Assets tab, Add Fixed Asset for equipment that has a code
+     and serial details (speakers, screens, amplifiers).
+   - On the Fixtures & Finishes tab, Add Fixture or Finish for parts of the
+     building itself (wall paint, floor tiles, water pipes, toilets, sinks).
+     These need only a name, location, category, and condition.
+   Give each item a category and review its inspection criteria. A code is
+   generated when you leave it blank.
+4. Under Assets > Categories, set the department responsible for each category.
+   Findings in that category are assigned to it unless the auditor chooses
+   another. Audit types and priority levels are managed by the Super account
+   in Super Settings.
 5. In Settings, review audit scoring, pass mark, rating bands, and category
    weights. Configure the company name, facilities header, and report logo if
    these should appear on reports.
 
 3. SCHEDULE AN AUDIT
 --------------------
-1. Open Inspections and choose Schedule Work, or use Schedule Visit from Today.
-2. Select the outlet and location, set the date and auditor, and add any
-   scheduling remarks. Save the schedule.
-3. For an audit that is ready to start immediately, use + New Audit. Enter the
-   outlet, audit date and time, audit type, and remarks. The signed-in account
-   is recorded as the auditor. The app creates a scheduled draft and reserves
-   an audit reference.
+1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
+   Dashboard.
+2. Select the outlet, set the date and auditor, and add any scheduling
+   remarks. Under Locations, All locations is ticked: the audit covers the
+   whole outlet. Tick one or more locations instead to audit only those; the
+   inspection then shows only their tabs. Untick them all to return to All.
+   Save the schedule. A new schedule is always Pending; it becomes In Progress
+   when the audit starts and Completed when it is finished.
+3. For an audit that happens now, choose Schedule and start now instead of
+   Schedule. The signed-in account is recorded as the auditor, an audit
+   reference is reserved, and the checklist opens straight away. Audit time,
+   type, and remarks can be set at the top of the checklist.
 
 4. START OR RESUME THE GUIDED INSPECTION
 ----------------------------------------
-1. Open Inspections. Guided Inspection initially shows Scheduled Work.
-2. Select the scheduled work item. The app creates or resumes its inspection
-   and displays the inspection reference and details.
-3. Work through each listed location and fixed-asset criterion.
-4. Mark each criterion as passed or N/A when appropriate. For a failed
-   criterion, leave it unchecked and enter the required remark.
-5. Add a photo for each applicable asset. You can add multiple photos, remove
-   a photo, or open Mark to annotate it before saving the mark.
-6. When a criterion is failed, the Record Audit Finding dialog opens. Select
-   its category, priority, department, and PIC as appropriate; add the cause,
-   recommendation, required action, remarks, and evidence. Choose Save Finding
-   to Draft to keep these details with the inspection. The finding and linked
-   work order are created when the inspection is completed.
-7. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
+1. An audit started with Schedule and start now is already open. Otherwise
+   open Inspections; Guided Inspection shows Scheduled Work.
+2. Select the scheduled work item, or choose Open beside "Continue inspection"
+   under Waiting on you on the Dashboard. The app creates or resumes the
+   inspection and displays its reference and details.
+   Scheduled Work lists unfinished audits too, including drafts started
+   without a schedule. Each audit is named the same way here and in History:
+   its audit number and name (for example AUD-2026-0002 · AQP_2026-08-28_11),
+   with the schedule it came from (Schedule SCH-00012, or No schedule) in
+   the details line. A schedule nobody has started reads "Not started".
+3. Work through each listed location and the criteria of each item in it.
+4. Use Show and Category above the checklist to work through one kind of item
+   or one category at a time, for example only Plumbing. The location and zone
+   percentages then count the items shown; the whole checklist must still be
+   finished to complete the inspection.
+5. Tick each criterion that passes, or choose Pass all on an asset to tick
+   every criterion that has no remark. For a failed criterion, leave it
+   unticked and enter a remark, or select Finding details beside it.
+6. Add a photo for each asset. You can add multiple photos, remove a photo, or
+   open Mark to annotate it before saving the mark. Select a photo's thumbnail
+   to view it: scroll, pinch, or use + and − to zoom, drag to move around, and
+   double-click to zoom in or back out. Previous and Next step through the
+   photos shown together, and a marked photo can be compared with its original.
+   The same viewer opens from the Photos button on work orders, findings, and
+   the asset register.
+7. Finding details opens the Record Audit Finding dialog (it also opens when
+   you untick a criterion). Select the category, priority, department, and PIC;
+   describe the problem; add the cause, recommendation, required action, and
+   evidence. Choose Save Finding to Draft to keep these details with the
+   inspection; a summary appears under the criterion. The category and
+   department start from the item's category and that category's responsible
+   department; a failed criterion with only a remark uses those defaults. The
+   findings are recorded when the inspection is completed; no work is ordered
+   until a work request is raised for them (section 6).
+8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
-8. When every applicable criterion is resolved and has evidence, the button
-   changes to Complete Inspection. Select it to submit. The app validates the
-   checklist, calculates the configured score, saves the audit and its findings,
-   and updates the dashboard.
+9. When every criterion is ticked or has a remark, and the required photos
+   are attached, the button changes to Complete Inspection. An asset with a
+   failed criterion always needs a photo; whether every other asset needs one
+   is set by an administrator under Settings > Workflow options. Locations
+   with nothing to inspect show "None" and do not count. Select the button to
+   submit. The app validates the checklist, calculates the configured score,
+   saves the audit and its findings, and updates the dashboard.
 
 5. ADD SIGNATURES AND REVIEW HISTORY
 ------------------------------------
-1. In the inspection, use Audited By, Verified By, or Acknowledged By to add
-   the signatures your workflow requires. Select Save Signatures. Your identity
-   and timestamp are recorded with the signature.
-2. Open History & Findings to browse completed inspections and their findings.
-   Use search and filters to narrow the list.
-3. Open an inspection and use Export PDF to download its report. The PDF
+1. Completing an inspection opens it on Inspections > Sign-off. Sign-off
+   lists every completed audit that is not yet closed, with the signatures it
+   still needs. Open one to see a card each for Audited by, Verified by, and
+   Acknowledged by.
+2. On a card you may sign, choose Use my saved signature (the one under
+   Account) or Draw signature to draw or upload one. Each signature is saved
+   at once with your name and the time. The auditor's card is for whoever ran
+   the inspection.
+3. Open History or Findings (under Inspections) to browse inspections and
+   their findings. Use search and filters to narrow the list.
+4. Use Export PDF on Sign-off, or open an inspection, to download its report. The PDF
    includes the audit summary, checklist, findings, available photos, and
    signatures.
 
-6. HANDLE CORRECTIVE ACTIONS
-----------------------------
-1. Open Work Orders to review assigned findings and other work orders. A
-   Department/PIC account sees only records assigned to that PIC or department.
-2. Open a work order to review the issue, evidence, due date, priority, and
+6. REQUEST AND ORDER WORK
+-------------------------
+1. Inspections > Findings lists each item (fixed asset or fixture) that failed
+   a check, once, with the checks it failed, their remarks, and photos. It
+   shows items that are not closed; change Status to see the rest.
+2. Choose Create work request on an item. The request starts with the item's
+   department, category, priority, the failed checks as the work needed, and
+   its photos; adjust them and choose Submit Request. The item then shows its
+   request number (WR-...). Something that was not found in an audit can be
+   requested with Add Work Request on Maintenance > Work Requests.
+3. Maintenance > Work Requests lists open requests (change Status for the
+   rest); they also appear under Waiting on you as "Review work request" for
+   whoever assigns work. Choose Create work order to turn a request into a
+   work order, filled in from the request: set the PIC and due date and save.
+   Or choose Decline with the reason when no work is needed; its findings
+   close with that reason.
+4. Maintenance > Work Orders lists the work orders. The Dashboard lists those
+   assigned to you or your department under Waiting on you ("Resolve work
+   order"). A Department/PIC account sees only records assigned to that PIC or
+   department, and cannot create or decline orders.
+5. Open a work order to review the issue, evidence, due date, priority, and
    assignment. Add comments to its timeline as work progresses.
-3. The assigned PIC records the action taken, completion date, completion
-   remark, and completion photo before setting the work to Completed.
-4. A permitted verifier reviews the evidence. The verifier can set Verified
-   with a verification remark, or return the work to In Progress with a remark
-   explaining what still needs attention.
-5. After verification, close the work order. Closed records are retained for
-   audit history.
-6. The Notifications page shows relevant progress, assignment, verification,
-   due-soon, and overdue notices.
+6. A work order moves through Open, Assigned, In Progress, and Pending, and
+   is Closed when the work is done. The person or department it is assigned
+   to, or an auditor or administrator, closes it; today's date is recorded,
+   and its request and findings close with it. The Status list offers only
+   the allowed steps. Deleting an unstarted work order returns its request to
+   Open.
+7. Closed work orders are kept for audit history and open read-only. If a
+   change is refused, the reason is shown at the bottom of the dialog.
+8. The Notifications page shows relevant progress, assignment,
+   due-soon, and overdue notices. Open goes to the inspection or work order a
+   notice is about and marks it read; Mark all read clears the rest. The
+   number of unread notices is shown on the Notifications button, or on the
+   page menu when that button does not fit.
 
 7. CLOSE AN AUDIT AND REVIEW REPORTS
 -----------------------------------
-1. A verifier can close a completed audit from its history record after all
-   required signatures are present and every linked finding/work order is
-   closed. A closed audit is read-only.
+1. A verifier can close a completed audit on Sign-off (or from its History
+   record) after all
+   required signatures are present and every finding is closed (its work
+   order closed or its request declined). It appears under Waiting on you as "Close audit" when it is ready,
+   and as "Sign as ..." while your signature is missing. A closed audit is
+   read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
    and charts. Use the date and outlet filters to narrow the report.
 3. Use Export PDF on an inspection for its detailed audit report. Use the
    Reports page export actions for CSV, Excel, or JSON report data.
 
+8. SUPER ACCOUNT
+----------------
+The Super account is kept in its own database, separate from every
+organization. It never appears in an organization's Users list, cannot be
+given to an organization user, and its sign-in history and page order are
+kept with it. It has no department, profile picture, or saved signature; draw
+or upload a signature when signing an inspection. Switching to another
+organization keeps the Super account signed in.
+
+The Super account has every page above, plus two restricted pages
+under the page menu: Super Dashboard (users, roles, assets, open findings, and
+the active company database) and Super Settings (company databases, the
+organization theme, priority levels, audit types, scoring, and report
+settings). Switching the company database signs every user out.
+
+Each company database is an organization with its own theme. Under Super
+Settings > Organization theme, choose a palette (Ottotree follows the teal and
+greys of its PM checklist reports), optionally your own accent colour, the font
+(Noto Sans SC matches those reports), corner style, density, the default
+appearance (light, dark, or follow the device), and whether each user may pick
+light or dark for themselves. Changes are previewed as you make them and apply
+to everyone, including the sign-in page and PDF reports, once saved. The report
+logo under Report & System is also shown beside the organization's name.
+
 IMPORTANT NOTES
 ---------------
+- Appearance (light, dark, follow device, or the organization's default) and
+  items per page are under Settings. The organization may fix the appearance
+  for everyone, in which case the choice is shown but cannot be changed.
 - Save Progress frequently when working in the field.
-- A failed criterion needs a remark. Applicable inspection items need photo
+- A failed criterion needs a remark. Every inspected asset needs photo
   evidence before the inspection can be completed.
 - Priority due dates come from the priority-level setup. The app sends in-app
   assignment and due-date reminders while the server is running.
