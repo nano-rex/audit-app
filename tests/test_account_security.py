@@ -396,6 +396,25 @@ class AccountSecurityTests(unittest.TestCase):
             restore = {"report.logoUrl": "", "theme.preset": "ottotree", "theme.accent": "", "theme.corners": "rounded", "theme.density": "comfortable", "theme.mode": "system", "theme.userChoice": True}
             self.assertEqual(self.request("/api/settings", "POST", {"settings": restore})[0], 200)
 
+    def test_each_instance_port_gets_its_own_session_cookie(self):
+        import os
+        name = lambda **env: mock.patch.dict(os.environ, env, clear=False)
+        for env, expected in (({"PORT": "41883"}, "ottotree_session"), ({"PORT": "41991"}, "ottotree_session_41991"),
+                              ({"PORT": "41991", "AUDIT_SESSION_COOKIE": "company_b"}, "company_b")):
+            with name(**env):
+                os.environ.pop("AUDIT_SESSION_COOKIE", None) if "AUDIT_SESSION_COOKIE" not in env else None
+                self.assertEqual(config._session_cookie_name(), expected)
+        with name(AUDIT_SESSION_COOKIE="bad name;"), self.assertRaises(SystemExit):
+            config._session_cookie_name()
+        # The server reads and writes the configured name only.
+        with mock.patch.object(config, "SESSION_COOKIE", "company_b"):
+            status, headers, _ = self.request("/api/auth/login", "POST", {"identifier": "jacky", "password": "123456"}, token=None)
+            self.assertEqual(status, 200)
+            self.assertTrue(headers["Set-Cookie"].startswith("company_b="))
+            token = headers["Set-Cookie"].split(";", 1)[0].split("=", 1)[1]
+            self.assertEqual(self.request("/api/auth/me", token=None, headers={"Cookie": f"company_b={token}"})[0], 200)
+            self.assertEqual(self.request("/api/auth/me", token=token)[0], 401, "another instance's cookie is ignored")
+
     def test_photo_thumbnails_are_small_jpegs_and_need_a_session(self):
         from io import BytesIO
         import base64

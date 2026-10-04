@@ -7,6 +7,7 @@ import os
 import secrets
 import re
 from datetime import datetime
+from backend import config
 from backend.accounts import is_company_admin_user, is_super_user, public_user
 from backend.common import hash_password, verify_password
 from backend.config import APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
@@ -88,7 +89,7 @@ def post_auth_login(self, parsed, payload=None):
     self.send_header("Content-Type", "application/json")
     self.send_header("Cache-Control", "no-store")
     secure = "; Secure" if os.environ.get("AUDIT_SECURE_COOKIES") == "1" else ""
-    self.send_header("Set-Cookie", f"ottotree_session={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
+    self.send_header("Set-Cookie", f"{config.SESSION_COOKIE}={token}; Path=/; Max-Age={max_age}; HttpOnly; SameSite=Lax{secure}")
     self.end_headers()
     self.wfile.write(json.dumps({"ok": True, "user": public_user(refreshed)}).encode("utf-8"))
     return
@@ -99,7 +100,7 @@ def post_auth_logout(self, parsed, payload=None):
     self.send_response(200)
     self.send_header("Content-Type", "application/json")
     self.send_header("Cache-Control", "no-store")
-    self.send_header("Set-Cookie", "ottotree_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
+    self.send_header("Set-Cookie", f"{config.SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax")
     self.end_headers()
     self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
     return

@@ -23,6 +23,7 @@ python3 web/server.py
 | `AUDIT_SECURE_COOKIES` | off | `1` marks the session cookie HTTPS-only. Use it only behind HTTPS, otherwise browsers will not send the cookie |
 | `AUDIT_TRUST_PROXY` | off | `1` takes the client address from the last `X-Forwarded-For` entry. Use it only behind a reverse proxy you control |
 | `PORT` | `41883` | Listening port. The server always binds to `127.0.0.1` |
+| `AUDIT_SESSION_COOKIE` | from `PORT` | Name of the session cookie; see Running several organizations |
 
 ## What the server does
 
@@ -73,6 +74,27 @@ python3 web/server.py
    and is unsuitable for network filesystems ([SQLite WAL](https://www.sqlite.org/wal.html)).
    Move to PostgreSQL when measured write contention or multi-host operation requires it.
 
+## Running several organizations
+
+Each organization can run as its own instance: a separate process with its own data directory
+and port. Instances share nothing; each has its own database, sessions, uploads, and theme.
+
+```sh
+AUDIT_DATA_DIR=/srv/audit/company-a PORT=41891 python3 web/server.py
+AUDIT_DATA_DIR=/srv/audit/company-b PORT=41892 python3 web/server.py
+```
+
+- Give each instance its own data directory. Two instances must not point at the same one.
+- Browsers share cookies between ports of one host, so each instance names its session cookie
+  after its port (`ottotree_session_41891`); the default port keeps `ottotree_session`. Set
+  `AUDIT_SESSION_COOKIE` to choose a name, for example when instances are moved to other ports.
+- Behind a reverse proxy, give each instance its own host name (`a.audit.example`,
+  `b.audit.example`). Serving instances under paths of one host name (`/a/`, `/b/`) is not
+  supported: the pages request `/api/...` from the root.
+- A service manager can run one unit per instance, for example a systemd template
+  `audit-app@.service` with `EnvironmentFile=/etc/audit-app/%i.env` holding that instance's
+  `AUDIT_DATA_DIR`, `PORT`, and other settings.
+
 ## Backup and rollback
 
 Back up with SQLite's backup API; do not copy only the main `.db` file of a running WAL
@@ -103,7 +125,7 @@ They are a regression signal, not a capacity guarantee.
 
 ## Verified, and not
 
-- 71 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
+- 72 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
 - The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
   Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
   from outside the repository and is not an automated test here.

@@ -15,6 +15,22 @@ DATA_DIR = Path(os.environ.get("AUDIT_DATA_DIR", str(ROOT / "data"))).resolve()
 
 DB_PATH = DATA_DIR / "ottotree_audit_web.db"
 
+
+# Browsers share cookies between ports of the same host, so instances running side by side
+# (one per organization) each need their own session cookie name. The default port keeps the
+# original name so existing sign-ins survive.
+def _session_cookie_name():
+    name = os.environ.get("AUDIT_SESSION_COOKIE", "").strip()
+    if not name:
+        port = os.environ.get("PORT", "41883").strip()
+        name = "ottotree_session" if port == "41883" else f"ottotree_session_{port}"
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", name):
+        raise SystemExit("AUDIT_SESSION_COOKIE may use only letters, digits, hyphens, and underscores")
+    return name
+
+
+SESSION_COOKIE = _session_cookie_name()
+
 # Lets one thread initialize another database without redirecting concurrent requests.
 DB_PATH_OVERRIDE = ContextVar("audit_db_path_override", default=None)
 

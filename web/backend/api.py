@@ -94,7 +94,8 @@ class Handler(BaseHTTPRequestHandler):
             jar.load(header)
         except cookies.CookieError:
             return ""
-        return jar.get("ottotree_session").value if jar.get("ottotree_session") else ""
+        cookie = jar.get(config.SESSION_COOKIE)
+        return cookie.value if cookie else ""
 
     def current_user(self):
         if self._current_user_loaded:
