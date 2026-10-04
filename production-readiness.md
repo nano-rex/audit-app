@@ -103,7 +103,7 @@ They are a regression signal, not a capacity guarantee.
 
 ## Verified, and not
 
-- 70 backend tests and 17 frontend tests pass; pyflakes and `git diff --check` pass.
+- 71 backend tests and 18 frontend tests pass; pyflakes and `git diff --check` pass.
 - The web workflow in [USER_GUIDE.txt](USER_GUIDE.txt) was walked end to end in headless
   Chromium on 2 October 2026, including dark mode and phone width. That walk was run by hand
   from outside the repository and is not an automated test here.

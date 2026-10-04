@@ -108,6 +108,35 @@ DEFAULT_SYSTEM_SETTINGS = {
 }
 
 
+# An organization's look. Each company database stores its own; the Super account edits it.
+THEME_CHOICES = {
+    "preset": ("default", "ottotree", "ocean", "plum", "ember", "slate"),
+    "font": ("system", "noto-sans-sc", "serif"),
+    "corners": ("rounded", "square", "soft"),
+    "density": ("comfortable", "compact"),
+    "mode": ("system", "light", "dark"),
+}
+
+
+DEFAULT_THEME_SETTINGS = {
+    "preset": "default",
+    "accent": "",          # "#rrggbb" replaces the preset's accent colour; empty keeps it.
+    "font": "system",
+    "corners": "rounded",
+    "density": "comfortable",
+    "mode": "system",      # The organization's default appearance.
+    "userChoice": True,    # Whether each user may pick light or dark for themselves.
+}
+
+
+# Accent colour of each palette, used where CSS is not available (the PDF report).
+THEME_PRESET_ACCENTS = {"default": "#47735f", "ottotree": "#1e99b4", "ocean": "#2563eb", "plum": "#7c3aed", "ember": "#c2410c", "slate": "#475569"}
+
+
+# The theme modelled on Ottotree's PM checklist reports: teal accent and Noto Sans SC.
+OTTOTREE_THEME = {"preset": "ottotree", "font": "noto-sans-sc"}
+
+
 APP_TABS = (
     ("today", "Dashboard"),
     ("inspections", "Inspections"),

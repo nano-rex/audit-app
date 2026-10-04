@@ -1,7 +1,7 @@
 """Accounts for the audit application."""
 from backend.relational_values import load_value
 from backend.common import read_setting
-from backend.config import ADMIN_ROLE, DEFAULT_REPORT_SETTINGS, SUPER_ROLE
+from backend.config import ADMIN_ROLE, DEFAULT_REPORT_SETTINGS, DEFAULT_THEME_SETTINGS, SUPER_ROLE
 from backend.database import connect
 from backend.permissions import resolve_permissions
 
@@ -58,4 +58,5 @@ def branding_settings():
             "businessUnitLabel": read_setting(db, "report.businessUnitLabel", DEFAULT_REPORT_SETTINGS["businessUnitLabel"]),
             "reportHeading": read_setting(db, "report.reportHeading", DEFAULT_REPORT_SETTINGS["reportHeading"]),
             "loginTitle": read_setting(db, "report.loginTitle", DEFAULT_REPORT_SETTINGS["loginTitle"]),
+            "theme": {key: read_setting(db, f"theme.{key}", value) for key, value in DEFAULT_THEME_SETTINGS.items()},
         }

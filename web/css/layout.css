@@ -29,9 +29,9 @@
 }
 
 [data-user-subtab].active {
-  color: var(--green);
-  background: var(--green-soft);
-  border-color: var(--green);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .panel,
@@ -39,11 +39,11 @@
   min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .panel {
-  padding: 24px;
+  padding: var(--panel-padding);
   margin-bottom: 24px;
 }
 
@@ -136,7 +136,7 @@
   align-items: end;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .inspection-item {
@@ -195,7 +195,7 @@
   margin: 4px 4px 0 0;
   padding: 4px 6px 4px 4px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--surface-alt);
   color: var(--text);
   vertical-align: middle;
@@ -238,7 +238,7 @@
   width: 100%;
   max-height: 62vh;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: #111d27;
   touch-action: none;
 }
@@ -261,7 +261,7 @@
 [data-signature-canvas] {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   /* Always white: the ink is dark and the drawing is stored as an image for the printed report. */
   background: #fff;
   touch-action: none;
@@ -274,7 +274,7 @@
 }
 
 .form-message.success {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .auth-page {
@@ -295,7 +295,7 @@
   width: min(420px, 100%);
   padding: 28px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
@@ -336,7 +336,7 @@
   align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-alt);
 }
 
@@ -410,7 +410,7 @@
   margin-bottom: 18px;
   color: #fff;
   background: var(--hero);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .today-hero span {
@@ -423,6 +423,7 @@
 
 .today-hero h2 {
   margin: 0;
+  color: inherit;
   font-size: 24px;
 }
 

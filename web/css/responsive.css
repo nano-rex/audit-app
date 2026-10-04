@@ -181,7 +181,7 @@
 
   .panel,
   .stats article {
-    border-radius: 8px;
+    border-radius: var(--radius);
   }
 
   .panel {

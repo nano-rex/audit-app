@@ -1,7 +1,9 @@
 """Routes setup for the audit application."""
 from backend.relational_values import save_value, load_value
+import re
 import time
 from backend import config
+from backend.config import THEME_CHOICES
 from backend.media_store import MediaStore
 from backend.scoring import validate_settings
 from backend.accounts import is_company_admin_user, is_super_user
@@ -24,6 +26,21 @@ def post_setup_departments(self, parsed, payload=None):
             ),
         )
     self.json({"ok": True})
+
+
+def validate_theme(key, value):
+    name = key.removeprefix("theme.")
+    if name in THEME_CHOICES:
+        if value not in THEME_CHOICES[name]:
+            raise ValueError(f"Choose a valid theme {name}")
+    elif name == "accent":
+        if value != "" and not (isinstance(value, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", value)):
+            raise ValueError("The accent colour must look like #1e99b4")
+    elif name == "userChoice":
+        if not isinstance(value, bool):
+            raise ValueError("Choose whether users may pick light or dark")
+    else:
+        raise ValueError("Unknown theme setting")
 
 
 def category_department(db, payload):
@@ -101,6 +118,9 @@ def post_settings(self, parsed, payload=None):
         if not is_super_user(user):
             incoming = {key: value for key, value in incoming.items()
                         if key in {"system.findingsEnabled", "system.requirePhotoEveryAsset"}}
+        for key, value in incoming.items():
+            if key.startswith("theme."):
+                validate_theme(key, value)
         if any(key.startswith("scoring.") for key in incoming):
             saved = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT * FROM app_settings WHERE key LIKE 'scoring.%'")}
             validate_settings(saved | incoming)

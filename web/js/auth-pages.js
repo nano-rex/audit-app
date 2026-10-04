@@ -37,6 +37,11 @@ if (params.get("message")) pageMessage(params.get("message"));
 
 fetch("/api/branding").then((response) => response.ok ? response.json() : null).then((branding) => {
   if (!branding) return;
+  if (typeof setOrgTheme === "function" && branding.theme) setOrgTheme(branding.theme);
+  document.querySelectorAll("[data-brand-logo]").forEach((image) => {
+    image.hidden = !branding.logoUrl;
+    if (branding.logoUrl) image.src = branding.logoUrl;
+  });
   const title = branding.loginTitle || branding.appTitle || "Audit App";
   document.title = `${location.pathname.endsWith("/register.html") ? "Register" : "Login"} | ${title}`;
   document.querySelectorAll("[data-auth-brand-title]").forEach((node) => {

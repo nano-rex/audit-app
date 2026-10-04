@@ -20,7 +20,8 @@ For how to use the application, see [USER_GUIDE.txt](USER_GUIDE.txt).
 | Reporting | Dashboard and report charts, outlet rankings, filtered CSV, Excel, and JSON exports, per-audit PDF with evidence and signatures |
 | Scoring | Automatic score from the checklist, configurable pass mark, rating bands, and category weights; the score snapshot is kept with the audit |
 | Notifications | In-app assignment, progress, verification, due-soon, and overdue notices addressed per user; unread count on the navigation bar |
-| Per-user view | "Waiting on you" on the dashboard, a reorderable page menu saved to the account, light and dark themes |
+| Per-user view | "Waiting on you" on the dashboard, a reorderable page menu saved to the account, light or dark where the organization allows |
+| Organization theme | Six palettes (including Ottotree's report colours) or a custom accent, bundled Noto Sans SC or other fonts, corner style, density, and a default or fixed light/dark appearance; also used for the sign-in page, logo, and PDF report headings |
 | Installation | Company databases that the Super account can create, switch, and remove |
 
 All persistent records and image bytes are stored in SQLite.

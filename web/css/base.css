@@ -1,8 +1,28 @@
-/* Design tokens. Components use these names only, so the dark theme is a token swap. */
+/* Design tokens. Components use these names only, so a theme is a token swap.
+   The organization chooses a palette (data-palette), font (data-font), corner style
+   (data-corners), and density (data-density); each user, or the organization, chooses
+   light or dark (data-theme). See web/js/theme.js. */
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/noto-sans-sc-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans SC";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/noto-sans-sc-latin-700.woff2") format("woff2");
+}
+
 :root {
-  --green: #47735f;
-  --green-strong: #3a6150;
-  --green-soft: #e4f0ea;
+  --accent: #47735f;
+  --accent-strong: #3a6150;
+  --accent-soft: #e4f0ea;
+  --accent-fill: var(--accent);
   --hero: #47735f;
   --on-accent: #fff;
   --bg: #f4f6f4;
@@ -10,10 +30,13 @@
   --surface-alt: #f7f9f8;
   --surface-sunken: #eceff0;
   --text: #17222b;
+  --heading: var(--text);
   --text-soft: #46534d;
   --muted: #5f6c66;
   --border: #d3d9d5;
   --border-strong: #b4bdb8;
+  --table-head: var(--accent-soft);
+  --table-head-text: var(--muted);
   --blue: #2b6fdb;
   --orange: #b96100;
   --orange-soft: #fdefd9;
@@ -23,8 +46,13 @@
   --success: #1c8f4b;
   --focus: #2b6fdb;
   --shadow: 0 18px 40px rgb(17 29 39 / 14%);
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-sm: 7px;
   --radius: 8px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --radius-lg: 10px;
+  --control-height: 40px;
+  --panel-padding: 24px;
+  font-family: var(--font);
   font-size: 15px;
   line-height: 1.4;
   color: var(--text);
@@ -32,9 +60,9 @@
 }
 
 html[data-theme="dark"] {
-  --green: #7fb89c;
-  --green-strong: #96c9af;
-  --green-soft: #20382e;
+  --accent: #7fb89c;
+  --accent-strong: #96c9af;
+  --accent-soft: #20382e;
   --hero: #2c5544;
   --on-accent: #0f1a15;
   --bg: #111715;
@@ -56,6 +84,79 @@ html[data-theme="dark"] {
   --focus: #9cc2ff;
   --shadow: 0 18px 40px rgb(0 0 0 / 45%);
   color-scheme: dark;
+}
+
+/* Ottotree: the teal, greys, and solid teal table headings of its PM checklist reports. */
+html[data-palette="ottotree"] {
+  --accent: #1e99b4;
+  --accent-strong: #167a91;
+  --accent-soft: #e7f5f7;
+  --accent-fill: #1789a2;
+  --hero: #1789a2;
+  --on-accent: #fff;
+  --table-head: #1e99b4;
+  --table-head-text: #fff;
+}
+
+html[data-palette="ottotree"]:not([data-theme="dark"]) {
+  --bg: #f4f5f7;
+  --surface: #fff;
+  --surface-alt: #f8f9fa;
+  --surface-sunken: #f3f4f6;
+  --text: #212529;
+  --heading: #111827;
+  --text-soft: #374151;
+  --muted: #6c757d;
+  --border: #dee2e6;
+  --border-strong: #adb5bd;
+  --focus: #1e99b4;
+}
+
+html[data-palette="ottotree"][data-theme="dark"] {
+  --accent: #4fc1da;
+  --accent-strong: #7ad2e5;
+  --accent-soft: #0f3540;
+  --accent-fill: #2aa6c1;
+  --hero: #135f70;
+  --on-accent: #06222a;
+  --table-head: #135f70;
+  --table-head-text: #e6f6f9;
+  --bg: #0f1419;
+  --surface: #171d23;
+  --surface-alt: #1d252c;
+  --surface-sunken: #242d35;
+  --text: #e6edf2;
+  --text-soft: #c3ccd4;
+  --muted: #9aa6b1;
+  --border: #2f3a44;
+  --border-strong: #46535f;
+  --focus: #7ad2e5;
+}
+
+html[data-palette="ocean"] { --accent: #2563eb; --accent-strong: #1d4ed8; --accent-soft: #e8effd; --hero: #1d4ed8; --on-accent: #fff; }
+html[data-palette="ocean"][data-theme="dark"] { --accent: #7aa7ff; --accent-strong: #9bbcff; --accent-soft: #172a4f; --hero: #1e3a8a; --on-accent: #0a1630; }
+html[data-palette="plum"] { --accent: #7c3aed; --accent-strong: #6d28d9; --accent-soft: #f1eafd; --hero: #6d28d9; --on-accent: #fff; }
+html[data-palette="plum"][data-theme="dark"] { --accent: #b794f6; --accent-strong: #c9adf8; --accent-soft: #2c1d4a; --hero: #4c1d95; --on-accent: #1d1033; }
+html[data-palette="ember"] { --accent: #c2410c; --accent-strong: #9a3412; --accent-soft: #fdece3; --hero: #b13c0b; --on-accent: #fff; }
+html[data-palette="ember"][data-theme="dark"] { --accent: #fb923c; --accent-strong: #fdba74; --accent-soft: #3d2214; --hero: #7c2d12; --on-accent: #2a1305; }
+html[data-palette="slate"] { --accent: #475569; --accent-strong: #334155; --accent-soft: #eceff3; --hero: #334155; --on-accent: #fff; }
+html[data-palette="slate"][data-theme="dark"] { --accent: #a5b4c8; --accent-strong: #c3cede; --accent-soft: #253042; --hero: #334155; --on-accent: #111827; }
+
+html[data-font="noto-sans-sc"] {
+  --font: "Noto Sans SC", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+html[data-font="serif"] {
+  --font: Georgia, "Times New Roman", "Noto Serif", serif;
+}
+
+html[data-corners="square"] { --radius-sm: 2px; --radius: 2px; --radius-lg: 3px; }
+html[data-corners="soft"] { --radius-sm: 12px; --radius: 14px; --radius-lg: 18px; }
+
+html[data-density="compact"] {
+  --control-height: 34px;
+  --panel-padding: 16px;
+  font-size: 14px;
 }
 
 * {
@@ -141,11 +242,12 @@ p {
 }
 
 h1 {
-  color: var(--green);
+  color: var(--accent);
   font-size: 22px;
 }
 
 h2 {
+  color: var(--heading);
   font-size: 18px;
   margin-bottom: 16px;
 }
@@ -262,8 +364,8 @@ select,
 input,
 textarea {
   border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  min-height: 40px;
+  border-radius: var(--radius-sm);
+  min-height: var(--control-height);
   padding: 0 14px;
   background: var(--surface);
 }
@@ -274,7 +376,7 @@ input[type="radio"] {
   width: 18px;
   height: 18px;
   padding: 0;
-  accent-color: var(--green);
+  accent-color: var(--accent);
   flex: 0 0 auto;
 }
 
@@ -305,7 +407,7 @@ button {
 
 button:hover:not(:disabled),
 .button-link:hover {
-  border-color: var(--green);
+  border-color: var(--accent);
 }
 
 button:disabled {
@@ -338,8 +440,8 @@ textarea {
   border-color: transparent;
 }
 
-.primary { background: var(--green); }
-.primary:hover:not(:disabled) { background: var(--green-strong); }
+.primary { background: var(--accent-fill); }
+.primary:hover:not(:disabled) { background: var(--accent-strong); }
 
 /* Secondary text. (This class once doubled as a grey button colour, which painted paragraphs as grey bars.) */
 .muted {
@@ -378,7 +480,7 @@ textarea {
 
 .tabs .active {
   color: var(--text);
-  border-bottom-color: var(--green);
+  border-bottom-color: var(--accent);
   font-weight: 700;
 }
 

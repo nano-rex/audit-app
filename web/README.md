@@ -12,7 +12,10 @@ see the [repository README](../README.md); for server modules, see
 - `login.html`, `register.html` — sign-in and registration pages.
 - `html/tabs/` — one file per page; `html/dialogs/` — dialog forms.
 - `js/` — browser scripts, loaded as plain globals in the order listed in `index.html`.
-- `css/` — stylesheets. Colours are tokens in `base.css`, with a light and a dark set.
+- `css/` — stylesheets. Colours, font, corner radius, and density are tokens in `base.css`;
+  palettes are selected by attributes that `js/theme.js` sets from the organization's theme.
+- `fonts/` — Noto Sans SC (Latin range, regular and bold) under the SIL Open Font License; see
+  `fonts/OFL-NotoSansSC.txt`.
 - `data/` — the SQLite database and its backups (override with `AUDIT_DATA_DIR`).
 
 ## Pages

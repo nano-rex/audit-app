@@ -43,7 +43,7 @@
 
 .stats strong {
   display: block;
-  color: var(--green);
+  color: var(--accent);
   font-size: 26px;
 }
 
@@ -76,7 +76,7 @@
   min-width: 0;
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 .compact-list article {
@@ -125,16 +125,16 @@
   gap: 14px;
 }
 
-.users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+.users-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .users-table { border-collapse: collapse; width: 100%; }
 .users-table th,
 .users-table td { border-bottom: 1px solid var(--border); padding: 11px 12px; text-align: left; vertical-align: middle; }
 .users-table th { white-space: nowrap; }
 /* Names, addresses, and roles wrap inside their cells so the whole table fits without cutting text. */
 .users-table td { overflow-wrap: break-word; }
-.users-table th { background: var(--green-soft); color: var(--muted); font-size: 11px; text-transform: uppercase; }
+.users-table th { background: var(--table-head); color: var(--table-head-text); font-size: 11px; text-transform: uppercase; }
 .users-table tbody tr:last-child td { border-bottom: 0; }
-.users-table tbody tr:hover { background: var(--green-soft); }
+.users-table tbody tr:hover { background: var(--accent-soft); }
 .users-table .user-name strong,
 .users-table .user-name small,
 .users-table .user-alert { display: block; }
@@ -154,7 +154,7 @@
   gap: 14px;
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
 }
 
@@ -166,7 +166,7 @@
 }
 
 .department-code {
-  color: var(--green);
+  color: var(--accent);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: .04em;
@@ -186,11 +186,11 @@
 .settings-page .theme-settings { display: grid; gap: 14px; margin-bottom: 0; }
 .settings-page .theme-settings h2 { margin-bottom: 0; }
 .settings-page .theme-toggle { align-items: center; color: var(--text); display: flex; font-size: 14px; gap: 10px; }
-.settings-page .theme-toggle input { accent-color: var(--green); min-height: auto; width: 20px; }
+.settings-page .theme-toggle input { accent-color: var(--accent); min-height: auto; width: 20px; }
 
 .admin-group {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 14px;
 }
 
@@ -282,7 +282,7 @@ dialog label {
   min-width: 44px;
   max-width: 100%;
   padding: 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   color: var(--on-accent);
   background: var(--blue);
   text-align: right;
@@ -336,7 +336,7 @@ dialog label {
   gap: 18px;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-alt);
 }
 
@@ -367,7 +367,7 @@ dialog label {
   align-items: center;
   padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-alt);
 }
 
@@ -446,9 +446,9 @@ dialog label {
 }
 
 .sub-tabs button.active {
-  color: var(--green);
-  background: var(--green-soft);
-  border-color: var(--green);
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
   font-weight: 700;
 }
 
@@ -464,7 +464,7 @@ dialog {
   width: min(680px, 94vw);
   max-height: calc(100dvh - 32px);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   padding: 0;
   background: var(--surface);
   color: var(--text);
@@ -527,7 +527,7 @@ dialog header button {
   overflow: auto;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-alt);
 }
 
@@ -538,7 +538,7 @@ dialog header button {
   align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
@@ -554,7 +554,7 @@ dialog header button {
 
 fieldset {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 
 fieldset {
@@ -615,7 +615,7 @@ fieldset {
 .inspection-name-display {
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface-alt);
   color: var(--blue);
   font-size: 14px;
@@ -628,7 +628,7 @@ fieldset {
   gap: 12px;
   padding: 14px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--surface);
 }
 
@@ -647,9 +647,9 @@ fieldset {
 }
 
 .inspection-zone-tabs button.active {
-  background: var(--green-soft);
-  border-color: var(--green);
-  color: var(--green);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
   font-weight: 700;
 }
 
@@ -686,8 +686,8 @@ fieldset {
 }
 
 .inspection-location-nav button.active {
-  border-color: var(--green);
-  background: var(--green-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .inspection-location-nav button span {
@@ -743,8 +743,8 @@ fieldset {
 }
 
 .status-complete {
-  color: var(--green);
-  background: var(--green-soft);
+  color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .button-link.disabled {
@@ -940,8 +940,8 @@ dialog header h2 {
   margin-left: 6px;
   padding: 1px 8px;
   border-radius: 999px;
-  background: var(--green-soft);
-  color: var(--green);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 13px;
   vertical-align: middle;
 }
@@ -1025,7 +1025,7 @@ dialog header h2 {
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: var(--surface-sunken);
   cursor: zoom-in;
 }
@@ -1190,4 +1190,134 @@ h4,
 /* Leave room for the Pass all button so the item's details never run underneath it. */
 .inspection-item > div:first-child {
   padding-right: 96px;
+}
+
+/* Organization branding and the theme editor. */
+.brand {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: center;
+}
+
+.brand .brand-logo {
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.brand > :not(.brand-logo) {
+  grid-column: 2;
+}
+
+.brand:has(.brand-logo[hidden]) > * {
+  grid-column: 1 / -1;
+}
+
+.auth-card .brand-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.theme-presets {
+  display: block;
+  padding: 12px;
+}
+
+.theme-presets legend {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.theme-presets [data-theme-presets] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.theme-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.theme-preset:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.theme-preset input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.theme-preset:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.theme-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 40%);
+}
+
+.theme-accent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: end;
+}
+
+.theme-accent input[type="color"] {
+  width: 64px;
+  padding: 4px;
+}
+
+.theme-sample {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.theme-sample-hero {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--hero);
+  color: #fff;
+}
+
+.theme-sample-hero span {
+  font-size: 11px;
+  text-transform: uppercase;
+  opacity: .85;
+}
+
+.theme-sample .users-table {
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.theme-sample .form-actions {
+  margin-top: 0;
+  pointer-events: none;
 }

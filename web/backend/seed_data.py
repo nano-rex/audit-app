@@ -2,7 +2,7 @@
 from backend.relational_values import load_value, save_value
 import time
 from backend.common import hash_password
-from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, SUPER_ROLE
+from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, SUPER_ROLE, DEFAULT_THEME_SETTINGS, OTTOTREE_THEME
 
 
 def seed_schedules(db):
@@ -267,7 +267,11 @@ def seed_audit_types(db):
 
 
 def seed_settings(db):
+    company = db.execute("SELECT value_data_id FROM app_settings WHERE key = 'report.companyName'").fetchone()
+    company = load_value(company[0]) if company else DEFAULT_REPORT_SETTINGS["companyName"]
+    theme = DEFAULT_THEME_SETTINGS | (OTTOTREE_THEME if str(company).strip().lower() == "ottotree" else {})
     settings = {
+        **{f"theme.{key}": value for key, value in theme.items()},
         **{f"scoring.{key}": value for key, value in DEFAULT_SCORING_SETTINGS.items()},
         **{f"report.{key}": value for key, value in DEFAULT_REPORT_SETTINGS.items()},
         **{f"system.{key}": value for key, value in DEFAULT_SYSTEM_SETTINGS.items()},

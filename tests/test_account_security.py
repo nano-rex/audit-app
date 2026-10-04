@@ -363,6 +363,39 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "DELETE")[0], 200)
         self.assertEqual(sink()["category"], "")
 
+    def test_organization_theme_is_validated_saved_and_public(self):
+        theme = lambda: json.loads(self.request("/api/branding", token=None)[2])["theme"]
+        self.assertEqual(theme()["preset"], "ottotree", "an Ottotree organization starts on its own theme")
+        self.assertEqual(theme()["font"], "noto-sans-sc")
+        for key, value in (("theme.preset", "neon"), ("theme.font", "comic"), ("theme.accent", "teal"), ("theme.mode", "dim"),
+                           ("theme.userChoice", "yes"), ("theme.background", "#000000")):
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": {key: value}})[0], 400, key)
+        saved = {"theme.preset": "plum", "theme.accent": "#123abc", "theme.corners": "square", "theme.density": "compact", "theme.mode": "dark", "theme.userChoice": False}
+        self.assertEqual(self.request("/api/settings", "POST", {"settings": saved})[0], 200)
+        try:
+            current = theme()
+            self.assertEqual({f"theme.{key}": value for key, value in current.items() if f"theme.{key}" in saved}, saved)
+            with app.connect() as db:
+                admin_id = db.execute("SELECT id FROM users WHERE role = 'Admin'").fetchone()[0]
+            app.SESSION_TOKENS["theme-admin"] = {"user_id": admin_id, "expires_at": time.time() + 3600}
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": {"theme.preset": "ember"}}, token="theme-admin")[0], 200)
+            self.assertEqual(theme()["preset"], "plum", "only the Super account changes the theme")
+            status, headers, _ = self.request("/fonts/noto-sans-sc-latin-400.woff2", token=None)
+            self.assertEqual((status, headers["Content-Type"]), (200, "font/woff2"))
+            self.assertIn("immutable", headers["Cache-Control"])
+            self.assertEqual(self.request("/fonts/OFL-NotoSansSC.txt", token=None)[0], 404)
+            # The logo is public so the sign-in page can show it; other photos are not.
+            from test_media_reports import photo_data_url
+            image = lambda colour: json.loads(self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(colour), "name": "x.png"}})[2])["image"]["url"]
+            logo, evidence = image("navy"), image("orange")
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": {"report.logoUrl": logo}})[0], 200)
+            self.assertEqual(self.request(logo, token=None)[0], 200)
+            self.assertEqual(json.loads(self.request("/api/branding", token=None)[2])["logoUrl"], logo)
+            self.assertEqual(self.request(evidence, token=None)[0], 401)
+        finally:
+            restore = {"report.logoUrl": "", "theme.preset": "ottotree", "theme.accent": "", "theme.corners": "rounded", "theme.density": "comfortable", "theme.mode": "system", "theme.userChoice": True}
+            self.assertEqual(self.request("/api/settings", "POST", {"settings": restore})[0], 200)
+
     def test_photo_thumbnails_are_small_jpegs_and_need_a_session(self):
         from io import BytesIO
         import base64

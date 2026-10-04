@@ -157,7 +157,7 @@ test("Edit User opens from the real dialog markup and saves existing users", asy
 });
 
 test("performance distribution reflects counts and hides empty charts", () => {
-  const chart = { style: {}, setAttribute(key, value) { this[key] = value; } };
+  const chart = { style: {}, setAttribute(key, value) { this[key] = value; }, addEventListener() {} };
   const content = {};
   const context = vm.createContext({ ...shared(), document: { ...emptyDocument(), querySelector: () => chart },
     setText: (key, value) => { content[key] = value; }, setHtml: (key, value) => { content[key] = value; } });
@@ -386,4 +386,40 @@ test("the photo viewer zooms about a point and keeps the photo in view", () => {
   for (let step = 0; step < 20; step++) context.zoomPhoto(0.5);
   assert.equal(view().scale, 0.5, "and never goes below the fitted size");
   assert.equal(context.photoThumbnail({ url: "/api/media/a.jpg", markedUrl: "/api/media/b.png" }), "/api/media/b.png?thumb=1");
+});
+
+test("the organization theme sets the page attributes and a custom accent derives readable shades", () => {
+  const stored = {};
+  const style = { values: {}, setProperty(name, value) { this.values[name] = value; }, removeProperty(name) { delete this.values[name]; } };
+  const root = { dataset: {}, style };
+  let prefersDark = false;
+  const context = vm.createContext({
+    ...shared(),
+    localStorage: { getItem: (key) => stored[key] ?? null, setItem: (key, value) => { stored[key] = value; }, removeItem: (key) => { delete stored[key]; } },
+    matchMedia: () => ({ matches: prefersDark, addEventListener() {} }),
+    document: { ...emptyDocument(), documentElement: root },
+  });
+  vm.runInContext(source("theme.js"), context);
+  assert.equal(root.dataset.palette, "default");
+  context.setOrgTheme({ preset: "ottotree", font: "noto-sans-sc", corners: "square", density: "compact", mode: "dark", userChoice: false });
+  assert.equal([root.dataset.palette, root.dataset.font, root.dataset.corners, root.dataset.density, root.dataset.theme].join(), "ottotree,noto-sans-sc,square,compact,dark");
+  assert.match(stored["audit-app-org-theme"], /ottotree/, "kept for the next page load");
+  context.setTheme("light");
+  assert.equal(root.dataset.theme, "dark", "users cannot override when the organization fixes the appearance");
+  context.setOrgTheme({ preset: "ottotree", mode: "system", userChoice: true });
+  assert.equal(root.dataset.theme, "light", "the user's choice applies when allowed");
+  context.setTheme("");
+  prefersDark = true;
+  context.applyTheme();
+  assert.equal(root.dataset.theme, "dark", "the organization default follows the device");
+  context.setTheme("light");
+  context.setOrgTheme({ accent: "#ffd400" });
+  const fill = style.values["--accent-fill"];
+  assert.ok(fill && context.relativeLuminance(fill) <= 0.2, "a pale accent is darkened so white text on it reads");
+  assert.equal(style.values["--on-accent"], "#ffffff");
+  context.previewOrgTheme({ preset: "plum" });
+  assert.equal(root.dataset.palette, "plum");
+  context.restoreOrgTheme();
+  assert.equal(root.dataset.palette, "default", "an unsaved preview is undone");
+  assert.equal(style.values["--accent"], "#ffd400");
 });

@@ -5,7 +5,13 @@
       <section class="work-grid settings-grid">
         <article class="panel theme-settings">
           <h2>Workspace preferences</h2>
-          <label class="checkbox-line theme-toggle"><input type="checkbox" data-theme-toggle> Dark mode</label>
+          <label>Appearance<select data-theme-choice>
+            <option value="">Organization default</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">Follow device</option>
+          </select></label>
+          <p class="muted" data-theme-choice-note></p>
           <label>Items per page<select data-pagination-size><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option></select></label>
           <p class="muted">This preference is saved on this device and applies to pages.</p>
         </article>

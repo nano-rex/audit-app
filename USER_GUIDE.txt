@@ -148,14 +148,24 @@ An administrator should configure these records before staff begin auditing:
 ----------------
 The built-in Super account has every page above, plus two restricted pages
 under the page menu: Super Dashboard (users, roles, assets, open findings, and
-the active company database) and Super Settings (company databases, priority
-levels, audit types, scoring, and report settings). Switching the company
-database signs every user out.
+the active company database) and Super Settings (company databases, the
+organization theme, priority levels, audit types, scoring, and report
+settings). Switching the company database signs every user out.
+
+Each company database is an organization with its own theme. Under Super
+Settings > Organization theme, choose a palette (Ottotree follows the teal and
+greys of its PM checklist reports), optionally your own accent colour, the font
+(Noto Sans SC matches those reports), corner style, density, the default
+appearance (light, dark, or follow the device), and whether each user may pick
+light or dark for themselves. Changes are previewed as you make them and apply
+to everyone, including the sign-in page and PDF reports, once saved. The report
+logo under Report & System is also shown beside the organization's name.
 
 IMPORTANT NOTES
 ---------------
-- Dark mode and items per page are under Settings. Until you choose, the app
-  follows your device's light or dark setting.
+- Appearance (light, dark, follow device, or the organization's default) and
+  items per page are under Settings. The organization may fix the appearance
+  for everyone, in which case the choice is shown but cannot be changed.
 - Save Progress frequently when working in the field.
 - A failed criterion needs a remark. Every inspected asset needs photo
   evidence before the inspection can be completed.

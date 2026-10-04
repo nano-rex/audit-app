@@ -11,6 +11,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
+from backend.config import THEME_PRESET_ACCENTS
 from backend.scoring import rating_for_score
 
 
@@ -26,6 +27,13 @@ def build_report(session, brand, summary, media, settings=None):
             style.fontName = "AuditSans"
     styles["BodyText"].fontSize = 9
     styles["BodyText"].leading = 13
+    # The organization's accent colours headings and table headings, as in its other printed reports.
+    theme = brand.get("theme") or {}
+    accent = colors.HexColor(theme.get("accent") or THEME_PRESET_ACCENTS.get(theme.get("preset"), THEME_PRESET_ACCENTS["default"]))
+    soft = colors.Color(*(channel + (1 - channel) * 0.88 for channel in accent.rgb()))
+    for name in ("Heading1", "Heading2"):
+        styles[name].textColor = accent
+    styles.add(ParagraphStyle("TableHead", parent=styles["BodyText"], textColor=colors.white, fontName=styles["BodyText"].fontName))
     story = []
 
     def paragraph(text, style="BodyText"):
@@ -73,7 +81,7 @@ def build_report(session, brand, summary, media, settings=None):
         ["Corrective actions", f"{completed} completed / {len(findings) - completed} outstanding"],
     ]
     table = Table([[paragraph(cell) for cell in row] for row in rows], colWidths=[125, 355])
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#e5f0eb")), ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
+    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, -1), soft), ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey), ("VALIGN", (0, 0), (-1, -1), "TOP"), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
     story += [table]
     # Keep the PDF compact by reporting one grading row per location rather
     # than repeating every checklist criterion and its evidence.
@@ -92,11 +100,11 @@ def build_report(session, brand, summary, media, settings=None):
                               rating_for_score(score, settings or {})])
     if len(location_rows) == 1:
         location_rows.append([session.get("zone") or "Unassigned", 0, 0, 0, 0, "0/100", "Critical"])
-    location_table = Table([[paragraph(cell, "Caption" if row else "BodyText") for cell in values]
+    location_table = Table([[paragraph(cell, "Caption" if row else "TableHead") for cell in values]
                             for row, values in enumerate(location_rows)],
                            colWidths=[145, 48, 48, 48, 42, 55, 85], repeatRows=1)
     location_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e5f0eb")),
+        ("BACKGROUND", (0, 0), (-1, 0), accent),
         ("GRID", (0, 0), (-1, -1), .4, colors.lightgrey),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),

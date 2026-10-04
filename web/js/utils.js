@@ -40,11 +40,20 @@ async function loadBranding() {
     branding = { ...brandingDefaults };
     currentUnit = branding.businessUnitLabel;
   }
+  if (typeof setOrgTheme === "function" && branding.theme) setOrgTheme(branding.theme);
   applyBranding();
+}
+
+function showBrandLogo(url) {
+  document.querySelectorAll("[data-brand-logo]").forEach((image) => {
+    image.hidden = !url;
+    if (url) image.src = url;
+  });
 }
 
 function applyBranding() {
   document.title = branding.appTitle || brandingDefaults.appTitle;
+  showBrandLogo(branding.logoUrl);
   setText("[data-brand-title]", branding.appTitle || brandingDefaults.appTitle);
   setText("[data-brand-subtitle]", branding.appSubtitle || brandingDefaults.appSubtitle);
   setText("[data-report-heading]", branding.reportHeading || brandingDefaults.reportHeading);

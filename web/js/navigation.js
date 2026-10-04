@@ -39,6 +39,7 @@ let activeTabId = null;
 let activeContextTab = null;
 
 function showTab(tabId) {
+  if (typeof restoreOrgTheme === "function" && activeTabId === "super-settings" && tabId !== "super-settings") restoreOrgTheme();
   const userSection = ["departments", "roles"].includes(tabId) ? tabId : null;
   if (userSection) tabId = "users";
   const allowedTabs = allowedAppTabs();

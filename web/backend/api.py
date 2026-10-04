@@ -128,6 +128,11 @@ class Handler(BaseHTTPRequestHandler):
             return True
         if parsed.path.startswith("/api/auth/"):
             return True
+        if parsed.path.startswith("/api/media/") and self.command == "GET":
+            # The organization's logo is shown on the sign-in page, before anyone has a session.
+            with connect() as db:
+                if read_setting(db, "report.logoUrl", "") == parsed.path:
+                    return True
         user = self.current_user()
         if not user:
             self.json({"ok": False, "error": "Login required"}, status=401)
@@ -381,6 +386,7 @@ class Handler(BaseHTTPRequestHandler):
         path = "index.html" if request_path in ("", "/") else unquote(request_path).lstrip("/")
         target = (ROOT / path).resolve()
         allowed = (path in {"index.html", "login.html", "register.html"}
+                   or (path.startswith("fonts/") and target.is_relative_to(ROOT / "fonts") and target.suffix == ".woff2")
                    or (path.startswith("js/") and target.is_relative_to(ROOT / "js") and target.suffix == ".js")
                    or (path.startswith("css/") and target.is_relative_to(ROOT / "css") and target.suffix == ".css"))
         if not allowed or not target.is_relative_to(ROOT) or not target.is_file():
@@ -393,7 +399,7 @@ class Handler(BaseHTTPRequestHandler):
         if use_gzip:
             body = compressed
             etag = etag[:-1] + '-gzip"'
-        mime = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        mime = "font/woff2" if target.suffix == ".woff2" else mimetypes.guess_type(target.name)[0] or "application/octet-stream"
         if etag in [tag.strip() for tag in self.headers.get("If-None-Match", "").split(",")]:
             self.send_response(304)
             self.send_header("ETag", etag)
@@ -402,8 +408,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             return
         self.send_response(200)
-        self.send_header("Content-Type", mime + "; charset=utf-8")
-        self.send_header("Cache-Control", "public, max-age=0, must-revalidate")
+        self.send_header("Content-Type", mime if mime.startswith("font/") else mime + "; charset=utf-8")
+        # Fonts never change in place; everything else is revalidated so edits show at once.
+        self.send_header("Cache-Control", "public, max-age=604800, immutable" if mime.startswith("font/") else "public, max-age=0, must-revalidate")
         self.send_header("ETag", etag)
         self.send_header("Vary", "Accept-Encoding")
         if use_gzip:

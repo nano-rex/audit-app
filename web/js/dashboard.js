@@ -78,7 +78,71 @@ async function loadSuperDashboard() {
   setText("[data-super-database]", active ? active.name : "No active database");
 }
 
+const themePresets = [
+  { id: "default", label: "Forest", colour: "#47735f" },
+  { id: "ottotree", label: "Ottotree", colour: "#1e99b4" },
+  { id: "ocean", label: "Ocean", colour: "#2563eb" },
+  { id: "plum", label: "Plum", colour: "#7c3aed" },
+  { id: "ember", label: "Ember", colour: "#c2410c" },
+  { id: "slate", label: "Slate", colour: "#475569" },
+];
+
+function themeFormValue() {
+  const form = document.getElementById("theme-form");
+  return {
+    preset: form.querySelector('input[name="preset"]:checked')?.value || "default",
+    accent: form.elements.useAccent.checked ? form.elements.accent.value : "",
+    font: form.elements.font.value,
+    corners: form.elements.corners.value,
+    density: form.elements.density.value,
+    mode: form.elements.mode.value,
+    userChoice: form.elements.userChoice.checked,
+  };
+}
+
+function fillThemeForm(theme) {
+  const form = document.getElementById("theme-form");
+  if (!form) return;
+  setHtml("[data-theme-presets]", themePresets.map((preset) => `
+    <label class="theme-preset"><input type="radio" name="preset" value="${preset.id}" ${preset.id === theme.preset ? "checked" : ""}>
+      <span class="theme-swatch" style="--swatch:${preset.colour}"></span><span>${escapeHtml(preset.label)}</span></label>`).join(""));
+  form.elements.useAccent.checked = Boolean(theme.accent);
+  form.elements.accent.value = theme.accent || themePresets.find((preset) => preset.id === theme.preset)?.colour || "#47735f";
+  form.elements.accent.disabled = !theme.accent;
+  ["font", "corners", "density", "mode"].forEach((name) => { form.elements[name].value = theme[name]; });
+  form.elements.userChoice.checked = theme.userChoice !== false;
+  setText("[data-theme-message]", "");
+}
+
+document.getElementById("theme-form")?.addEventListener("input", (event) => {
+  const form = event.currentTarget;
+  if (event.target.name === "preset" && !form.elements.useAccent.checked) {
+    form.elements.accent.value = themePresets.find((preset) => preset.id === event.target.value)?.colour || form.elements.accent.value;
+  }
+  form.elements.accent.disabled = !form.elements.useAccent.checked;
+  previewOrgTheme(themeFormValue());
+  setText("[data-theme-message]", "Previewing. Save to apply for everyone.");
+});
+
+document.querySelector("[data-theme-undo]")?.addEventListener("click", () => {
+  restoreOrgTheme();
+  fillThemeForm(orgTheme);
+});
+
+document.getElementById("theme-form")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const theme = themeFormValue();
+  try {
+    await requestJson("/api/settings", "POST", { settings: Object.fromEntries(Object.entries(theme).map(([key, value]) => [`theme.${key}`, value])) });
+    setOrgTheme(theme);
+    setText("[data-theme-message]", "Theme saved for this organization.");
+  } catch (error) {
+    setText("[data-theme-message]", error.message);
+  }
+});
+
 async function loadSuperSettings() {
+  fillThemeForm(savedOrgTheme);
   setLoading("[data-super-settings-summary]", "Loading system settings…");
   const superSettingsGrid = document.querySelector("#super-settings .settings-grid");
   document.querySelectorAll("#settings [data-super-only-setting]").forEach((panel) => {

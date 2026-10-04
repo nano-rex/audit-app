@@ -1,6 +1,54 @@
 <section id="super-settings" class="tab-panel">
-  <section class="today-hero"><div><span>Restricted control center</span><h2>Super Settings</h2><p>Controls that affect the whole installation. These options are never part of user roles. Appearance is under Settings.</p></div></section>
+  <section class="today-hero"><div><span>Restricted control center</span><h2>Super Settings</h2><p>Controls that affect the whole installation. These options are never part of user roles. Each person's own light or dark choice is under Settings.</p></div></section>
   <section class="work-grid settings-grid">
+    <article class="panel theme-editor">
+      <h2>Organization theme</h2>
+      <p class="muted">Applies to everyone using this company database, including the sign-in page. Changes show here as you make them and are kept only when you save.</p>
+      <form id="theme-form" class="inline-form">
+        <fieldset class="theme-presets">
+          <legend>Palette</legend>
+          <div data-theme-presets></div>
+        </fieldset>
+        <div class="theme-accent">
+          <label class="checkbox-line"><input type="checkbox" name="useAccent"> Use my own accent colour</label>
+          <label>Accent colour<input type="color" name="accent" value="#1e99b4"></label>
+        </div>
+        <div class="form-grid">
+          <label>Font<select name="font">
+            <option value="system">Device font</option>
+            <option value="noto-sans-sc">Noto Sans SC (Ottotree reports)</option>
+            <option value="serif">Serif</option>
+          </select></label>
+          <label>Corners<select name="corners">
+            <option value="rounded">Rounded</option>
+            <option value="square">Square</option>
+            <option value="soft">Extra round</option>
+          </select></label>
+          <label>Density<select name="density">
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </select></label>
+          <label>Default appearance<select name="mode">
+            <option value="system">Follow device</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select></label>
+        </div>
+        <label class="checkbox-line"><input type="checkbox" name="userChoice"> Let each user choose light or dark for themselves</label>
+        <div class="theme-sample" aria-label="Preview">
+          <div class="theme-sample-hero"><span>Preview</span><strong>Monthly audit</strong></div>
+          <table class="users-table"><thead><tr><th>Item</th><th>Status</th></tr></thead>
+            <tbody><tr><td>Fire extinguisher</td><td><span class="status-pill status-complete">Passed</span></td></tr>
+            <tr><td>Floor tiles</td><td><span class="status-pill status-untouched">Finding</span></td></tr></tbody></table>
+          <div class="form-actions"><button class="outline" type="button" tabindex="-1">Cancel</button><button class="primary" type="button" tabindex="-1">Save</button></div>
+        </div>
+        <p role="status" aria-live="polite" data-theme-message></p>
+        <div class="form-actions">
+          <button class="outline" type="button" data-theme-undo>Undo changes</button>
+          <button class="primary" type="submit">Save theme</button>
+        </div>
+      </form>
+    </article>
     <article class="panel">
       <h2>Company databases</h2>
       <div class="form-grid">
