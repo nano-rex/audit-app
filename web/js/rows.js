@@ -241,21 +241,38 @@ function findingRow(row) {
     </article>
   `;
 }
+// Scheduled Work and History name an audit the same way: its audit number and inspection name
+// first, then the schedule it came from, so one audit reads identically in both lists.
+function auditTitle(session, fallbackName) {
+  if (!session?.audit_ref) return `Not started · ${fallbackName}`;
+  return `${session.audit_ref} · ${session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`}`;
+}
+
+function lastSaved(row) {
+  const time = row?.updated_at || row?.created_at;
+  return time ? `Saved ${new Date(time).toLocaleString()}` : "Not saved yet";
+}
+
+function scheduleLabel(scheduleId) {
+  return scheduleId ? `Schedule SCH-${String(scheduleId).padStart(5, "0")}` : "No schedule";
+}
+
 function scheduleRow(row) {
   const matchingSession = inspectionHistoryCache.find((session) =>
     session.schedule_id === row.id
   );
-  const displayName = row.schedule_ref || `SCH-${String(row.id).padStart(5, "0")}`;
-  const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "No saved time";
+  const session = matchingSession || (row.audit_ref ? { ...row, audit_date: row.scheduled_date, id: row.inspection_id } : null);
+  // Once started, the audit's own location, auditor and save time are what History shows too.
+  const shown = matchingSession || row;
   const status = row.inspection_id || matchingSession
     ? inspectionHistoryProgressStatus(matchingSession || { status: row.inspection_status, progress: row.progress })
     : { className: "status-untouched", label: "Not Started (0%)" };
   return `
     <article data-schedule-id="${row.id}">
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
-        <b>${escapeHtml(displayName)}${row.audit_ref || matchingSession?.audit_ref ? ` · ${escapeHtml(row.audit_ref || matchingSession.audit_ref)}` : ""}</b>
-        <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(savedAt)}</span>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor)}</span>
+        <b>${escapeHtml(auditTitle(session, `${row.outlet}_${row.scheduled_date}`))}</b>
+        <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
+        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(shown.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>

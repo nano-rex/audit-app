@@ -20,9 +20,42 @@ async function loadGuidedSchedules() {
   renderGuidedSchedules();
 }
 
+// Drafts started without a schedule (older inspections) are work in progress too, so they are
+// listed with the schedules instead of only in History.
+function unscheduledDrafts() {
+  return inspectionHistoryCache.filter((row) => !row.schedule_id && row.status !== "Completed" && !row.closed_at);
+}
+
 function renderGuidedSchedules() {
-  const page = paginateList("scheduled-work", guidedSchedules, "", renderGuidedSchedules);
-  setHtml("[data-guided-schedules]", (page.items.length ? page.items.map(scheduleRow).join("") : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
+  const finished = (row) => ["Completed", "Cancelled"].includes(row.status);
+  const work = [
+    ...guidedSchedules.filter((row) => !finished(row)).map((row) => ({ kind: "schedule", row })),
+    ...unscheduledDrafts().map((row) => ({ kind: "draft", row })),
+    ...guidedSchedules.filter(finished).map((row) => ({ kind: "schedule", row })),
+  ];
+  const page = paginateList("scheduled-work", work, "", renderGuidedSchedules);
+  setHtml("[data-guided-schedules]", (page.items.length
+    ? page.items.map((entry) => entry.kind === "draft" ? unscheduledDraftRow(entry.row) : scheduleRow(entry.row)).join("")
+    : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
+}
+
+function unscheduledDraftRow(row) {
+  const status = inspectionHistoryProgressStatus(row);
+  const auditor = (currentUser?.inspectionPermissions || []).includes("auditor");
+  return `
+    <article>
+      <div>
+        <b>${escapeHtml(auditTitle(row, ""))}</b>
+        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(lastSaved(row))}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(null))}</span>
+      </div>
+      <span class="row-actions">
+        <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
+        <button type="button" class="primary" data-open-inspection-session="${Number(row.id)}">Open</button>
+        ${auditor ? `<button type="button" class="danger" data-delete-inspection-session="${Number(row.id)}">Delete</button>` : ""}
+      </span>
+    </article>
+  `;
 }
 
 function openScheduledInspection(row) {
@@ -415,13 +448,15 @@ async function loadInspectionHistory() {
   inspectionHistoryCache = data.items || [];
   updateHistoryFilterSelects();
   renderInspectionHistory();
+  // Scheduled Work also lists drafts without a schedule, which come from this list.
+  if (document.querySelector("[data-guided-schedules]")) renderGuidedSchedules();
 }
 
 function renderInspectionHistory() {
   const search = inspectionHistorySearch.toLowerCase();
   const rows = inspectionHistoryCache.filter((row) => {
     const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "";
-    const haystack = [row.audit_ref, row.inspection_name, row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
+    const haystack = [row.audit_ref, row.inspection_name, scheduleLabel(row.schedule_id), row.id, row.audit_date, savedAt, row.outlet, row.zone, row.auditor, row.status, row.progress, ...(row.locations || []), ...(row.categories || []), ...(row.departments || []), ...(row.priorities || []), ...(row.pics || [])].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
       && (!historyFilters.dateFrom || row.audit_date >= historyFilters.dateFrom)
       && (!historyFilters.dateTo || row.audit_date <= historyFilters.dateTo)
@@ -442,14 +477,13 @@ function renderInspectionHistory() {
 }
 
 function inspectionHistoryRow(row) {
-  const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "No saved time";
   const status = inspectionHistoryProgressStatus(row);
   return `
     <article>
       <div>
-        <b>${escapeHtml(row.audit_ref || "")} · ${escapeHtml(row.inspection_name || `${row.outlet}_${row.audit_date}_${row.id}`)}</b>
-        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(savedAt)}</span>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.auditor)} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
+        <b>${escapeHtml(auditTitle(row, ""))}</b>
+        <span>${escapeHtml(row.audit_date)} | ${escapeHtml(lastSaved(row))}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone || "No location")} | ${escapeHtml(row.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(row.schedule_id))} | Findings: ${escapeHtml(row.findings_count || 0)}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>

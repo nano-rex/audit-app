@@ -18,7 +18,8 @@ def todo_items(user):
         unread = db.execute("SELECT count(*) FROM notifications WHERE status = 'Unread' AND (recipient_user_id = ? OR recipient_user_id IS NULL)", (user["id"],)).fetchone()[0]
         if "inspections" in permissions and capabilities:
             if "auditor" in capabilities:
-                for row in db.execute("SELECT id, audit_ref, inspection_name, outlet, audit_date, progress FROM inspection_sessions WHERE status = 'Draft' AND owner_user_id = ? ORDER BY updated_at DESC LIMIT ?", (user["id"], LIMIT)):
+                for row in db.execute("SELECT id, audit_ref, inspection_name, outlet, audit_date, progress FROM inspection_sessions WHERE status = 'Draft' AND closed_at IS NULL "
+                                  "AND (owner_user_id = ? OR owner_user_id IS NULL) ORDER BY updated_at DESC LIMIT ?", (user["id"], LIMIT)):
                     items.append(inspection_item(row, "Continue inspection", f"{row['progress']}% complete"))
             completed = db.execute("SELECT id, audit_ref, inspection_name, outlet, audit_date, audit_id, owner_user_id, signatures_data_id FROM inspection_sessions WHERE status = 'Completed' AND closed_at IS NULL ORDER BY updated_at DESC LIMIT ?", (LIMIT,)).fetchall()
             signatures = load_values([row["signatures_data_id"] for row in completed])

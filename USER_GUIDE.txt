@@ -61,6 +61,11 @@ An administrator should configure these records before staff begin auditing:
 2. Select the scheduled work item, or choose Open beside "Continue inspection"
    under Waiting on you on the Dashboard. The app creates or resumes the
    inspection and displays its reference and details.
+   Scheduled Work lists unfinished audits too, including drafts started
+   without a schedule. Each audit is named the same way here and in History:
+   its audit number and name (for example AUD-2026-0002 · AQP_2026-08-28_11),
+   with the schedule it came from (Schedule SCH-00012, or No schedule) in
+   the details line. A schedule nobody has started reads "Not started".
 3. Work through each listed location and the criteria of each item in it.
 4. Use Show and Category above the checklist to work through one kind of item
    or one category at a time, for example only Plumbing. The location and zone
