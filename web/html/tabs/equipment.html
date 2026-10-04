@@ -1,6 +1,12 @@
     <section id="equipment" class="tab-panel">
       <section class="panel filter">
-        <h2>Asset Register</h2>
+        <header class="panel-head">
+          <h2>Asset Register</h2>
+          <div class="panel-actions">
+            <button class="primary" type="button" data-open-equipment="asset">Add Fixed Asset</button>
+            <button class="primary" type="button" data-open-equipment="fixture">Add Fixture or Finish</button>
+          </div>
+        </header>
         <label>Search<input id="equipment-search" placeholder="Search assets, fixtures, and finishes"></label>
         <label>Show<select id="equipment-filter-kind"><option value="">Everything</option><option value="asset">Fixed assets</option><option value="fixture">Fixtures &amp; finishes</option></select></label>
         <label>Category<select id="equipment-filter-category"><option value="">All categories</option></select></label>
@@ -8,8 +14,6 @@
         <label>Location<select id="equipment-filter-location"></select></label>
         <label>Type<select id="equipment-filter-type"><option value="">All types</option></select></label>
         <label>Brand<select id="equipment-filter-brand"><option value="">All brands</option></select></label>
-        <button class="primary" type="button" data-open-equipment="asset">Add Fixed Asset</button>
-        <button class="primary" type="button" data-open-equipment="fixture">Add Fixture or Finish</button>
       </section>
       <section class="work-grid">
         <article class="panel">

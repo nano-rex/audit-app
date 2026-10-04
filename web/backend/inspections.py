@@ -94,7 +94,7 @@ def inspection_sessions():
     with connect() as db:
         rows = db.execute(
             """
-            SELECT id, closed_at, closed_by, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, created_at, updated_at, schedule_id
+            SELECT id, closed_at, closed_by, audit_ref, inspection_name, business_unit, outlet, zone, audit_date, auditor, progress, status, audit_id, items_data_id, signatures_data_id, owner_user_id, created_at, updated_at, schedule_id
             FROM inspection_sessions
             ORDER BY updated_at DESC, id DESC
             """
@@ -106,6 +106,9 @@ def inspection_sessions():
     for row in rows:
         item = dict(row)
         session_items = load_value(item.pop("items_data_id") or "[]")
+        signatures = load_value(item.pop("signatures_data_id") or "{}") or {}
+        # Which sign-off roles are done, so lists can show what is still missing without loading each audit.
+        item["signed"] = [key for key in ("auditedBy", "verifiedBy", "acknowledgedBy") if (signatures.get(key) or {}).get("url")]
         item["inspection_name"] = normalized_inspection_name(item)
         item["locations"] = sorted({entry.get("location", "") for entry in session_items if entry.get("location")})
         item["categories"] = sorted({entry.get("category", "") for entry in session_items if entry.get("category")})

@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Audit App</title>
-  <link rel="stylesheet" href="css/base.css?v=20260922-context-subtabs">
-  <link rel="stylesheet" href="css/layout.css?v=20260922-guided-space">
-  <link rel="stylesheet" href="css/components.css?v=20260922-settings-theme">
-  <link rel="stylesheet" href="css/responsive.css?v=20260922-users-table">
-  <script src="js/theme.js?v=20260922-theme"></script>
+  <link rel="stylesheet" href="css/base.css?v=20261004-layout">
+  <link rel="stylesheet" href="css/layout.css?v=20261004-layout">
+  <link rel="stylesheet" href="css/components.css?v=20261004-layout">
+  <link rel="stylesheet" href="css/responsive.css?v=20261004-layout">
+  <script src="js/theme.js?v=20261004-layout"></script>
 </head>
 <body>
   <header class="app-header">
@@ -18,8 +18,7 @@
       <p data-brand-subtitle>Facilities audit workspace</p>
     </div>
     <div class="account-strip" data-account-strip hidden>
-      <span data-auth-user></span>
-      <button class="outline" type="button" data-jump-tab="account">Account</button>
+      <button class="account-chip" type="button" data-jump-tab="account" title="Open your account" data-auth-user></button>
     </div>
     <div class="nav-row">
       <nav class="tabs" aria-label="Audit sections">
@@ -65,7 +64,6 @@
     <!-- include: html/tabs/super-settings.html -->
   </main>
 
-  <!-- include: html/dialogs/new-audit.html -->
   <!-- include: html/dialogs/work-order.html -->
   <!-- include: html/dialogs/schedule.html -->
   <!-- include: html/dialogs/equipment.html -->
@@ -79,20 +77,22 @@
   <!-- include: html/dialogs/auth.html -->
   <!-- include: html/dialogs/photo-viewer.html -->
 
-  <script src="js/auth.js?v=20260909-login"></script>
-  <script src="js/state.js?v=20260922-context-tabs"></script>
-  <script src="js/utils.js?v=20260922-loading"></script>
-  <script src="js/photo-viewer.js?v=20261002-viewer"></script>
-  <script src="js/pagination.js?v=20260922-pagination-10"></script>
-  <script src="js/setup.js?v=20260929-feature-visibility"></script>
-  <script src="js/rows.js?v=20260922-users-table"></script>
-  <script src="js/dashboard.js?v=20260922-super-tabs"></script>
-  <script src="js/inspections.js?v=20260929-remove-na-category"></script>
-  <script src="js/navigation.js?v=20260929-feature-visibility"></script>
-  <script src="js/events.js?v=20260922-zone-tabs"></script>
-  <script src="js/forms.js?v=20260929-feature-visibility"></script>
-  <script src="js/permissions.js?v=20260922-settings-access"></script>
-  <script src="js/account.js?v=20260922-super-tabs"></script>
-  <script src="js/boot.js?v=20260930-users-loading"></script>
+  <script src="js/auth.js?v=20261004-layout"></script>
+  <script src="js/state.js?v=20261004-layout"></script>
+  <script src="js/utils.js?v=20261004-layout"></script>
+  <script src="js/photo-viewer.js?v=20261004-layout"></script>
+  <script src="js/pagination.js?v=20261004-layout"></script>
+  <script src="js/setup.js?v=20261004-layout"></script>
+  <script src="js/rows.js?v=20261004-layout"></script>
+  <script src="js/dashboard.js?v=20261004-layout"></script>
+  <script src="js/inspections.js?v=20261004-layout"></script>
+  <script src="js/signature-pad.js?v=20261004-layout"></script>
+  <script src="js/signoff.js?v=20261004-layout"></script>
+  <script src="js/navigation.js?v=20261004-layout"></script>
+  <script src="js/events.js?v=20261004-layout"></script>
+  <script src="js/forms.js?v=20261004-layout"></script>
+  <script src="js/permissions.js?v=20261004-layout"></script>
+  <script src="js/account.js?v=20261004-layout"></script>
+  <script src="js/boot.js?v=20261004-layout"></script>
 </body>
 </html>

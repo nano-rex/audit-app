@@ -9,6 +9,8 @@ async function resetScheduleForm() {
   form.elements.scheduledDate.value = todayIsoDate();
   form.elements.auditor.value = currentUser?.name || "";
   form.querySelector("[data-delete-current-schedule]").hidden = true;
+  // An audit that happens now is scheduled and opened in one step.
+  form.querySelector("[data-schedule-start-now]").hidden = !(currentUser?.inspectionPermissions || []).includes("auditor");
 }
 
 async function openScheduleEditor(row) {
@@ -24,6 +26,7 @@ async function openScheduleEditor(row) {
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
   form.querySelector('button[value="default"]').textContent = "Save Changes";
   form.querySelector("[data-delete-current-schedule]").hidden = false;
+  form.querySelector("[data-schedule-start-now]").hidden = true;
   dialog.showModal();
 }
 
@@ -331,7 +334,7 @@ function resetEquipmentForm(kind = "asset") {
   form.reset();
   form.elements.equipmentId.value = "";
   form.dataset.savedImages = "[]";
-  form.querySelector("[data-equipment-photos]").innerHTML = '<span class="muted">No photos attached.</span>';
+  form.querySelector("[data-equipment-photos]").innerHTML = "";
   setEquipmentFormKind(kind);
   form.querySelector("h2").textContent = `Register ${itemKinds[kind].label}`;
   form.querySelector('button[type="submit"]').textContent = `Save ${itemKinds[kind].label}`;
@@ -385,42 +388,6 @@ async function openEquipmentEditor(row) {
   dialog.showModal();
 }
 
-async function resetNewAuditForm() {
-  const form = document.getElementById("new-audit-form");
-  form.reset();
-  await loadSetup();
-  updateSetupSelects();
-  const now = new Date();
-  form.elements.auditDate.value = todayIsoDate();
-  form.elements.auditTime.value = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  form.elements.auditor.value = currentUser?.name || "";
-  form.querySelector("[data-new-audit-message]").textContent = "";
-}
-
-document.getElementById("new-audit-form")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const button = form.querySelector('button[type="submit"]');
-  if (button.disabled || !form.reportValidity()) return;
-  button.disabled = true;
-  const message = form.querySelector("[data-new-audit-message]");
-  try {
-    const result = await requestJson("/api/audits/start", "POST", {
-      businessUnit: currentUnit, outlet: form.elements.outlet.value,
-      auditDate: form.elements.auditDate.value, auditTime: form.elements.auditTime.value,
-      auditType: form.elements.auditType.value, remarks: form.elements.remarks.value,
-    });
-    document.getElementById("new-audit").close();
-    // Go straight to the checklist; the draft also stays listed under Scheduled Work.
-    await openInspectionSession(result.id);
-    loadGuidedSchedules().catch(showLoadError);
-  } catch (error) {
-    message.textContent = `Unable to create audit: ${error.message}`;
-  } finally {
-    button.disabled = false;
-  }
-});
-
 async function saveInspectionSession(complete = false) {
   const form = document.getElementById("inspection-form");
   if (form.dataset.saving === "true") return;
@@ -446,6 +413,7 @@ async function saveInspectionSession(complete = false) {
       setCurrentInspectionName(result.inspectionName, "Completed");
       document.querySelector("[data-save-inspection-progress]").disabled = true;
       loadDashboard();
+      await openSignoff(result.id);
     }
   } catch (error) {
     alert(`Unable to save inspection: ${error.message}`);
@@ -480,9 +448,14 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
   };
   const id = formValue(form, "scheduleId", "");
   if (!form.reportValidity()) return;
-  await requestJson(id ? `/api/schedules/${id}` : "/api/schedules", id ? "PATCH" : "POST", payload);
+  const saved = await requestJson(id ? `/api/schedules/${id}` : "/api/schedules", id ? "PATCH" : "POST", payload);
   form.closest("dialog").close();
   resetScheduleForm();
+  if (event.submitter?.value === "start" && saved.id) {
+    await applyInspectionSchedule({ id: saved.id });
+    loadGuidedSchedules().catch(showLoadError);
+    return;
+  }
   loadApp();
 });
 
@@ -827,12 +800,20 @@ document.querySelector("[data-report-logo-upload]")?.addEventListener("change", 
   try {
     const [image] = await readFilesAsStoredImages(event.target.files);
     if (image) form.elements.logoUrl.value = image.url;
+    renderReportLogo();
     setText("[data-report-logo-message]", "Logo uploaded. Save Settings to apply it.");
   } catch (error) {
     setText("[data-report-logo-message]", error.message);
   } finally { save.disabled = false; }
 });
-document.querySelector("[data-remove-report-logo]")?.addEventListener("click", () => {
+function renderReportLogo() {
+  const url = document.getElementById("system-settings-form")?.elements.logoUrl.value;
+  renderImageTile(document.querySelector("[data-report-logo-tile]"), url ? { url, name: "Report logo" } : {}, "data-remove-report-logo", "Report logo");
+}
+
+document.querySelector("[data-report-logo-tile]")?.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-remove-report-logo]")) return;
   document.getElementById("system-settings-form").elements.logoUrl.value = "";
+  renderReportLogo();
   setText("[data-report-logo-message]", "Logo removed. Save Settings to apply it.");
 });

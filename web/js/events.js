@@ -4,7 +4,6 @@ document.querySelectorAll("[data-open]").forEach((button) => {
     if (button.dataset.open === "schedule") {
       await resetScheduleForm();
     }
-    if (button.dataset.open === "new-audit") await resetNewAuditForm();
     dialog.showModal();
   });
 });
@@ -94,6 +93,7 @@ document.addEventListener("click", async (event) => {
     try {
       await requestJson("/api/inspection-sessions/close", "POST", { id: Number(closeInspectionButton.dataset.closeInspectionSession) });
       await loadInspectionHistory();
+      if (signoffSession) await openSignoff(signoffSession.id);
     } catch (error) {
       alert(error.message);
     }
@@ -175,7 +175,7 @@ document.addEventListener("click", async (event) => {
 
   const attentionButton = event.target.closest("[data-attention-type]");
   if (attentionButton) {
-    openAttentionItem(attentionButton.dataset.attentionType, Number(attentionButton.dataset.attentionId)).catch(showLoadError);
+    openAttentionItem(attentionButton.dataset.attentionType, Number(attentionButton.dataset.attentionId), attentionButton.dataset.attentionView).catch(showLoadError);
     return;
   }
 
@@ -498,131 +498,6 @@ document.getElementById("photo-mark-form")?.addEventListener("submit", async (ev
   event.preventDefault();
   const form = event.currentTarget;
   await saveMarkedPhoto();
-  form.closest("dialog").close();
-});
-
-document.querySelectorAll("[data-open-signature]").forEach((button) => {
-  button.addEventListener("click", () => openSignatureDialog(button.dataset.openSignature));
-});
-
-document.querySelector("[data-save-inspection-signatures]")?.addEventListener("click", async () => {
-  const id = document.getElementById("inspection-form").elements.inspectionSessionId.value;
-  if (!id) { alert("Save the inspection before saving signatures."); return; }
-  try {
-    await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures: inspectionSignatures() });
-    await openInspectionSession(id);
-    setText("[data-signature-message]", "Signatures saved.");
-    document.querySelector("[data-signature-message]")?.classList.add("success");
-    loadAttention().catch(() => {});
-  } catch (error) {
-    setText("[data-signature-message]", error.message);
-    document.querySelector("[data-signature-message]")?.classList.remove("success");
-  }
-});
-
-// One step for the common case: apply the signature kept on the account to every role this user may sign.
-document.querySelector("[data-sign-with-saved]")?.addEventListener("click", async () => {
-  const form = document.getElementById("inspection-form");
-  const id = form.elements.inspectionSessionId.value;
-  const message = (text, ok = false) => {
-    setText("[data-signature-message]", text);
-    document.querySelector("[data-signature-message]")?.classList.toggle("success", ok);
-  };
-  const saved = currentUser?.signatureImage;
-  if (!imageSource(saved)) {
-    message("No signature is saved on your account. Add one under Account, or draw one with the buttons above.");
-    return;
-  }
-  const roles = { auditedBy: ["auditor", "auditor"], verifiedBy: ["verifier", "verifier"], acknowledgedBy: ["acknowledger", "acknowledger"] };
-  const capabilities = currentUser?.inspectionPermissions || [];
-  const signatures = inspectionSignatures();
-  const signed = [];
-  for (const [key, [capability, label]] of Object.entries(roles)) {
-    if (!capabilities.includes(capability) || imageSource(signatures[key])) continue;
-    // The auditor's signature belongs to whoever ran the inspection.
-    if (key === "auditedBy" && form.dataset.ownerId && form.dataset.ownerId !== String(currentUser.id)) continue;
-    signatures[key] = { ...saved, name: currentUser.name, signedAt: todayIsoDate() };
-    signed.push(label);
-  }
-  if (!signed.length) {
-    message("There is nothing left for you to sign on this inspection.");
-    return;
-  }
-  try {
-    await requestJson(`/api/inspection-sessions/${id}`, "PATCH", { signatures });
-    await openInspectionSession(id);
-    message(`Signed as ${signed.join(", ")}.`, true);
-    loadAttention().catch(() => {});
-  } catch (error) { message(error.message); }
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointerdown", (event) => {
-  if (!signatureState) return;
-  const point = photoMarkerPoint(event);
-  signatureState.drawing = true;
-  signatureState.lastX = point.x;
-  signatureState.lastY = point.y;
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointermove", (event) => {
-  if (!signatureState?.drawing) return;
-  const canvas = event.currentTarget;
-  const ctx = canvas.getContext("2d");
-  const point = photoMarkerPoint(event);
-  ctx.strokeStyle = "#111d27";
-  ctx.lineWidth = 3;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(signatureState.lastX, signatureState.lastY);
-  ctx.lineTo(point.x, point.y);
-  ctx.stroke();
-  signatureState.lastX = point.x;
-  signatureState.lastY = point.y;
-});
-
-document.querySelector("[data-signature-canvas]")?.addEventListener("pointerup", () => {
-  if (signatureState) signatureState.drawing = false;
-});
-
-document.querySelector("[data-signature-clear]")?.addEventListener("click", () => {
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-});
-
-document.querySelector("[data-signature-upload]")?.addEventListener("change", async (event) => {
-  const [image] = await readFilesAsStoredImages(event.target.files);
-  if (!imageSource(image)) return;
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  const source = new Image();
-  source.addEventListener("load", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const ratio = Math.min(canvas.width / source.width, canvas.height / source.height);
-    const width = source.width * ratio;
-    const height = source.height * ratio;
-    ctx.drawImage(source, (canvas.width - width) / 2, (canvas.height - height) / 2, width, height);
-  });
-  source.src = imageSource(image);
-  event.target.value = "";
-});
-
-document.getElementById("signature-form")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!signatureState?.kind) return;
-  const form = event.currentTarget;
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const signatures = inspectionSignatures();
-  signatures[signatureState.kind] = await uploadImage({
-    name: formValue(form, "signatureName", ""),
-    dataUrl: canvas.toDataURL("image/png"),
-    signedAt: todayIsoDate(),
-  });
-  setInspectionSignatures(signatures);
   form.closest("dialog").close();
 });
 

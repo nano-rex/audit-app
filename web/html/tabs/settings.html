@@ -72,9 +72,14 @@
             <label>Login Title<input name="loginTitle"></label>
             <label>Company Name<input name="companyName"></label>
             <label>Department Header<input name="departmentHeader"></label>
-            <label>Report Logo<input type="file" accept="image/png,image/jpeg,image/webp" data-report-logo-upload></label>
+            <div class="image-field">
+              <span class="image-field-label">Report Logo</span>
+              <div class="image-tiles">
+                <label class="image-pick"><input type="file" accept="image/png,image/jpeg,image/webp" data-report-logo-upload aria-label="Upload report logo"><span>Choose file</span></label>
+                <div class="saved-images" data-report-logo-tile></div>
+              </div>
+            </div>
             <input type="hidden" name="logoUrl">
-            <button type="button" class="outline" data-remove-report-logo>Remove Logo</button>
             <p data-report-logo-message role="status"></p>
             <button class="primary" type="submit">Save Settings</button>
           </form>

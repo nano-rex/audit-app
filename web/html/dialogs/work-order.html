@@ -20,8 +20,13 @@
       <label>Cause<textarea name="cause" placeholder="Known or suspected cause"></textarea></label>
       <label>Recommendation<textarea name="recommendation" placeholder="Suggested correction"></textarea></label>
       <label>Required Action<textarea name="requiredAction" placeholder="Work required to resolve the issue"></textarea></label>
-      <label>Finding Photos<input type="file" accept="image/*" multiple capture="environment" data-work-order-evidence-upload></label>
-      <div data-work-order-evidence data-saved-images></div>
+      <div class="image-field">
+        <span class="image-field-label">Finding Photos</span>
+        <div class="image-tiles">
+          <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-work-order-evidence-upload aria-label="Add finding photos"><span>Choose file</span></label>
+          <div class="saved-images" data-work-order-evidence data-saved-images></div>
+        </div>
+      </div>
       <section class="form-section" data-corrective-fields>
         <h3>Corrective Action</h3>
         <div class="form-grid">
@@ -29,8 +34,13 @@
         </div>
         <label>Action Taken<textarea name="actionTaken" placeholder="Describe what was repaired, replaced, cleaned, adjusted, or verified"></textarea></label>
         <label>Completion Remark<textarea name="completionRemark" placeholder="Final note, confirmation detail, or pending condition"></textarea></label>
-        <label>Completion Photo<input type="file" accept="image/*" multiple capture="environment" data-work-order-completion-photo></label>
-        <div class="saved-images" data-work-order-completion-photos></div>
+        <div class="image-field">
+          <span class="image-field-label">Completion Photo</span>
+          <div class="image-tiles">
+            <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-work-order-completion-photo aria-label="Add completion photos"><span>Choose file</span></label>
+            <div class="saved-images" data-work-order-completion-photos></div>
+          </div>
+        </div>
       </section>
       <section class="form-section" data-verification-fields>
         <h3>Verification</h3>

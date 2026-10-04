@@ -139,6 +139,14 @@ function renderSavedImageList(images, deleteAttribute = "data-delete-inspection-
     </span>
   `).join("");
 }
+// One image shown as a tile beside its Choose file tile, with a corner button to remove it.
+function renderImageTile(container, image, removeAttribute, label) {
+  if (!container) return;
+  container.innerHTML = imageSource(image)
+    ? `<span class="image-pill">${photoThumbnailButton(image, label)}<button type="button" ${removeAttribute} aria-label="Remove ${escapeAttr(label.toLowerCase())}">x</button></span>`
+    : "";
+}
+
 function updateSelectOptions(select, values, includePlaceholder = false, placeholder = "Select option") {
   if (!select) return;
   const selected = select.value;

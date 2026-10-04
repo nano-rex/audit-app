@@ -1,6 +1,7 @@
     <section id="inspections" class="tab-panel">
       <nav class="sub-tabs contextual-tabs" aria-label="Inspection sections">
         <button class="active" type="button" data-context-tab="inspections">Guided Inspection</button>
+        <button type="button" data-context-tab="signoff">Sign-off</button>
         <button type="button" data-context-tab="history">History</button>
         <button type="button" data-context-tab="findings" data-feature-section="findings">Findings</button>
       </nav>
@@ -8,7 +9,6 @@
         <section class="panel" data-guided-schedules-panel>
           <h2>Scheduled Work</h2>
           <p>Select a schedule to start or resume its guided inspection.</p>
-          <button type="button" class="primary" data-open="new-audit" hidden>+ New Audit</button>
           <button type="button" class="primary" data-open="schedule">Schedule Work</button>
           <div class="list" data-guided-schedules></div>
         </section>
@@ -38,21 +38,31 @@
             </div>
             <div class="zone-progress-list" data-inspection-zone-progress></div>
             <div class="checklist" data-checklist></div>
-            <section class="signature-strip">
-              <button class="outline" type="button" data-open-signature="auditedBy">Audited By</button>
-              <button class="outline" type="button" data-open-signature="verifiedBy">Verified By</button>
-              <button class="outline" type="button" data-open-signature="acknowledgedBy">Acknowledged By</button>
-              <button class="outline" type="button" data-save-inspection-signatures>Save Signatures</button>
-              <div data-signature-status></div>
-              <button class="primary" type="button" data-sign-with-saved>Sign with my saved signature</button>
-              <p class="form-message" data-signature-message role="status"></p>
-            </section>
             <footer class="form-actions">
               <button class="outline" type="button" data-back-to-schedules>Back to Scheduled Work</button>
               <a class="button-link outline disabled" data-export-inspection-pdf href="#">Export PDF</a>
               <button class="primary" type="button" data-save-inspection-progress>Save Progress</button>
             </footer>
           </form>
+        </section>
+      </section>
+      <section class="inspection-subpanel" data-inspection-panel="signoff">
+        <section class="panel" data-signoff-list-panel>
+          <h2>Sign-off</h2>
+          <p class="muted">Completed audits waiting for the auditor, verifier, and acknowledger to sign. Once all three have signed and every finding is closed, a verifier closes the audit.</p>
+          <div class="list" data-signoff-list></div>
+        </section>
+        <section class="panel signoff-detail" data-signoff-detail hidden>
+          <header class="panel-head">
+            <h2 data-signoff-title></h2>
+            <div class="panel-actions">
+              <button type="button" class="outline" data-signoff-back>Back to Sign-off</button>
+            </div>
+          </header>
+          <p class="muted" data-signoff-summary></p>
+          <div class="signoff-cards" data-signoff-cards></div>
+          <p class="form-message" data-signoff-message role="status"></p>
+          <footer class="form-actions" data-signoff-actions></footer>
         </section>
       </section>
     </section>

@@ -30,9 +30,9 @@ function paginateList(key, rows, filters, render) {
   const controls = `<nav class="pager list-pager" aria-label="${key} pages">
     <span aria-live="polite">Showing ${rows.length ? start + 1 : 0}–${start + items.length} of ${rows.length}</span>
     <label>Per page <select data-list-size="${key}">${PAGE_SIZE_OPTIONS.map((size) => `<option ${size === state.size ? "selected" : ""}>${size}</option>`).join("")}</select></label>
-    ${button("First", 1, state.page === 1)}${button("Previous", state.page - 1, state.page === 1)}
+    ${button("First", 1, state.page === 1).replace("<button", '<button data-pager-edge')}${button("Previous", state.page - 1, state.page === 1)}
     <label>Page <input type="number" min="1" max="${state.pages}" value="${state.page}" data-list-jump="${key}" aria-label="${key} page number"> of ${state.pages}</label>
-    ${button("Next", state.page + 1, state.page === state.pages)}${button("Last", state.pages, state.page === state.pages)}
+    ${button("Next", state.page + 1, state.page === state.pages)}${button("Last", state.pages, state.page === state.pages).replace("<button", '<button data-pager-edge')}
   </nav>`;
   return { items, controls };
 }

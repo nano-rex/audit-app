@@ -10,6 +10,9 @@ permissions assigned to your account.
 1. Open the Audit App website and sign in with the account provided by your
    administrator.
 2. Open Account to update your name, email, profile picture, and signature.
+   Choose a file for the picture or signature, or draw your signature in the
+   box and choose Use this drawing; then Save Account. Images appear as
+   squares beside their Choose file square; x removes one.
    Change your password there if needed. Your signed-in account is recorded as
    the auditor; you do not need to type your name into an inspection.
 3. If you cannot sign in, use Forgot Password to send a reset request. An
@@ -54,16 +57,15 @@ An administrator should configure these records before staff begin auditing:
    inspection then shows only their tabs. Untick them all to return to All.
    Save the schedule. A new schedule is always Pending; it becomes In Progress
    when the audit starts and Completed when it is finished.
-3. For an audit that is ready to start immediately, use + New Audit on the
-   Inspections page. Enter the
-   outlet, audit date and time, audit type, and remarks, then choose Create and
-   Start. The signed-in account is recorded as the auditor, an audit reference
-   is reserved, and the checklist opens straight away.
+3. For an audit that happens now, choose Schedule and start now instead of
+   Schedule. The signed-in account is recorded as the auditor, an audit
+   reference is reserved, and the checklist opens straight away. Audit time,
+   type, and remarks can be set at the top of the checklist.
 
 4. START OR RESUME THE GUIDED INSPECTION
 ----------------------------------------
-1. An audit created with + New Audit is already open. Otherwise open
-   Inspections; Guided Inspection shows Scheduled Work.
+1. An audit started with Schedule and start now is already open. Otherwise
+   open Inspections; Guided Inspection shows Scheduled Work.
 2. Select the scheduled work item, or choose Open beside "Continue inspection"
    under Waiting on you on the Dashboard. The app creates or resumes the
    inspection and displays its reference and details.
@@ -107,14 +109,17 @@ An administrator should configure these records before staff begin auditing:
 
 5. ADD SIGNATURES AND REVIEW HISTORY
 ------------------------------------
-1. In the inspection, choose Sign with my saved signature to sign every role
-   you hold (auditor, verifier, acknowledger) in one step, using the signature
-   saved under Account. To draw or upload a signature instead, use Audited By,
-   Verified By, or Acknowledged By, then Save Signatures. Your identity and
-   timestamp are recorded with each signature.
-2. Open History & Findings to browse completed inspections and their findings.
-   Use search and filters to narrow the list.
-3. Open an inspection and use Export PDF to download its report. The PDF
+1. Completing an inspection opens it on Inspections > Sign-off. Sign-off
+   lists every completed audit that is not yet closed, with the signatures it
+   still needs. Open one to see a card each for Audited by, Verified by, and
+   Acknowledged by.
+2. On a card you may sign, choose Use my saved signature (the one under
+   Account) or Draw signature to draw or upload one. Each signature is saved
+   at once with your name and the time. The auditor's card is for whoever ran
+   the inspection.
+3. Open History or Findings (under Inspections) to browse inspections and
+   their findings. Use search and filters to narrow the list.
+4. Use Export PDF on Sign-off, or open an inspection, to download its report. The PDF
    includes the audit summary, checklist, findings, available photos, and
    signatures.
 
@@ -145,7 +150,8 @@ An administrator should configure these records before staff begin auditing:
 
 7. CLOSE AN AUDIT AND REVIEW REPORTS
 -----------------------------------
-1. A verifier can close a completed audit from its history record after all
+1. A verifier can close a completed audit on Sign-off (or from its History
+   record) after all
    required signatures are present and every linked finding/work order is
    closed. It appears under Waiting on you as "Close audit" when it is ready,
    and as "Sign as ..." while your signature is missing. A closed audit is

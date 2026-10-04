@@ -218,10 +218,22 @@ a {
   margin-left: auto;
 }
 
-.account-strip span {
+/* The signed-in name opens Account; it reads as text, not as another button. */
+.account-chip {
+  min-height: 0;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
   color: var(--muted);
   font-size: 12px;
+  font-weight: 400;
   white-space: nowrap;
+}
+
+.account-chip:hover,
+.account-chip:focus-visible {
+  color: var(--accent-strong);
+  text-decoration: underline;
 }
 
 .nav-row {

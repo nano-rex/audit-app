@@ -2,19 +2,11 @@ let accountPhoto = {};
 let accountSignature = {};
 
 function renderAccountSignature() {
-  const image = document.querySelector("[data-account-signature]");
-  const source = imageSource(accountSignature);
-  image.hidden = !source;
-  if (source) image.src = source;
-  else image.removeAttribute("src");
+  renderImageTile(document.querySelector("[data-account-signature-tile]"), accountSignature, "data-remove-account-signature", "Signature");
 }
 
 function renderAccountPhoto() {
-  const image = document.querySelector("[data-account-photo]");
-  const source = imageSource(accountPhoto);
-  image.hidden = !source;
-  if (source) image.src = source;
-  else image.removeAttribute("src");
+  renderImageTile(document.querySelector("[data-account-photo-tile]"), accountPhoto, "data-remove-account-photo", "Profile picture");
 }
 
 async function loadAccount() {
@@ -93,7 +85,8 @@ document.querySelector("[data-account-photo-upload]").addEventListener("change",
   }
 });
 
-document.querySelector("[data-remove-account-photo]").addEventListener("click", () => {
+document.querySelector("[data-account-photo-tile]").addEventListener("click", (event) => {
+  if (!event.target.closest("[data-remove-account-photo]")) return;
   accountPhoto = {};
   renderAccountPhoto();
   setText("[data-account-message]", "Save Account to remove your picture.");
@@ -139,8 +132,32 @@ document.querySelector("[data-account-signature-upload]").addEventListener("chan
   } finally { button.disabled = false; input.value = ""; }
 });
 
-document.querySelector("[data-remove-account-signature]").addEventListener("click", () => {
+document.querySelector("[data-account-signature-tile]").addEventListener("click", (event) => {
+  if (!event.target.closest("[data-remove-account-signature]")) return;
   accountSignature = {};
   renderAccountSignature();
   setText("[data-account-message]", "Save Account to remove your signature.");
+});
+
+const accountSignaturePad = setupSignaturePad(document.querySelector("[data-account-signature-pad]"));
+
+document.querySelector("[data-account-pad-clear]")?.addEventListener("click", () => accountSignaturePad?.clear());
+
+document.querySelector("[data-account-pad-use]")?.addEventListener("click", async (event) => {
+  if (!accountSignaturePad || accountSignaturePad.isBlank()) {
+    setText("[data-account-message]", "Draw your signature in the box first.");
+    return;
+  }
+  const button = event.currentTarget;
+  button.disabled = true;
+  try {
+    accountSignature = await uploadImage({ name: "Signature.png", dataUrl: accountSignaturePad.toDataUrl() });
+    renderAccountSignature();
+    accountSignaturePad.clear();
+    setText("[data-account-message]", "Signature drawn. Save Account to apply it.");
+  } catch (error) {
+    setText("[data-account-message]", error.message);
+  } finally {
+    button.disabled = false;
+  }
 });

@@ -79,9 +79,15 @@ function showContextTab(tabId) {
     showTab("findings");
     if (activeTabId !== "findings") return;
     showHistoryFindingsSection(tabId);
+  } else if (tabId === "signoff") {
+    showTab("inspections");
+    if (activeTabId !== "inspections") return;
+    showInspectionSubtab("signoff");
+    loadSignoff().catch(showLoadError);
   } else {
     showTab(tabId);
     if (activeTabId !== tabId) return;
+    if (tabId === "inspections") showInspectionSubtab("guided");
   }
   activeContextTab = tabId;
   document.querySelectorAll(`[data-context-tab]`).forEach((button) => {

@@ -20,15 +20,15 @@ async function loadAttention() {
         </div>
         <span class="row-actions">
           ${item.overdue ? '<span class="status-pill status-untouched">Overdue</span>' : ""}
-          <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-id="${Number(item.id)}">Open</button>
+          <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-view="${escapeAttr(item.view || "")}" data-attention-id="${Number(item.id)}">Open</button>
         </span>
       </article>`).join("")
     : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and corrective actions assigned to you, appear here.</span></div></article>`);
 }
 
-async function openAttentionItem(type, id) {
+async function openAttentionItem(type, id, view = "") {
   if (type === "inspection") {
-    await openInspectionSession(id);
+    await (view === "signoff" ? openSignoff(id) : openInspectionSession(id));
     return;
   }
   const response = await authFetch("/api/work-orders");

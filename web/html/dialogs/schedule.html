@@ -12,7 +12,10 @@
       <label>Remarks<textarea name="remarks" placeholder="Any notes..."></textarea></label>
       <footer class="form-actions split-actions">
         <button class="danger" type="button" data-delete-current-schedule hidden>Delete</button>
-        <button class="primary" type="submit" value="default">Schedule</button>
+        <span class="split-actions-end">
+          <button class="outline" type="submit" value="start" data-schedule-start-now hidden>Schedule and start now</button>
+          <button class="primary" type="submit" value="default">Schedule</button>
+        </span>
       </footer>
     </form>
   </dialog>

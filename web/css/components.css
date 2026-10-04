@@ -182,7 +182,7 @@
 .department-card-copy p { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 6px 0 0; overflow-wrap: anywhere; }
 .department-card .row-actions { margin-left: 0; }
 
-.settings-page .settings-grid { grid-template-columns: minmax(280px, 620px); }
+.settings-page .settings-grid { grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); }
 .settings-page .theme-settings { display: grid; gap: 14px; margin-bottom: 0; }
 .settings-page .theme-settings h2 { margin-bottom: 0; }
 .settings-page .theme-toggle { align-items: center; color: var(--text); display: flex; font-size: 14px; gap: 10px; }
@@ -249,7 +249,8 @@
 
 .filter {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* Filters take as many columns as fit; actions live in the panel header, not among them. */
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
   gap: 16px;
   align-items: end;
 }
@@ -329,60 +330,20 @@ dialog label {
   gap: 18px;
 }
 
-.account-photo-row {
+.account-images {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
+  align-items: flex-start;
+  gap: 12px 32px;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface-alt);
 }
 
-.account-photo-row > div {
-  display: grid;
-  gap: 10px;
-  min-width: min(260px, 100%);
-}
-
-.account-photo-row label,
-.account-signature label {
-  display: grid;
-  gap: 6px;
-}
-
-.account-photo-row input[type="file"],
-.account-signature input[type="file"] {
-  width: 100%;
-  min-height: 42px;
-  padding: 8px;
-  background: var(--surface);
-}
-
-.account-signature {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px 16px;
-  align-items: center;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-alt);
-}
-
-.account-signature h3,
-.account-signature p {
-  grid-column: 1 / -1;
-}
-
-.account-signature h3 {
+.account-images > p {
+  flex-basis: 100%;
   margin: 0;
-  font-size: 15px;
-}
-
-.account-signature p {
-  color: var(--muted);
   font-size: 12px;
 }
 
@@ -422,19 +383,6 @@ dialog label {
 .list-pager select {
   width: 76px;
   min-width: 0;
-}
-
-[data-account-photo] {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-[data-account-signature] {
-  max-width: 280px;
-  max-height: 120px;
-  object-fit: contain;
 }
 
 [data-editor-panel][hidden] {
@@ -991,11 +939,6 @@ dialog header h2 {
   display: none;
 }
 
-.signature-strip [data-sign-with-saved],
-.signature-strip [data-signature-message] {
-  grid-column: 1 / -1;
-  justify-self: start;
-}
 
 /* Fixtures and finishes have no code, serial, or warranty details. */
 #equipment-form[data-kind="fixture"] [data-asset-only] {
@@ -1141,16 +1084,6 @@ dialog header h2 {
 }
 
 /* Inside a checklist card, generic span rules would stack the parts of an evidence chip. */
-.check-item .image-pill {
-  display: inline-flex;
-}
-
-.check-item .image-pill-name,
-.check-item .image-pill time {
-  display: inline;
-  color: var(--text);
-}
-
 /* Text that comes from records (names, codes, titles) wraps instead of being cut off. */
 h2,
 h3,
@@ -1162,7 +1095,6 @@ h4,
 }
 
 .menu-tab-row > button,
-.signature-strip button,
 .form-actions button,
 .form-actions .button-link,
 .quick-actions button,
@@ -1334,4 +1266,139 @@ h4,
 .theme-sample .form-actions {
   margin-top: 0;
   pointer-events: none;
+}
+
+/* A panel's title with its actions on the same line, used above filters. */
+.panel-head {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.panel-head h2 {
+  margin: 0;
+}
+
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-actions > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.checkbox-line {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.inline-form:last-child {
+  margin-bottom: 0;
+}
+
+.inline-form > button[type="submit"],
+#account-form > button[type="submit"] {
+  justify-self: start;
+  min-width: 160px;
+}
+
+.account-security {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-security h2 {
+  margin: 0;
+}
+
+#account-form > p {
+  margin: 0;
+}
+
+.account-signature-pad {
+  flex: 1 1 320px;
+  max-width: 520px;
+}
+
+.account-signature-pad .quick-actions {
+  justify-content: flex-start;
+}
+
+.signature-pad {
+  aspect-ratio: 3 / 1;
+  height: auto;
+  cursor: crosshair;
+}
+
+/* Sign-off: one card per signature, side by side where there is room. */
+.signoff-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.signoff-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.signoff-card h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.signoff-card p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.signoff-signature {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 3 / 1;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.signoff-signature img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.signoff-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.signoff-card-actions button {
+  flex: 1 1 auto;
+}
+
+.signoff-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
 }

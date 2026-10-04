@@ -20,10 +20,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .filter {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .inspect-layout {
     grid-template-columns: minmax(0, 1fr) 280px;
   }
@@ -86,7 +82,6 @@
     grid-template-columns: 1fr;
   }
 
-  .filter,
   .form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -116,14 +111,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .signature-strip {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 
-  .signature-strip [data-signature-status] {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 680px) {
@@ -143,10 +131,6 @@
   .account-strip {
     flex-wrap: wrap;
     justify-content: flex-start;
-  }
-
-  .account-strip span {
-    flex-basis: 100%;
   }
 
   .tabs {
@@ -256,6 +240,24 @@
     flex-wrap: wrap;
   }
 
+  /* Phones: the count on its own line, then Previous, the page number, and Next. */
+  .list-pager {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    justify-items: center;
+  }
+
+  .list-pager > span,
+  .list-pager > label:first-of-type {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    justify-content: space-between;
+  }
+
+  .list-pager [data-pager-edge] {
+    display: none;
+  }
+
   .quick-actions > *,
   .form-actions > *,
   .pager > button,
@@ -291,21 +293,7 @@
     min-height: 44px;
   }
 
-  .signature-strip {
-    grid-template-columns: 1fr;
-  }
 
-  .account-signature {
-    grid-template-columns: 1fr;
-  }
-
-  .account-signature button {
-    width: 100%;
-  }
-
-  .signature-strip button {
-    width: 100%;
-  }
 
   .donut {
     width: min(220px, 100%);
@@ -378,11 +366,6 @@
   .row-actions > button,
   .row-actions > .button-link {
     flex: 1 1 42%;
-  }
-
-  .image-pill {
-    width: 100%;
-    justify-content: space-between;
   }
 
   .auth-shell {

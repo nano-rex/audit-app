@@ -128,11 +128,13 @@ function renderInspectionZones(locations, zones, equipment) {
   const locationNames = locations.map((location) => location.name);
   const locationSet = new Set(locationNames);
   const assigned = new Set();
-  const normalizedZones = zones.map((zone) => ({
-    ...zone,
-    locations: (zone.locations || []).filter((name) => locationSet.has(name)),
-  }));
-  normalizedZones.forEach((zone) => zone.locations.forEach((name) => assigned.add(name)));
+  // A location listed in two zones is inspected once, under the first; a second copy would
+  // split its items from the tab that shows it.
+  const normalizedZones = zones.map((zone) => {
+    const own = (zone.locations || []).filter((name) => locationSet.has(name) && !assigned.has(name));
+    own.forEach((name) => assigned.add(name));
+    return { ...zone, locations: own };
+  });
   const unassigned = locationNames.filter((name) => !assigned.has(name));
   let zoneOne = normalizedZones.find((zone) => zone.name.toLowerCase() === "zone-1");
   if (!zoneOne) {
@@ -268,7 +270,7 @@ function inspectionItemCard(item) {
         <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
       </div>
       <button class="outline pass-all" type="button" data-pass-all>Pass all</button>
-      <label>Images<input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images><small data-saved-images></small></label>
+      <div class="image-field"><span class="image-field-label">Images</span><div class="image-tiles"><label class="image-pick"><input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images aria-label="Add images"><span>Choose file</span></label><div class="saved-images" data-saved-images></div></div></div>
       ${criteria.map((criterion, index) => `
         <div class="criteria-row" data-criterion="${escapeAttr(criterion)}">
           <label><input type="checkbox" name="equipment-${item.id}-criterion-${index}" value="pass" data-inspection-check='${escapeAttr(JSON.stringify({
@@ -590,52 +592,10 @@ function inspectionSignatures() {
   return parseStoredObject(form?.dataset.signatures || "{}");
 }
 
+// Signatures are given on the Sign-off page; the checklist only carries them through a save.
 function setInspectionSignatures(signatures = {}) {
-  const signaturePermissions = { auditedBy: "auditor", verifiedBy: "verifier", acknowledgedBy: "acknowledger" };
-  document.querySelectorAll("[data-open-signature]").forEach((button) => {
-    button.disabled = !(currentUser?.inspectionPermissions || []).includes(signaturePermissions[button.dataset.openSignature]);
-  });
   const form = document.getElementById("inspection-form");
-  if (!form) return;
-  form.dataset.signatures = JSON.stringify(signatures || {});
-  const labels = {
-    auditedBy: "Audited",
-    verifiedBy: "Verified",
-    acknowledgedBy: "Acknowledged",
-  };
-  const html = Object.entries(labels).map(([key, label]) => {
-    const signed = Boolean(imageSource(signatures?.[key]));
-    return `<span class="status-pill ${signed ? "status-complete" : "status-untouched"}">${label}: ${signed ? "Signed" : "Unsigned"}</span>`;
-  }).join("");
-  setHtml("[data-signature-status]", html);
-}
-
-function openSignatureDialog(kind) {
-  const dialog = document.getElementById("signature-dialog");
-  const form = document.getElementById("signature-form");
-  const canvas = document.querySelector("[data-signature-canvas]");
-  const ctx = canvas.getContext("2d");
-  const signatures = inspectionSignatures();
-  const labels = {
-    auditedBy: "Audited By",
-    verifiedBy: "Verified By",
-    acknowledgedBy: "Acknowledged By",
-  };
-  form.reset();
-  form.elements.signatureName.value = currentUser?.name || "";
-  form.elements.signatureName.readOnly = true;
-  setText("[data-signature-title]", labels[kind] || "Signature");
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  const savedSignature = signatures[kind] || currentUser?.signatureImage;
-  if (imageSource(savedSignature)) {
-    const image = new Image();
-    image.addEventListener("load", () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height));
-    image.src = imageSource(savedSignature);
-  }
-  signatureState = { kind, drawing: false, lastX: 0, lastY: 0 };
-  dialog.showModal();
+  if (form) form.dataset.signatures = JSON.stringify(signatures || {});
 }
 
 function inspectionProgress(payload = collectInspectionPayload(false)) {
@@ -770,11 +730,6 @@ function updateInspectionActions(progress, payload) {
   // A completed or view-only checklist is shown as recorded.
   checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
   if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
-  const signaturesButton = document.querySelector("[data-save-inspection-signatures]");
-  const cannotSign = form?.dataset.closed === "true" || !id || !(currentUser?.inspectionPermissions || []).length;
-  if (signaturesButton) signaturesButton.disabled = cannotSign;
-  const savedSignatureButton = document.querySelector("[data-sign-with-saved]");
-  if (savedSignatureButton) savedSignatureButton.disabled = cannotSign;
   const link = document.querySelector("[data-export-inspection-pdf]");
   if (!link) return;
   if (id) {
@@ -836,7 +791,6 @@ async function openInspectionSession(id) {
   form.dataset.completed = String(session.status === "Completed");
   form.dataset.closed = String(Boolean(session.closed_at));
   form.dataset.ownerId = session.owner_user_id ? String(session.owner_user_id) : "";
-  setText("[data-signature-message]", "");
   setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
   setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";

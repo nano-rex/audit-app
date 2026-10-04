@@ -33,11 +33,11 @@ def todo_items(user):
                         continue  # The auditor's signature belongs to whoever ran the inspection.
                     missing.append(label)
                 if missing:
-                    items.append(inspection_item(row, "Sign as " + ", ".join(missing), "Completed, awaiting signature"))
+                    items.append(inspection_item(row, "Sign as " + ", ".join(missing), "Completed, awaiting signature", "signoff"))
                 if "verifier" in capabilities and all((signed.get(key) or {}).get("url") for key, _, _ in SIGNATURES) and not db.execute(
                         "SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' UNION ALL SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1",
                         (row["audit_id"], row["audit_id"])).fetchone():
-                    items.append(inspection_item(row, "Close audit", "Signed and all corrective actions closed"))
+                    items.append(inspection_item(row, "Close audit", "Signed and all corrective actions closed", "signoff"))
         if "work-orders" in permissions:
             for row in db.execute("SELECT * FROM work_orders WHERE status NOT IN ('Verified', 'Closed') ORDER BY CASE WHEN due_date IS NULL OR due_date = '' THEN 1 ELSE 0 END, due_date, id LIMIT 500"):
                 order = dict(row)
@@ -48,8 +48,8 @@ def todo_items(user):
     return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread}
 
 
-def inspection_item(row, action, detail):
-    return {"type": "inspection", "id": row["id"], "action": action,
+def inspection_item(row, action, detail, view="checklist"):
+    return {"type": "inspection", "id": row["id"], "action": action, "view": view,
             "title": f"{row['audit_ref'] or ''} {row['inspection_name'] or row['outlet']}".strip(),
             "detail": f"{row['outlet']} | {row['audit_date']} | {detail}"}
 

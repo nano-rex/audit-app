@@ -6,11 +6,15 @@
       </nav>
       <section id="user-accounts" class="user-subpanel active" data-user-panel="users">
       <section class="panel filter">
-        <h2>Users</h2>
+        <header class="panel-head">
+          <h2>Users</h2>
+          <div class="panel-actions">
+            <button class="primary" type="button" data-open-user>Add User</button>
+          </div>
+        </header>
         <label>Search<input id="user-search" placeholder="Search users"></label>
         <label>Role<select id="user-filter-role"><option value="">All roles</option></select></label>
         <label>Department<select id="user-filter-department"></select></label>
-        <button class="primary" type="button" data-open-user>Add User</button>
       </section>
       <section class="work-grid">
         <article class="panel">

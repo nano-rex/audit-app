@@ -2,12 +2,30 @@
       <article class="panel account-panel">
         <h2>Account</h2>
         <form id="account-form">
-          <div class="account-photo-row" data-organization-account-only>
-            <img data-account-photo alt="Your profile picture" hidden>
-            <div>
-              <label>Profile picture<input type="file" accept="image/png,image/jpeg,image/webp" data-account-photo-upload></label>
-              <button type="button" class="outline" data-remove-account-photo>Remove picture</button>
+          <div class="account-images" data-organization-account-only>
+            <div class="image-field">
+              <span class="image-field-label">Profile picture</span>
+              <div class="image-tiles">
+                <label class="image-pick"><input type="file" accept="image/png,image/jpeg,image/webp" data-account-photo-upload aria-label="Upload profile picture"><span>Choose file</span></label>
+                <div class="saved-images" data-account-photo-tile></div>
+              </div>
             </div>
+            <div class="image-field">
+              <span class="image-field-label">Your signature</span>
+              <div class="image-tiles">
+                <label class="image-pick"><input type="file" accept="image/png,image/jpeg,image/webp" data-account-signature-upload aria-label="Upload signature image"><span>Choose file</span></label>
+                <div class="saved-images contain-images" data-account-signature-tile></div>
+              </div>
+            </div>
+            <div class="image-field account-signature-pad">
+              <span class="image-field-label">Or draw your signature</span>
+              <canvas class="signature-pad" width="600" height="200" data-account-signature-pad aria-label="Draw your signature"></canvas>
+              <div class="quick-actions">
+                <button type="button" class="outline" data-account-pad-clear>Clear</button>
+                <button type="button" class="primary" data-account-pad-use>Use this drawing</button>
+              </div>
+            </div>
+            <p class="muted">Your signature is offered when you sign an audit off.</p>
           </div>
           <div class="form-grid">
             <label>Name<input name="name" autocomplete="name" required maxlength="100"></label>
@@ -16,20 +34,13 @@
             <label data-organization-account-only>Department<select name="department"></select></label>
             <label data-organization-account-only>Role<select name="role"></select></label>
           </div>
-          <section class="account-signature" data-organization-account-only>
-            <h3>Your Signature</h3>
-            <img data-account-signature alt="Your saved signature" hidden>
-            <label>Upload signature image<input type="file" accept="image/png,image/jpeg,image/webp" data-account-signature-upload></label>
-            <button type="button" class="outline" data-remove-account-signature>Remove signature</button>
-            <p>This image will be available when you sign an inspection.</p>
-          </section>
           <p class="muted" data-super-account-note hidden>This Super account is kept in the Super database, separate from every organization. It has no department, profile picture, or saved signature; draw or upload a signature when you sign an inspection.</p>
           <p class="muted" data-account-access-note hidden>Your role and department are managed by an administrator.</p>
           <p role="status" aria-live="polite" data-account-message></p>
           <button class="primary" type="submit">Save Account</button>
         </form>
       </article>
-      <article class="panel account-panel">
+      <article class="panel account-panel account-security">
         <h2>Security</h2>
         <div class="quick-actions">
           <button class="outline" type="button" data-open-change-password>Change Password</button>

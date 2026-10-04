@@ -191,6 +191,7 @@ function populateSettingsForms() {
     systemForm.elements.companyName.value = report.companyName || "Ottotree";
     systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
     systemForm.elements.logoUrl.value = report.logoUrl || "";
+    renderReportLogo();
   }
   const featureForm = document.getElementById("feature-visibility-form");
   if (featureForm) {

@@ -34,15 +34,15 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
 
 1. An administrator sets up users and roles, outlets and their locations, fixed assets and fixtures
    and finishes with inspection criteria, and the categories, priorities, and audit types used by findings.
-2. An auditor starts an audit with **+ New Audit** on the Inspections page (or opens a scheduled one) and works through
+2. An auditor schedules an audit (or chooses **Schedule and start now**), optionally limited to some locations, and works through
    the checklist: tick what passes, or use **Pass all** for an asset; record a remark and
    finding details for what fails; attach photos.
 3. Completing the inspection calculates the score and creates one finding and one work order
    per failed criterion, assigned to a department and person in charge.
 4. The assignee records the corrective action with a completion photo. A verifier accepts it
    and closes the work order, or returns it with a remark.
-5. The auditor, verifier, and acknowledger sign. Once every linked work order is closed, a
-   verifier closes the audit, which becomes read-only.
+5. On **Sign-off**, the auditor, verifier, and acknowledger sign (drawn, uploaded, or the signature saved
+   on their account). Once every linked work order is closed, a verifier closes the audit, which becomes read-only.
 6. Reports, charts, and CSV, Excel, JSON, and PDF exports are available throughout.
 
 The dashboard's **Waiting on you** list shows each signed-in user their next step in this

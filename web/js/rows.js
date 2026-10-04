@@ -40,11 +40,9 @@ function categoryRow(row) {
 function roleRow(row) {
   return `
     <li>
-      <div>
-        <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
-        <span>${escapeHtml(row.description || "No description")}</span>
-        <span>${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "No access selected")}</span>
-      </div>
+      <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
+      <span>${escapeHtml(row.description || "No description")}</span>
+      <span>Access: ${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "none selected")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-role='${escapeAttr(JSON.stringify(row))}' ${row.protected ? "disabled" : ""}>Edit</button>
         <button type="button" class="danger" data-delete-role="${row.id}" ${row.protected ? "disabled" : ""}>Delete</button>

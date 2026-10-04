@@ -79,7 +79,6 @@ let activeFindingRow = null;
 let inspectionHistoryCache = [];
 let inspectionHistorySearch = "";
 let photoMarkState = null;
-let signatureState = null;
 const departmentFilters = { search: "" };
 const categoryFilters = { search: "" };
 const outletFilters = { search: "" };
