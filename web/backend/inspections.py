@@ -85,6 +85,11 @@ def finalize_inspection(db, session_id, payload, now):
     return audit_id
 
 
+def visit_locations_of(reference):
+    """The locations chosen for a visit or its audit; empty means every location."""
+    return (load_value(reference) or []) if reference else []
+
+
 def inspection_sessions():
     with connect() as db:
         rows = db.execute(
@@ -136,6 +141,7 @@ def inspection_session(session_id):
     data = dict(row)
     data["items"] = load_value(data.pop("items_data_id") or "[]")
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
+    data["visit_locations"] = visit_locations_of(data.pop("locations_data_id", None))
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
@@ -146,4 +152,4 @@ def inspection_session(session_id):
 def schedule_items():
     with connect() as db:
         rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref, inspection_sessions.inspection_name, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.status IN ('Completed', 'Cancelled'), schedules.scheduled_date, schedules.id DESC").fetchall()
-    return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}"} for row in rows]}
+    return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"])} for row in rows]}

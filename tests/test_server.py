@@ -704,5 +704,32 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "DELETE")[0], 409)
 
 
+    def test_z_visit_covers_chosen_locations_and_starts_pending(self):
+        with app.connect() as db:
+            names = [row[0] for row in db.execute("SELECT name FROM locations WHERE outlet_code = 'STP' ORDER BY name LIMIT 2")]
+        self.assertEqual(len(names), 2)
+        # A new visit is Pending whatever status is sent, and covers every location by default.
+        status, _, body = self.request("/api/schedules", "POST", {"outlet": "STP", "scheduledDate": "2026-09-21", "status": "Completed"})
+        self.assertEqual(status, 200)
+        everywhere = json.loads(body)["id"]
+        status, _, body = self.request("/api/schedules", "POST", {"outlet": "STP", "scheduledDate": "2026-09-21", "locations": names})
+        chosen = json.loads(body)["id"]
+        self.assertEqual(self.request("/api/schedules", "POST", {"outlet": "STP", "scheduledDate": "2026-09-21", "locations": ["Not a location"]})[0], 400)
+        rows = {row["id"]: row for row in json.loads(self.request("/api/schedules")[2])["items"]}
+        self.assertEqual((rows[everywhere]["status"], rows[everywhere]["zone"], rows[everywhere]["visit_locations"]), ("Pending", "All Locations", []))
+        self.assertEqual((rows[chosen]["zone"], rows[chosen]["visit_locations"]), (", ".join(names), names))
+        # The audit started from the visit covers the same locations.
+        session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": chosen})[2])["id"]
+        session = json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])
+        self.assertEqual(session["visit_locations"], names)
+        # Editing the visit keeps the status the audit gave it, and a chosen location cannot be renamed.
+        self.assertEqual(self.request(f"/api/schedules/{chosen}", "PATCH", {"outlet": "STP", "scheduledDate": "2026-09-22", "locations": names[:1]})[0], 200)
+        rows = {row["id"]: row for row in json.loads(self.request("/api/schedules")[2])["items"]}
+        self.assertEqual((rows[chosen]["status"], rows[chosen]["visit_locations"]), ("In Progress", names[:1]))
+        with app.connect() as db:
+            location_id = db.execute("SELECT id FROM locations WHERE outlet_code = 'STP' AND name = ?", (names[1],)).fetchone()[0]
+        self.assertEqual(self.request(f"/api/locations/{location_id}", "PATCH", {"name": "Renamed visit location"})[0], 409)
+
+
 if __name__ == "__main__":
     unittest.main()

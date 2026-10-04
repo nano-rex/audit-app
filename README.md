@@ -34,7 +34,7 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
 
 1. An administrator sets up users and roles, outlets and their locations, fixed assets and fixtures
    and finishes with inspection criteria, and the categories, priorities, and audit types used by findings.
-2. An auditor starts an audit with **+ New Audit** (or opens a scheduled one) and works through
+2. An auditor starts an audit with **+ New Audit** on the Inspections page (or opens a scheduled one) and works through
    the checklist: tick what passes, or use **Pass all** for an asset; record a remark and
    finding details for what fails; attach photos.
 3. Completing the inspection calculates the score and creates one finding and one work order

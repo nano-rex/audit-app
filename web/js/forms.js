@@ -6,7 +6,6 @@ async function resetScheduleForm() {
   form.querySelector('button[value="default"]').textContent = "Schedule";
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
   await updateScheduleLocationSelect();
-  form.elements.status.value = "Pending";
   form.elements.scheduledDate.value = todayIsoDate();
   form.elements.auditor.value = currentUser?.name || "";
   form.querySelector("[data-delete-current-schedule]").hidden = true;
@@ -18,10 +17,9 @@ async function openScheduleEditor(row) {
   await resetScheduleForm();
   form.elements.scheduleId.value = row.id;
   form.elements.outlet.value = row.outlet;
-  await updateScheduleLocationSelect(row.zone || "");
+  await updateScheduleLocationSelect(row.visit_locations || []);
   form.elements.scheduledDate.value = row.scheduled_date;
   form.elements.auditor.value = row.auditor;
-  form.elements.status.value = row.status || "Pending";
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
   form.querySelector('button[value="default"]').textContent = "Save Changes";
@@ -475,11 +473,10 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
   const payload = {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
-    zone: formValue(form, "zone", "Unassigned"),
+    locations: chosenVisitLocations(form),
     scheduledDate: formValue(form, "scheduledDate", "Today"),
     auditor: formValue(form, "auditor", "Unassigned"),
     remarks: formValue(form, "remarks", ""),
-    status: formValue(form, "status", "Pending"),
   };
   const id = formValue(form, "scheduleId", "");
   if (!form.reportValidity()) return;

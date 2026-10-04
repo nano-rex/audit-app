@@ -34,6 +34,11 @@ def protect_history(db, outlet, name=None):
         if db.execute(f"SELECT 1 FROM {table} WHERE {where} LIMIT 1", values).fetchone():
             raise WorkflowError("This name is used by audit records or scheduled work. Keep it and edit its other details, or create a new entry.")
     if name is not None:
+        for table in ("schedules", "inspection_sessions"):
+            for row in db.execute(f"SELECT locations_data_id FROM {table} WHERE outlet = ? AND locations_data_id IS NOT NULL", (outlet,)):
+                if name in (load_value(row["locations_data_id"]) or []):
+                    raise WorkflowError("This location is chosen for scheduled work and must be retained")
+    if name is not None:
         for session in db.execute("SELECT items_data_id FROM inspection_sessions WHERE outlet = ?", (outlet,)):
             if any(item.get("location") == name for item in load_value(session["items_data_id"]) or []):
                 raise WorkflowError("This location is used by saved inspection items and must be retained")
@@ -46,6 +51,26 @@ def zone_locations(db, outlet, values):
     if any(value not in available for value in values):
         raise ValueError("Every zone location must belong to the selected outlet")
     return list(dict.fromkeys(values))
+
+
+ALL_LOCATIONS = "All Locations"
+
+
+def visit_locations(db, outlet, payload):
+    """The locations a scheduled visit covers; an empty list means every location of the outlet.
+
+    Older clients send one location as "zone"; it is read as a selection of that one location.
+    """
+    values = payload.get("locations")
+    if values is None:
+        zone = payload.get("zone")
+        found = zone and db.execute("SELECT 1 FROM locations WHERE outlet_code = ? AND name = ?", (outlet, zone)).fetchone()
+        values = [zone] if found else []
+    return zone_locations(db, outlet, values)
+
+
+def locations_label(values):
+    return ", ".join(values) if values else ALL_LOCATIONS
 
 
 def update_membership(db, outlet, old_name, new_name=None):

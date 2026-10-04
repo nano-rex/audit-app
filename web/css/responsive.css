@@ -341,6 +341,7 @@
   }
 
   .zone-location-picker [data-zone-location-options],
+  .visit-location-picker [data-visit-location-options],
   .permission-picker [data-role-permissions] {
     grid-template-columns: 1fr;
   }

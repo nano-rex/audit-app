@@ -3,10 +3,12 @@
       <header><h2>Schedule Audit Visit</h2><button type="button" data-close-dialog>x</button></header>
       <input name="scheduleId" type="hidden">
       <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
-      <label>Location<select name="zone"></select></label>
       <label>Scheduled Date<input name="scheduledDate" type="date" required></label>
       <label>Auditor<input name="auditor" placeholder="Who will audit?"></label>
-      <label>Status<select name="status"><option>Pending</option><option>Completed</option><option>Cancelled</option></select></label>
+      <fieldset class="zone-location-picker visit-location-picker">
+        <legend>Locations</legend>
+        <div data-visit-location-options></div>
+      </fieldset>
       <label>Remarks<textarea name="remarks" placeholder="Any notes..."></textarea></label>
       <footer class="form-actions split-actions">
         <button class="danger" type="button" data-delete-current-schedule hidden>Delete</button>

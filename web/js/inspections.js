@@ -89,10 +89,13 @@ async function loadInspectionItems() {
   const equipmentData = await equipmentResponse.json();
   const locationData = await locationResponse.json();
   const zoneData = await zoneResponse.json();
-  inspectionItems = equipmentData.items;
+  // A visit scheduled for particular locations shows only those; an empty list means all.
+  const scope = new Set(visitLocations(form));
+  const inScope = (name) => !scope.size || scope.has(name);
+  inspectionItems = equipmentData.items.filter((item) => inScope(item.location || item.zone || "Unassigned"));
   inspectionPageDrafts = new Map();
   renderInspectionFilter();
-  const locationNames = new Set(locationData.items.map((location) => location.name));
+  const locationNames = new Set(locationData.items.map((location) => location.name).filter(inScope));
   inspectionItems.forEach((item) => {
     const location = item.location || item.zone || "Unassigned";
     locationNames.add(location);
@@ -110,6 +113,15 @@ async function loadInspectionItems() {
   applyInspectionSessionItems();
   openFirstInspectionLocation();
   updateInspectionProgress();
+}
+
+function visitLocations(form) {
+  try {
+    const value = JSON.parse(form.dataset.visitLocations || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (error) {
+    return [];
+  }
 }
 
 function renderInspectionZones(locations, zones, equipment) {
@@ -561,7 +573,7 @@ function collectInspectionPayload(complete = false) {
   return {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
-    zone: "All Locations",
+    zone: form.dataset.zoneLabel || "All Locations",
     auditDate: formValue(form, "auditDate", todayIsoDate()),
     auditor: formValue(form, "auditor", "Unnamed Inspector"),
     auditTime: form.elements.auditTime.value || null,
@@ -829,6 +841,8 @@ async function openInspectionSession(id) {
   setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
+  form.dataset.visitLocations = JSON.stringify(session.visit_locations || []);
+  form.dataset.zoneLabel = session.zone || "All Locations";
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";
   form.elements.auditor.value = session.auditor || "";

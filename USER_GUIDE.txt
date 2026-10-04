@@ -46,10 +46,16 @@ An administrator should configure these records before staff begin auditing:
 
 3. SCHEDULE AN AUDIT
 --------------------
-1. Open Inspections and choose Schedule Work, or use Schedule Visit from Today.
-2. Select the outlet and location, set the date and auditor, and add any
-   scheduling remarks. Save the schedule.
-3. For an audit that is ready to start immediately, use + New Audit. Enter the
+1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
+   Dashboard.
+2. Select the outlet, set the date and auditor, and add any scheduling
+   remarks. Under Locations, All locations is ticked: the audit covers the
+   whole outlet. Tick one or more locations instead to audit only those; the
+   inspection then shows only their tabs. Untick them all to return to All.
+   Save the schedule. A new schedule is always Pending; it becomes In Progress
+   when the audit starts and Completed when it is finished.
+3. For an audit that is ready to start immediately, use + New Audit on the
+   Inspections page. Enter the
    outlet, audit date and time, audit type, and remarks, then choose Create and
    Start. The signed-in account is recorded as the auditor, an audit reference
    is reserved, and the checklist opens straight away.

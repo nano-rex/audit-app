@@ -46,7 +46,7 @@ async function loadDashboard() {
 
   setHtml("[data-today-schedules]", data.today.scheduled.length
     ? data.today.scheduled.map(scheduleRow).join("")
-    : `<article><div><b>No scheduled audits</b><span>Use + New Audit to start one now, or Schedule Visit to plan one.</span></div></article>`);
+    : `<article><div><b>No scheduled audits</b><span>Use Schedule Visit to plan one.</span></div></article>`);
 }
 
 async function loadSuperDashboard() {

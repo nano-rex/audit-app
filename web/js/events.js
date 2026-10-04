@@ -630,7 +630,18 @@ document.querySelector('#schedule-form select[name="outlet"]')?.addEventListener
   updateScheduleLocationSelect();
 });
 
+document.querySelector("#schedule-form [data-visit-location-options]")?.addEventListener("change", (event) => {
+  const container = event.currentTarget;
+  const all = container.querySelector("[data-visit-all]");
+  const picks = [...container.querySelectorAll('input[name="visitLocation"]')];
+  if (event.target === all) picks.forEach((input) => { input.checked = false; });
+  all.checked = !picks.some((input) => input.checked);
+});
+
 document.querySelector('#inspection-form select[name="outlet"]')?.addEventListener("change", () => {
+  // Chosen locations belong to the outlet they were chosen for.
+  document.getElementById("inspection-form").dataset.visitLocations = "[]";
+  document.getElementById("inspection-form").dataset.zoneLabel = "All Locations";
   updateInspectionLocationSelect();
 });
 

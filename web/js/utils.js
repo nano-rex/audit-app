@@ -288,18 +288,28 @@ async function updateInspectionLocationSelect(selected = "") {
   await loadInspectionItems();
 }
 
-async function updateScheduleLocationSelect(selected = "") {
+// A visit covers every location unless particular ones are ticked; "All locations" and a
+// selection are mutually exclusive, and clearing the selection returns to All.
+async function updateScheduleLocationSelect(selected = []) {
   const form = document.getElementById("schedule-form");
   if (!form) return;
-  const outlet = formValue(form, "outlet", setupOptions.outlets[0] || "");
-  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
-  const data = await response.json();
-  const values = data.items.map((row) => row.name);
-  updateSelectOptions(form.elements.zone, values, false, "Select location");
-  if (values.includes(selected)) {
-    form.elements.zone.value = selected;
+  const outlet = formValue(form, "outlet", "");
+  const container = form.querySelector("[data-visit-location-options]");
+  if (!outlet) {
+    container.innerHTML = `<p class="muted">Select an outlet to choose locations.</p>`;
+    return;
   }
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
+  const names = (await response.json()).items.map((row) => row.name);
+  const chosen = new Set(selected.filter((name) => names.includes(name)));
+  container.innerHTML = `<label class="zone-location-option"><input type="checkbox" data-visit-all${chosen.size ? "" : " checked"}><span>All locations</span></label>`
+    + names.map((name) => `<label class="zone-location-option"><input type="checkbox" name="visitLocation" value="${escapeAttr(name)}"${chosen.has(name) ? " checked" : ""}><span>${escapeHtml(name)}</span></label>`).join("");
 }
+
+function chosenVisitLocations(form) {
+  return [...form.querySelectorAll('input[name="visitLocation"]:checked')].map((input) => input.value);
+}
+
 async function requestJson(url, method, payload) {
   const response = await authFetch(url, {
     method,

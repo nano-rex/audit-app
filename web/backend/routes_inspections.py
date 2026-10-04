@@ -7,7 +7,8 @@ from datetime import datetime
 from backend.audit_metadata import allocate_reference, validate_metadata
 from backend.common import inspection_name, inspection_progress, normalize_audit_date
 from backend.database import connect, first_outlet, insert_record
-from backend.inspections import finalize_inspection
+from backend.inspections import finalize_inspection, visit_locations_of
+from backend.location_integrity import locations_label, visit_locations
 
 
 def append_inspection_photos(db, items, now):
@@ -97,21 +98,23 @@ def post_inspection_sessions(self, parsed, payload=None):
 def post_schedules(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
-        default_outlet = first_outlet(db)
+        outlet = payload.get("outlet") or first_outlet(db)
+        locations = visit_locations(db, outlet, payload)
+        # A new visit always starts as Pending; starting and completing the audit move it on.
         cursor = db.execute(
             """
             INSERT INTO schedules
-            (business_unit, outlet, zone, scheduled_date, auditor, remarks, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (business_unit, outlet, zone, locations_data_id, scheduled_date, auditor, remarks, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
             """,
             (
                 payload.get("businessUnit", "Ottotree"),
-                payload.get("outlet") or default_outlet,
-                payload.get("zone", "Unassigned"),
+                outlet,
+                locations_label(locations),
+                save_value(db, locations),
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor", "Unassigned"),
                 payload.get("remarks", ""),
-                payload.get("status", "Pending"),
                 now,
             ),
         )
@@ -136,6 +139,8 @@ def start_schedule(self, parsed, payload=None):
                 raise PermissionError("An auditor must start this scheduled inspection first")
             session_id = insert_record(db, "inspection_sessions", {
                 "business_unit": schedule["business_unit"], "outlet": schedule["outlet"], "zone": schedule["zone"],
+                # The audit covers the locations the visit was scheduled for, and no others.
+                "locations_data_id": save_value(db, visit_locations_of(schedule["locations_data_id"])),
                 "audit_date": normalize_audit_date(schedule["scheduled_date"]), "auditor": user["name"],
                 "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
                 "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
@@ -272,25 +277,30 @@ def patch_schedules(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
-        cursor = db.execute(
+        existing = db.execute("SELECT status FROM schedules WHERE id = ?", (int(schedule_id),)).fetchone()
+        if not existing:
+            self.send_error(404)
+            return
+        outlet = payload.get("outlet") or first_outlet(db)
+        locations = visit_locations(db, outlet, payload)
+        db.execute(
             """
             UPDATE schedules
-            SET outlet = ?, zone = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
+            SET outlet = ?, zone = ?, locations_data_id = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
             WHERE id = ?
             """,
             (
-                payload.get("outlet") or first_outlet(db),
-                payload.get("zone", "Unassigned"),
+                outlet,
+                locations_label(locations),
+                save_value(db, locations),
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor", "Unassigned"),
                 payload.get("remarks", ""),
-                payload.get("status", "Pending"),
+                # Status follows the audit's progress; an edit keeps it unless a status is sent.
+                payload.get("status") or existing["status"],
                 int(schedule_id),
             ),
         )
-        if cursor.rowcount == 0:
-            self.send_error(404)
-            return
     self.json({"ok": True})
 
 

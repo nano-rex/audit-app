@@ -417,14 +417,13 @@ def init_db():
             db.execute("UPDATE locations SET qr_code = ? WHERE id = ?", (location_qr_code(row["outlet_code"], row["name"]), row["id"]))
         db.execute(
             """
-            UPDATE schedules
-            SET zone = COALESCE(
-                (SELECT name FROM locations WHERE locations.outlet_code = schedules.outlet ORDER BY name LIMIT 1),
-                'Unassigned'
-            )
-            WHERE zone IS NULL OR zone = ''
+            UPDATE schedules SET zone = 'All Locations' WHERE zone IS NULL OR zone = '' OR zone = 'Unassigned'
             """
         )
+        # A visit scheduled for one location before several could be chosen covers just that location.
+        for row in db.execute("SELECT id, outlet, zone FROM schedules WHERE locations_data_id IS NULL").fetchall():
+            found = db.execute("SELECT 1 FROM locations WHERE outlet_code = ? AND name = ?", (row["outlet"], row["zone"])).fetchone()
+            db.execute("UPDATE schedules SET locations_data_id = ? WHERE id = ?", (save_value(db, [row["zone"]] if found else []), row["id"]))
         db.execute("UPDATE equipment SET name = asset_id WHERE name IS NULL OR name = ''")
         db.execute("UPDATE equipment SET description = notes WHERE description IS NULL")
         db.execute("UPDATE equipment SET type = equipment_type WHERE type IS NULL OR type = ''")
