@@ -3,6 +3,7 @@ from backend.relational_values import load_value, save_value
 from backend.permissions import authorize_inspection_update
 from backend.inspection_notifications import notify_inspection
 import time
+from backend import activity
 from datetime import datetime
 from backend.audit_metadata import allocate_reference, validate_metadata
 from backend.common import inspection_name, inspection_progress, normalize_audit_date
@@ -86,8 +87,12 @@ def post_inspection_sessions(self, parsed, payload=None):
         save_session_metadata(db, session_id, payload)
         append_inspection_photos(db, items, now)
         audit_id = None
+        reference = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0]
+        record = {"record_ref": reference, "outlet": payload.get("outlet") or default_outlet, "business_unit": payload.get("businessUnit", "Ottotree")}
+        activity.log(db, user, "audit_started", "inspection", session_id, at=now, **record)
         if status == "Completed":
             audit_id = finalize_inspection(db, session_id, payload, now)
+            activity.log(db, user, "audit_completed", "inspection", session_id, started_at=now, at=now, **record)
         notify_inspection(db, session_id, user, payload, changed=True)
         db.commit()
         self.json({"ok": True, "id": session_id, "inspectionName": session_name, "progress": progress, "status": status, "auditId": audit_id})
@@ -151,6 +156,8 @@ def start_schedule(self, parsed, payload=None):
             name = inspection_name({"id": session_id, "outlet": schedule["outlet"], "audit_date": normalize_audit_date(schedule["scheduled_date"])})
             db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (name, session_id))
             db.execute("UPDATE schedules SET status = 'In Progress' WHERE id = ?", (schedule_id,))
+            started = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0]
+            activity.log(db, user, "audit_started", "inspection", session_id, started, schedule["outlet"], business_unit=schedule["business_unit"], at=now)
     self.json({"ok": True, "id": session_id, "scheduleId": schedule_id, "scheduleRef": f"SCH-{schedule_id:05d}"})
 
 
@@ -180,6 +187,8 @@ def start_audit(self, parsed, payload=None):
         })
         name = inspection_name({"id": session_id, "outlet": payload["outlet"], "audit_date": payload["auditDate"]})
         db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (name, session_id))
+        activity.log(db, user, "audit_started", "inspection", session_id, reference, payload["outlet"],
+                     business_unit=payload.get("businessUnit", "Ottotree"), at=now)
     self.json({"ok": True, "id": session_id, "auditRef": reference, "scheduleId": schedule_id})
 
 
@@ -211,6 +220,13 @@ def patch_inspection_sessions(self, parsed, payload=None):
                 self.json({"error": "Inspection is already completed"}, 409)
                 return
             db.execute("UPDATE inspection_sessions SET signatures_data_id = ?, updated_at = ? WHERE id = ?", (save_value(db, payload["signatures"]), now, int(session_id)))
+            before = existing["signatures_data_id"] or {}
+            signed = [label for key, label in (("auditedBy", "Audited by"), ("verifiedBy", "Verified by"), ("acknowledgedBy", "Acknowledged by"))
+                      if (payload["signatures"].get(key) or {}).get("url") and payload["signatures"].get(key) != before.get(key)]
+            if signed:
+                activity.log(db, user, "audit_signed", "inspection", int(session_id), existing["audit_ref"], existing["outlet"],
+                             started_at=activity.last_time(db, "audit_completed", "inspection", int(session_id)), detail=", ".join(signed),
+                             business_unit=existing["business_unit"], at=now)
             notify_inspection(db, int(session_id), user, payload, existing)
             db.commit()
             self.json({"ok": True, "id": int(session_id), "status": "Completed", "auditId": existing["audit_id"]})
@@ -262,6 +278,8 @@ def patch_inspection_sessions(self, parsed, payload=None):
         audit_id = None
         if complete:
             audit_id = finalize_inspection(db, int(session_id), payload, now)
+            activity.log(db, user, "audit_completed", "inspection", int(session_id), existing["audit_ref"], existing["outlet"],
+                         started_at=existing["created_at"], business_unit=existing["business_unit"], at=now)
         notify_inspection(db, int(session_id), user, payload, existing, changed)
     self.json({"ok": True, "id": int(session_id), "inspectionName": session_name, "progress": progress, "status": "Completed" if complete else "Draft", "auditId": audit_id})
     return

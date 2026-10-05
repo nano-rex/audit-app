@@ -188,8 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             "locations": {"outlets"},
             "zones": {"outlets"},
             "comments": {"findings", "work-orders", "inspections"},
-            "location-report.pdf": {"reports", "inspections", "findings"},
-            "location-report.xlsx": {"reports", "inspections", "findings"},
+            "location-report.pdf": {"reports"},
+            "location-report.xlsx": {"reports"},
         }
         if route == "setup":
             section = parsed.path.split("/")[3:4]

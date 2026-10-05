@@ -385,7 +385,59 @@ async function loadReport() {
   for (const key of ["assigned", "completed", "pending", "responseRate"]) setText(`[data-kpi="${key}"]`, `${data.kpi[key]}${key === "responseRate" ? "%" : ""}`);
   setHtml("[data-bars]", data.rankings.map((row) => `<label>${escapeHtml(row.outlet)}<span style="--value:${row.latest}">${row.latest}</span></label>`).join(""));
   renderReportCharts(data.charts || {});
+  renderPerformance(data);
 }
+
+// "3 d 4 h", "2 h 15 m", "12 m": how long a step took.
+function durationText(seconds) {
+  if (seconds == null) return "—";
+  const minutes = Math.floor(seconds / 60);
+  const days = Math.floor(minutes / 1440), hours = Math.floor((minutes % 1440) / 60), rest = minutes % 60;
+  if (days) return `${days} d ${hours} h`;
+  if (hours) return `${hours} h ${rest} m`;
+  return minutes ? `${minutes} m` : "under a minute";
+}
+
+let reportActivity = [];
+let activityPerson = "";
+
+function renderPerformance(data) {
+  setHtml("[data-time-to-act]", (data.timeToAct || []).map((row) => `
+    <article><span>${escapeHtml(row.label)}</span><strong>${escapeHtml(durationText(row.averageSeconds))}</strong>
+    <small>${row.count ? `${row.count} time${row.count === 1 ? "" : "s"}; longest ${escapeHtml(durationText(row.longestSeconds))}` : "Nothing yet in this period"}</small></article>`).join(""));
+  const people = data.people || [];
+  const cell = (value) => `<td>${escapeHtml(value)}</td>`;
+  setHtml("[data-kpi-people]", people.length ? `
+    <thead><tr><th>Person</th><th>Audits started</th><th>Audits completed</th><th>Avg. audit time</th><th>Signed</th><th>Audits closed</th>
+    <th>Requests raised</th><th>Requests acted on</th><th>Avg. time to act</th><th>Orders created</th><th>Orders closed</th><th>Avg. time to close</th></tr></thead>
+    <tbody>${people.map((row) => `<tr><th scope="row">${escapeHtml(row.name)}</th>${cell(row.audit_started)}${cell(row.audit_completed)}${cell(durationText(row.auditSeconds))}
+      ${cell(row.audit_signed)}${cell(row.audit_closed)}${cell(row.request_raised)}${cell(row.order_created + row.request_declined)}${cell(durationText(row.requestSeconds))}
+      ${cell(row.order_created)}${cell(row.order_closed)}${cell(durationText(row.orderSeconds))}</tr>`).join("")}</tbody>`
+    : "<tbody><tr><td>No activity in this period.</td></tr></tbody>");
+  reportActivity = data.activity || [];
+  const select = document.querySelector("[data-activity-person]");
+  if (select) {
+    updateSelectOptions(select, [...new Set(reportActivity.map((row) => row.user_name || "Unknown"))].sort(), true, "Everyone");
+    select.value = activityPerson;
+  }
+  renderActivityLog();
+}
+
+function renderActivityLog() {
+  const rows = reportActivity.filter((row) => !activityPerson || (row.user_name || "Unknown") === activityPerson);
+  const page = paginateList("activity-log", rows, { activityPerson }, renderActivityLog);
+  setHtml("[data-activity-log]", (rows.length ? page.items.map((row) => `
+    <article><div>
+      <b>${escapeHtml(row.user_name || "Unknown")} · ${escapeHtml(row.label)}${row.record_ref ? ` ${escapeHtml(row.record_ref)}` : ""}</b>
+      <span>${escapeHtml(new Date(row.created_at).toLocaleString())} | ${escapeHtml(row.outlet || "")}${row.duration_ms != null ? ` | Took ${escapeHtml(durationText(Math.round(row.duration_ms / 1000)))}` : ""}</span>
+      ${row.detail ? `<span>${escapeHtml(row.detail)}</span>` : ""}
+    </div></article>`).join("") : `<article><div><b>No activity</b><span>Audits, sign-offs, work requests, and work orders are logged here as people act on them.</span></div></article>`) + page.controls);
+}
+
+document.querySelector("[data-activity-person]")?.addEventListener("change", (event) => {
+  activityPerson = event.target.value;
+  renderActivityLog();
+});
 
 function renderReportCharts(charts) {
   renderPerformanceDistribution(charts.performanceDistribution || []);

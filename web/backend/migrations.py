@@ -10,6 +10,7 @@ from backend.common import audit_ref, hash_password, inspection_progress, locati
 from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
 from backend.control import adopt_organization_supers, ensure_super_account
+from backend.activity import backfill as backfill_activity
 from backend.seed_data import seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
@@ -145,6 +146,23 @@ def init_db():
                 updated_at INTEGER NOT NULL,
                 FOREIGN KEY(audit_id) REFERENCES audits(id)
             );
+
+            CREATE TABLE IF NOT EXISTS activity_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                created_at INTEGER NOT NULL,
+                user_id INTEGER,
+                user_name TEXT,
+                action TEXT NOT NULL,
+                record_type TEXT,
+                record_id INTEGER,
+                record_ref TEXT,
+                outlet TEXT,
+                business_unit TEXT,
+                duration_ms INTEGER,
+                detail TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_activity_log_time ON activity_log(created_at);
+            CREATE INDEX IF NOT EXISTS idx_activity_log_record ON activity_log(record_type, record_id, action);
 
             CREATE TABLE IF NOT EXISTS work_requests (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -514,6 +532,8 @@ def init_db():
         seed_roles(db)
         retire_corrective_actions_page(db)
         seed_operation_roles(db)
+        # Earlier audits, requests, and work orders, as far as their records tell who and when.
+        backfill_activity(db)
         # Work orders no longer have Completed and Verified steps: work that had reached them is done.
         for table in ("work_orders", "findings"):
             db.execute(f"UPDATE {table} SET status = 'Closed', closed_at = COALESCE(NULLIF(closed_at, ''), NULLIF(verified_at, ''), "

@@ -256,6 +256,8 @@ function applyNavbarTabs() {
   });
   const findingsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.findingsEnabled"] !== false;
   document.querySelectorAll('[data-feature-section="findings"]').forEach((node) => { node.hidden = !findingsEnabled; });
+  // Reports, and the location reports in History, need the Reports permission.
+  document.querySelectorAll('[data-context-tab="reports"], [data-requires="reports"]').forEach((node) => { node.hidden = !allowedIds.has("reports"); });
   renderTabMenu();
   layoutNavbar();
 }

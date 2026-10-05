@@ -181,7 +181,22 @@ An administrator should configure these records before staff begin auditing:
    and as "Sign as ..." while your signature is missing. A closed audit is
    read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
-   and charts. Use the date and outlet filters to narrow the report.
+   and charts. Use the date and outlet filters to narrow the report. Reports
+   (and the Location PDF and Excel in History) need the Reports permission on
+   the person's role; without it the Reports button is not shown.
+   Reports also shows how people act:
+   - Time to Act: the average and longest time from starting to completing
+     an audit, from raising a work request to acting on it (a work order
+     created, or declined), from opening a work order to closing it, and from
+     completing an audit to closing it.
+   - People: per person, the audits they started, completed, signed, and
+     closed, the work requests they raised and acted on, the work orders
+     they created and closed, and their average times.
+   - Activity Log: every step with who took it, when, and how long it took;
+     choose a person to see only theirs.
+   These follow the report's dates and outlet, and are in the PDF and Excel
+   exports. Activity from before this log existed is filled in from the
+   records, as far as they show who acted.
 3. Use Export PDF or Excel on an inspection for its detailed audit report,
    and Location PDF or Excel in History for one location. Use the Reports
    page export actions for CSV, Excel, or JSON report data. If an export

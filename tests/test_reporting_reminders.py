@@ -47,7 +47,7 @@ class ReportingReminderTests(unittest.TestCase):
         self.assertNotIn("F-Mini Studio-B", joined)
         self.assertNotIn("F-Loudspeaker-A", joined)
         workbook = load_workbook(BytesIO(report_xls("Mini Studio", filters)))
-        self.assertEqual(workbook.sheetnames, ["Summary", "Findings"])
+        self.assertEqual(workbook.sheetnames, ["Summary", "Findings", "People", "Time to act", "Activity"])
         self.assertEqual(workbook["Findings"].max_row, 2)
         self.assertEqual(workbook["Findings"]["M2"].value, "=1+1")
         self.assertEqual(workbook["Findings"]["M2"].data_type, "s")

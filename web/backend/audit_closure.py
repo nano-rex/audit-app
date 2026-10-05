@@ -1,5 +1,6 @@
 """Close completed audits once they are signed and their work orders are closed."""
 import time
+from backend import activity
 
 from backend.database import connect
 from backend.relational_values import load_value
@@ -30,5 +31,7 @@ def close_audit(handler, parsed, payload=None):
             raise WorkflowError("Close all linked findings and work orders before closing the audit")
         now = int(time.time() * 1000)
         db.execute("UPDATE inspection_sessions SET closed_at = ?, closed_by = ?, updated_at = ? WHERE id = ?", (now, user["name"], now, session_id))
+        activity.log(db, user, "audit_closed", "inspection", session_id, session["audit_ref"], session["outlet"],
+                     started_at=activity.last_time(db, "audit_completed", "inspection", session_id), business_unit=session["business_unit"], at=now)
         db.execute("INSERT INTO comments(record_type,record_id,comment,author,created_at,system_generated) VALUES ('inspection',?,'Audit closed',?,?,1)", (session_id, user["name"], now))
     handler.json({"ok": True, "id": session_id, "closedAt": now})
