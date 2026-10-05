@@ -27,22 +27,24 @@ function unscheduledDrafts() {
 }
 
 function renderGuidedSchedules() {
-  const finished = (row) => ["Completed", "Cancelled"].includes(row.status);
+  // A completed visit is done: it is found in History, not here.
+  const completed = (row) => row.status === "Completed" || row.inspection_status === "Completed";
+  const cancelled = (row) => row.status === "Cancelled";
   // Only mine: visits assigned to me, and drafts I started.
   const mine = document.querySelector("[data-only-mine]")?.checked;
   const isMine = (entry) => entry.kind === "draft"
     ? entry.row.owner_user_id === currentUser?.id
     : (entry.row.assignees || []).includes(currentUser?.id) || inspectionHistoryCache.some((session) => session.schedule_id === entry.row.id && session.owner_user_id === currentUser?.id);
   const work = [
-    ...guidedSchedules.filter((row) => !finished(row)).map((row) => ({ kind: "schedule", row })),
+    ...guidedSchedules.filter((row) => !completed(row) && !cancelled(row)).map((row) => ({ kind: "schedule", row })),
     ...unscheduledDrafts().map((row) => ({ kind: "draft", row })),
-    ...guidedSchedules.filter(finished).map((row) => ({ kind: "schedule", row })),
+    ...guidedSchedules.filter((row) => cancelled(row) && !completed(row)).map((row) => ({ kind: "schedule", row })),
   ];
   const shown = mine ? work.filter(isMine) : work;
   const page = paginateList("scheduled-work", shown, mine ? "mine" : "", renderGuidedSchedules);
   setHtml("[data-guided-schedules]", (page.items.length
     ? page.items.map((entry) => entry.kind === "draft" ? unscheduledDraftRow(entry.row) : scheduleRow(entry.row)).join("")
-    : "<p>No scheduled work. Create a schedule to begin.</p>") + page.controls);
+    : "<p>No scheduled work. Create a schedule to begin; completed audits are in History.</p>") + page.controls);
 }
 
 function unscheduledDraftRow(row) {
