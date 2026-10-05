@@ -107,12 +107,19 @@
   height: 12px;
 }
 
+/* The same even grid as the other filters; the record count sits on its own line below. */
 .history-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) auto;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
   align-items: end;
-  margin-bottom: 14px;
+  margin-block: 14px 18px;
+}
+
+.history-toolbar [data-inspection-history-count] {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .history-list {

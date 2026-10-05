@@ -183,10 +183,6 @@
   .filter,
   .form-grid,
   .check-item,
-  .history-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .inspection-filter {
     grid-template-columns: 1fr;
   }
