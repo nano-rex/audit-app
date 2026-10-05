@@ -1719,48 +1719,6 @@ h4,
   border-left: 2px solid var(--border);
 }
 
-.org-node {
-  display: inline-grid;
-  gap: 4px;
-  min-width: 150px;
-  max-width: 220px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-top: 3px solid var(--accent);
-  border-radius: var(--radius);
-  background: var(--surface);
-  text-align: left;
-}
-
-.org-node > small {
-  color: var(--muted);
-}
-
-.org-chart .org-people {
-  display: grid;
-  gap: 2px;
-  justify-content: stretch;
-  margin: 4px 0 0;
-  padding: 6px 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.org-chart .org-people li {
-  padding: 0;
-  font-size: 13px;
-  text-align: left;
-}
-
-.org-chart .org-people li::before,
-.org-chart .org-people li::after,
-.org-chart .org-people::before {
-  display: none;
-}
-
-.org-people small {
-  color: var(--muted);
-}
-
 .org-unlinked {
   display: flex;
   flex-wrap: wrap;
@@ -1779,13 +1737,14 @@ h4,
   color: var(--muted);
 }
 
-/* Organization, people view: a card per person, with photo or initials. */
-.org-switch button.active {
+/* Organization,
+people view: a card per person {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--accent-strong);
 }
 
+/* Organization: a card per person, with photo or initials, name, and designation. */
 .org-person {
   display: inline-grid;
   justify-items: center;
@@ -1808,11 +1767,6 @@ h4,
   color: var(--accent-strong);
   font-size: 12px;
   font-weight: 600;
-}
-
-.org-person > small {
-  color: var(--muted);
-  font-size: 11px;
 }
 
 .org-avatar {
@@ -1843,33 +1797,6 @@ h4,
   border-width: 0;
   outline-width: 1px;
   font-size: 11px;
-}
-
-.org-outlets {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.org-outlets span {
-  padding: 1px 7px;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.org-outlets .all {
-  background: var(--surface-sunken);
-  color: var(--muted);
-}
-
-.org-outlets .none {
-  background: color-mix(in srgb, var(--red) 14%, var(--surface));
-  color: var(--red);
 }
 
 .org-person-chip {
