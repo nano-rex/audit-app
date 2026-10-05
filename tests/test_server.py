@@ -250,8 +250,10 @@ class ServerTests(unittest.TestCase):
         self.assertIn('data-guided-content hidden', html)
         self.assertIn('data-guided-schedules-panel', html)
         self.assertNotIn('data-inspection-subtab="history"', html)
-        self.assertIn('data-history-findings-panel="history"', html)
-        self.assertIn('History &amp; Findings', html)
+        # History and Findings are separate pages under Inspections.
+        self.assertIn('id="history" class="tab-panel"', html)
+        self.assertIn('id="findings" class="tab-panel"', html)
+        self.assertNotIn('History &amp; Findings', html)
 
     def test_static_compression_and_revalidation(self):
         status, headers, body = self.request("/", headers={"Accept-Encoding": "gzip"})
@@ -1011,6 +1013,19 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(sorted(next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == limited)["outlets"]), ["MAM", "MST"])
         self.assertEqual(self.request(f"/api/users/{limited}", "PATCH", {"outlets": None})[0], 200)
         self.assertIsNone(next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == limited)["outlets"])
+
+    def test_z_history_split_from_findings_keeps_access(self):
+        with app.connect() as db:
+            db.execute("INSERT INTO roles(name, permissions_data_id, protected, created_at) VALUES ('Findings Reader', ?, 0, 0)", (app_save_value(db, ["today", "findings"]),))
+            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Own Pages', 'Management', 'own.pages@example.test', 1, 0)").lastrowid
+            db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?",
+                       (app_save_value(db, {"permissions": ["findings"], "inspectionPermissions": []}), user_id))
+            db.execute("DELETE FROM app_settings WHERE key = 'system.historySplit'")
+        app.init_db()
+        role = next(row for row in json.loads(self.request("/api/roles")[2])["items"] if row["name"] == "Findings Reader")
+        self.assertEqual(sorted(role["permissions"]), ["findings", "history", "today"])
+        person = next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == user_id)
+        self.assertEqual(sorted(person["permissionOverrides"]["permissions"]), ["findings", "history"])
 
 if __name__ == "__main__":
     unittest.main()

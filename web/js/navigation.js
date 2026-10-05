@@ -119,11 +119,7 @@ function showTab(tabId) {
 }
 
 function showContextTab(tabId) {
-  if (["history", "findings"].includes(tabId)) {
-    showTab("findings");
-    if (activeTabId !== "findings") return;
-    showHistoryFindingsSection(tabId);
-  } else if (tabId === "fixtures") {
+  if (tabId === "fixtures") {
     showTab("equipment");
     if (activeTabId !== "equipment") return;
     setEquipmentKind("fixture");
@@ -291,12 +287,14 @@ function allowedAppTabs() {
   allowedIds.add("account");
   allowedIds.add("notifications");
   allowedIds.add("settings");
+  // Inspection users see their audits' History, and Findings while that feature is on.
+  if (allowedIds.has("inspections")) allowedIds.add("history");
   if (allowedIds.has("inspections") && findingsEnabled) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
   if (allowedIds.has("reports")) allowedIds.add("today");
   if (allowedIds.has("equipment")) allowedIds.add("categories");
-  // Findings is a sub-page of Inspections, so its users need that page to reach it.
-  if (allowedIds.has("findings") && findingsEnabled) allowedIds.add("inspections");
+  // History and Findings are sub-pages of Inspections, so their users need that page to reach them.
+  if (allowedIds.has("history") || (allowedIds.has("findings") && findingsEnabled)) allowedIds.add("inspections");
   if (!findingsEnabled) allowedIds.delete("findings");
   const regular = allTabs.filter((tab) => !["departments", "roles"].includes(tab.id) && allowedIds.has(tab.id));
   return isSuper ? [...regular, ...superTabs] : regular;
@@ -328,14 +326,3 @@ document.querySelectorAll("[data-user-subtab]").forEach((button) => {
   button.addEventListener("click", () => showUserSubtab(button.dataset.userSubtab));
 });
 
-function showHistoryFindingsSection(name) {
-  document.querySelectorAll("[data-history-findings-tab]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.historyFindingsTab === name);
-    button.setAttribute("aria-pressed", String(button.dataset.historyFindingsTab === name));
-  });
-  document.querySelectorAll("[data-history-findings-panel]").forEach((panel) => { panel.hidden = panel.dataset.historyFindingsPanel !== name; });
-}
-
-document.querySelectorAll("[data-history-findings-tab]").forEach((button) => {
-  button.addEventListener("click", () => showHistoryFindingsSection(button.dataset.historyFindingsTab));
-});

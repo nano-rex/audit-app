@@ -26,10 +26,6 @@
   display: none;
 }
 
-[data-history-findings-panel][hidden] {
-  display: none;
-}
-
 [data-user-subtab].active {
   color: var(--accent);
   background: var(--accent-soft);
