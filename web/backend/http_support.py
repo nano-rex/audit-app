@@ -64,6 +64,13 @@ def api_errors(method):
     def guarded(self):
         try:
             return method(self)
+        except ImportError as error:
+            logging.error("Missing package during %s %s: %s", self.command, self.path, error)
+            if not getattr(self, "response_started", False):
+                package = getattr(error, "name", "") or "a required package"
+                self.json({"error": f"This export needs the {package} package, which is not installed for the Python running the server. "
+                                    "Start the server with the project's virtual environment (.venv/bin/python web/server.py), "
+                                    "or install requirements.txt."}, 503)
         except PermissionError as error:
             if not getattr(self, "response_started", False):
                 self.json({"error": str(error)}, 403)

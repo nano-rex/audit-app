@@ -11,11 +11,15 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location("audit_server", Path(__file__).resolve().parents[1] / "web/server.py")
 app = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(app)
 from backend.relational_values import save_value, load_value
+
+
+from backend.relational_values import save_value as app_save_value
 
 
 class QuietHandler(app.Handler):
@@ -814,6 +818,62 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(all(row["outlet"] == "MST" for row in mine["today"]["scheduled"]))
         for token in ("outlet-manager", "region-lead"):
             app.SESSION_TOKENS.pop(token, None)
+
+
+    def test_z_audit_and_location_exports(self):
+        from io import BytesIO
+        from openpyxl import load_workbook
+        from pypdf import PdfReader
+        from test_media_reports import photo_data_url
+        image = json.loads(self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "room.png"}})[2])["image"]
+        items = [{"section": "Export sink", "item": "No leaks", "location": "Export Room", "passed": False, "notes": "Dripping", "priority": "High", "images": [image]},
+                 {"section": "Export sink", "item": "Clean", "location": "Export Room", "passed": True, "images": [image]},
+                 {"section": "Other lamp", "item": "Works", "location": "Elsewhere", "passed": True, "images": [image]}]
+        status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "MST", "auditDate": "2026-10-05", "items": items, "complete": True})
+        self.assertEqual(status, 200, body)
+        session_id = json.loads(body)["id"]
+        status, headers, body = self.request(f"/api/inspection-sessions/{session_id}/export.xlsx")
+        self.assertEqual(status, 200)
+        workbook = load_workbook(BytesIO(body))
+        self.assertEqual(workbook.sheetnames, ["Audit", "Checklist", "Findings"])
+        self.assertEqual(workbook["Checklist"].max_row, 4)
+        self.assertEqual(workbook["Findings"]["J2"].value, "Dripping")
+        # The location report holds only that location's checks.
+        status, _, body = self.request("/api/location-report.xlsx?outlet=MST&location=Export%20Room&from=2026-10-01&to=2026-10-31")
+        self.assertEqual(status, 200)
+        workbook = load_workbook(BytesIO(body))
+        checks = [row[3] for row in workbook["Checklist"].iter_rows(min_row=2, values_only=True)]
+        self.assertEqual(sorted(checks), ["Clean", "No leaks"])
+        self.assertEqual(workbook["Report"]["B5"].value, len(list(workbook["Audits"].iter_rows(min_row=2))))
+        status, headers, body = self.request("/api/location-report.pdf?outlet=MST&location=Export%20Room")
+        self.assertEqual(status, 200)
+        text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(body)).pages)
+        self.assertIn("Location Audit Report", text)
+        self.assertIn("No leaks", text)
+        self.assertNotIn("Other lamp", text)
+        self.assertEqual(self.request("/api/location-report.pdf?outlet=MST")[0], 400)
+        empty = self.request("/api/location-report.xlsx?outlet=MST&location=Export%20Room&from=2030-01-01")
+        self.assertEqual(empty[0], 200)
+        # An account limited to other outlets cannot export this one.
+        with app.connect() as db:
+            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Export PIC', 'PIC', 'export-pic@example.test', 1, 0)").lastrowid
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MAM"]), user_id))
+        app.SESSION_TOKENS["export-pic"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        self.assertEqual(self.request("/api/location-report.pdf?outlet=MST&location=Export%20Room", token="export-pic")[0], 403)
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}/export.xlsx", token="export-pic")[0], 403)
+        app.SESSION_TOKENS.pop("export-pic", None)
+
+    def test_missing_export_package_is_named(self):
+        import builtins
+        real_import = builtins.__import__
+        def without_reportlab(name, *args, **kwargs):
+            if name.startswith("reportlab") or name == "backend.pdf_report":
+                raise ModuleNotFoundError("No module named 'reportlab'", name="reportlab")
+            return real_import(name, *args, **kwargs)
+        with mock.patch("builtins.__import__", without_reportlab), self.assertLogs(level="ERROR"):
+            status, _, body = self.request("/api/location-report.pdf?outlet=MST&location=Anywhere")
+        self.assertEqual(status, 503)
+        self.assertIn("reportlab", json.loads(body)["error"])
 
 
 if __name__ == "__main__":

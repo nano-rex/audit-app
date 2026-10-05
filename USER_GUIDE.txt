@@ -126,9 +126,15 @@ An administrator should configure these records before staff begin auditing:
    the inspection.
 3. Open History or Findings (under Inspections) to browse inspections and
    their findings. Use search and filters to narrow the list.
-4. Use Export PDF on Sign-off, or open an inspection, to download its report. The PDF
-   includes the audit summary, checklist, findings, available photos, and
-   signatures.
+4. Use Export PDF or Export Excel on Sign-off, in History, or in an open
+   inspection to download it. The PDF includes the audit summary, location
+   grading, findings, and signatures; the Excel file has the audit, every
+   check with its result and remark, and the findings.
+5. To report on one location over time, choose its Outlet and Location in the
+   History filters (and From/To dates if wanted), then Location PDF or
+   Location Excel. It covers every completed audit of that location: an
+   overview of the audits, then each audit's checks, photos, findings, and
+   signatures there.
 
 6. REQUEST AND ORDER WORK
 -------------------------
@@ -176,8 +182,11 @@ An administrator should configure these records before staff begin auditing:
    read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
    and charts. Use the date and outlet filters to narrow the report.
-3. Use Export PDF on an inspection for its detailed audit report. Use the
-   Reports page export actions for CSV, Excel, or JSON report data.
+3. Use Export PDF or Excel on an inspection for its detailed audit report,
+   and Location PDF or Excel in History for one location. Use the Reports
+   page export actions for CSV, Excel, or JSON report data. If an export
+   says a package is missing, the server is running without the project's
+   packages; see "Starting the server" in production-readiness.md.
 
 8. SUPER ACCOUNT
 ----------------

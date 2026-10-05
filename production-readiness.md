@@ -13,8 +13,13 @@ AUDIT_WORKERS=8 \
 AUDIT_SECURE_COOKIES=1 \
 AUDIT_TRUST_PROXY=1 \
 PORT=41883 \
-python3 web/server.py
+.venv/bin/python web/server.py
 ```
+
+Start the server with the project's virtual environment (`.venv`, created as in the README),
+not the system `python3`: PDF export needs `reportlab`, Excel export `openpyxl`, and
+thumbnails `Pillow`, which a system Python usually lacks. The server prints a warning at
+startup when any of them is missing, and an export that needs one answers with its name.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -97,8 +102,8 @@ Each organization can run as its own instance: a separate process with its own d
 and port. Instances share nothing; each has its own database, sessions, uploads, and theme.
 
 ```sh
-AUDIT_DATA_DIR=/srv/audit/company-a PORT=41891 python3 web/server.py
-AUDIT_DATA_DIR=/srv/audit/company-b PORT=41892 python3 web/server.py
+AUDIT_DATA_DIR=/srv/audit/company-a PORT=41891 .venv/bin/python web/server.py
+AUDIT_DATA_DIR=/srv/audit/company-b PORT=41892 .venv/bin/python web/server.py
 ```
 
 - Give each instance its own data directory. Two instances must not point at the same one.

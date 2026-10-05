@@ -1,6 +1,6 @@
 """Reports for the audit application."""
 from backend.relational_values import load_value, hydrate_many
-from io import StringIO, BytesIO
+from io import StringIO
 import csv
 from datetime import datetime
 from backend.media_store import MediaStore
@@ -291,7 +291,7 @@ def report_csv(unit, filters=None):
 def report_xls(unit, filters=None):
     """Native XLSX workbook; the old function name remains for API compatibility."""
     from openpyxl import Workbook
-    from openpyxl.styles import Font
+    from backend.audit_exports import finish_workbook
     workbook = Workbook()
     summary = workbook.active
     summary.title = "Summary"
@@ -303,19 +303,7 @@ def report_xls(unit, filters=None):
     findings.append([label for _, label in columns])
     for row in finding_items(unit, filters)["items"]:
         findings.append([row.get(key) or "" for key, _ in columns])
-    for sheet in workbook:
-        sheet.freeze_panes = "A2"
-        sheet.auto_filter.ref = sheet.dimensions
-        for cell in sheet[1]:
-            cell.font = Font(bold=True)
-        for column in sheet.columns:
-            sheet.column_dimensions[column[0].column_letter].width = min(60, max(16, max(len(str(cell.value or "")) for cell in column) + 2))
-            for cell in column:
-                if isinstance(cell.value, str) and cell.value.startswith(("=", "+", "-", "@")):
-                    cell.data_type = "s"
-    output = BytesIO()
-    workbook.save(output)
-    return output.getvalue()
+    return finish_workbook(workbook)
 
 
 def inspection_pdf(session):

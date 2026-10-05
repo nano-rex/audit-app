@@ -1,6 +1,13 @@
       <section data-history-findings-panel="history">
         <section class="panel">
-          <h2>Inspection History</h2>
+          <header class="panel-head">
+            <h2>Inspection History</h2>
+            <div class="panel-actions location-export">
+              <span class="muted" data-location-export-hint>Choose an outlet and a location to export every audit of that location.</span>
+              <a class="button-link outline disabled" data-location-export="pdf" data-download href="#">Location PDF</a>
+              <a class="button-link outline disabled" data-location-export="xlsx" data-download href="#">Location Excel</a>
+            </div>
+          </header>
           <div class="history-toolbar">
             <label>Search<input id="inspection-history-search" placeholder="Search inspection history"></label>
             <label>From<input id="history-filter-from" type="date"></label>

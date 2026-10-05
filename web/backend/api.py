@@ -22,6 +22,7 @@ from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.work_requests import work_request_items
 from backend import outlet_access
+from backend.audit_exports import inspection_xlsx, location_pdf, location_xlsx
 from backend.routes import dispatch
 from backend import control
 from backend.todo import todo_items
@@ -187,6 +188,8 @@ class Handler(BaseHTTPRequestHandler):
             "locations": {"outlets"},
             "zones": {"outlets"},
             "comments": {"findings", "work-orders", "inspections"},
+            "location-report.pdf": {"reports", "inspections", "findings"},
+            "location-report.xlsx": {"reports", "inspections", "findings"},
         }
         if route == "setup":
             section = parsed.path.split("/")[3:4]
@@ -291,6 +294,19 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path.startswith("/api/inspection-sessions/"):
             suffix = parsed.path.rsplit("/", 1)[-1]
+            if suffix == "export.xlsx":
+                session_id = parsed.path.split("/")[-2]
+                if not session_id.isdigit():
+                    self.send_error(400)
+                    return
+                session = inspection_session(int(session_id))
+                if not session:
+                    self.send_error(404)
+                    return
+                outlet_access.require(viewer, session["outlet"])
+                filename = f"{session.get('inspection_name') or inspection_name(session)}.xlsx"
+                self.download(inspection_xlsx(session), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename)
+                return
             if suffix == "export.pdf":
                 session_id = parsed.path.split("/")[-2]
                 if not session_id.isdigit():
@@ -325,6 +341,18 @@ class Handler(BaseHTTPRequestHandler):
             if outlet:
                 outlet_access.require(viewer, outlet)
             self.json(listed(zones(outlet), "outlet_code"))
+            return
+        if parsed.path in {"/api/location-report.pdf", "/api/location-report.xlsx"}:
+            query = {key: parse_qs(parsed.query).get(key, [""])[0] for key in ("outlet", "location", "from", "to")}
+            if not query["outlet"] or not query["location"]:
+                raise ValueError("Choose an outlet and a location for the location report")
+            outlet_access.require(viewer, query["outlet"])
+            name = f"{query['outlet']}_{query['location']}".replace("/", "-")
+            if parsed.path.endswith(".pdf"):
+                self.download(location_pdf(query["outlet"], query["location"], query["from"], query["to"]), "application/pdf", f"{name}.pdf")
+            else:
+                self.download(location_xlsx(query["outlet"], query["location"], query["from"], query["to"]),
+                              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{name}.xlsx")
             return
         report_filters = {key: parse_qs(parsed.query).get(key, [""])[0] for key in ("outlet", "from", "to")}
         if parsed.path.startswith("/api/reports"):
