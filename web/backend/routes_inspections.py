@@ -215,6 +215,11 @@ def patch_inspection_sessions(self, parsed, payload=None):
             db.commit()
             self.json({"ok": True, "id": int(session_id), "status": "Completed", "auditId": existing["audit_id"]})
             return
+        # An inspection keeps the outlet it was scheduled or started for.
+        if payload.get("outlet") and payload["outlet"] != existing["outlet"]:
+            self.json({"error": "An inspection's outlet is set by its schedule and cannot be changed"}, 409)
+            return
+        payload["outlet"] = existing["outlet"]
         items = payload.get("items") or []
         progress = inspection_progress(items)
         complete = bool(payload.get("complete"))

@@ -21,6 +21,7 @@ from backend.reports import dashboard, inspection_pdf, report, report_csv, repor
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.work_requests import work_request_items
+from backend import outlet_access
 from backend.routes import dispatch
 from backend import control
 from backend.todo import todo_items
@@ -126,6 +127,13 @@ class Handler(BaseHTTPRequestHandler):
             ).fetchone()
             self._current_user_value = public_user(row, db)
             return self._current_user_value
+
+    def guard_outlets(self, parsed, payload):
+        user = self.current_user()
+        if outlet_access.allowed(user) is not None:
+            with connect() as db:
+                outlet_access.guard_mutation(db, user, self.command, parsed.path, payload)
+        return True
 
     def require_auth(self, parsed):
         if not parsed.path.startswith("/api/"):
@@ -245,32 +253,41 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        viewer = self.current_user()
+        scope = outlet_access.allowed(viewer)
+        # Outlet-limited accounts get their own cached copy; everyone else shares one.
+        scope_key = tuple(sorted(scope)) if scope is not None else ("*",)
+        listed = lambda data, key="outlet": {**data, "items": outlet_access.keep(viewer, data["items"], key)}
         if parsed.path == "/api/dashboard":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json(cached_response(("dashboard", unit), lambda: dashboard(unit)))
+            filters = {"outlets": sorted(scope)} if scope is not None else None
+            self.json(cached_response(("dashboard", unit, *scope_key), lambda: dashboard(unit, filters)))
             return
         if parsed.path == "/api/todo":
-            self.json(todo_items(self.current_user()))
+            self.json(listed(todo_items(viewer)))
             return
         if parsed.path == "/api/schedules":
-            self.json(schedule_items())
+            self.json(listed(schedule_items()))
             return
         if parsed.path == "/api/work-orders":
-            self.json(work_order_items(self.current_user()))
+            self.json(listed(work_order_items(viewer)))
             return
         if parsed.path == "/api/work-requests":
-            self.json(work_request_items(self.current_user()))
+            self.json(listed(work_request_items(viewer)))
             return
         if parsed.path == "/api/findings":
-            self.json(finding_items(user=self.current_user()))
+            self.json(listed(finding_items(user=viewer)))
             return
         if parsed.path == "/api/equipment":
             outlet = parse_qs(parsed.query).get("outlet", [None])[0]
+            if outlet:
+                outlet_access.require(viewer, outlet)
             compact = parse_qs(parsed.query).get("view", [""])[0] == "inspection"
-            self.json(equipment_items(outlet, compact))
+            data = equipment_items(outlet, compact)
+            self.json(data if scope is None else listed(data))
             return
         if parsed.path == "/api/inspection-sessions":
-            self.json(inspection_sessions())
+            self.json(listed(inspection_sessions()))
             return
         if parsed.path.startswith("/api/inspection-sessions/"):
             suffix = parsed.path.rsplit("/", 1)[-1]
@@ -283,6 +300,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not session:
                     self.send_error(404)
                     return
+                outlet_access.require(viewer, session["outlet"])
                 filename = f"{session.get('inspection_name') or inspection_name(session)}.pdf"
                 self.download(inspection_pdf(session), "application/pdf", filename)
                 return
@@ -293,20 +311,30 @@ class Handler(BaseHTTPRequestHandler):
             if not session:
                 self.send_error(404)
                 return
+            outlet_access.require(viewer, session["outlet"])
             self.json(session)
             return
         if parsed.path == "/api/locations":
             outlet = parse_qs(parsed.query).get("outlet", [""])[0]
-            self.json(locations(outlet))
+            if outlet:
+                outlet_access.require(viewer, outlet)
+            self.json(listed(locations(outlet), "outlet_code"))
             return
         if parsed.path == "/api/zones":
             outlet = parse_qs(parsed.query).get("outlet", [""])[0]
-            self.json(zones(outlet))
+            if outlet:
+                outlet_access.require(viewer, outlet)
+            self.json(listed(zones(outlet), "outlet_code"))
             return
         report_filters = {key: parse_qs(parsed.query).get(key, [""])[0] for key in ("outlet", "from", "to")}
+        if parsed.path.startswith("/api/reports"):
+            if report_filters["outlet"]:
+                outlet_access.require(viewer, report_filters["outlet"])
+            if scope is not None:
+                report_filters["outlets"] = sorted(scope)
         if parsed.path == "/api/reports":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.json(cached_response(("report", unit, *report_filters.values()), lambda: report(unit, report_filters)))
+            self.json(cached_response(("report", unit, report_filters["outlet"], report_filters["from"], report_filters["to"], *scope_key), lambda: report(unit, report_filters)))
             return
         if parsed.path == "/api/reports/export.json":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
@@ -321,8 +349,11 @@ class Handler(BaseHTTPRequestHandler):
             self.download(report_xls(unit, report_filters), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "audit-report.xlsx")
             return
         if parsed.path == "/api/setup":
-            viewer = self.current_user()
-            self.json(cached_response(("setup", is_super_user(viewer)), lambda: setup_records(is_super_user(viewer))))
+            data = cached_response(("setup", is_super_user(viewer)), lambda: setup_records(is_super_user(viewer)))
+            if scope is not None:
+                data = {**data, "outlets": [row for row in data["outlets"] if row["code"] in scope],
+                        "zones": [row for row in data["zones"] if row["outlet_code"] in scope]}
+            self.json(data)
             return
         if parsed.path == "/api/roles":
             self.json(role_items(is_super_user(self.current_user())))
@@ -342,6 +373,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/comments":
             params = parse_qs(parsed.query)
+            if scope is not None and params.get("type", [""])[0] == "work_order" and params.get("id", [""])[0].isdigit():
+                with connect() as db:
+                    outlet_access.require(viewer, outlet_access.record_outlet(db, "work-orders", params["id"][0]))
             self.json(comments(params.get("type", [""])[0], params.get("id", ["0"])[0]))
             return
         self.static_file(parsed.path)
@@ -367,6 +401,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.json({"image": payload["image"]})
             return
+        self.guard_outlets(parsed, payload)
         if not dispatch("POST", self, parsed, payload):
             self.send_error(404)
 
@@ -381,6 +416,7 @@ class Handler(BaseHTTPRequestHandler):
         if payload is None:
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
+        self.guard_outlets(parsed, payload)
         if not dispatch("PATCH", self, parsed, payload):
             self.send_error(404)
 
@@ -388,7 +424,7 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_DELETE(self):
         parsed = urlparse(self.path)
-        if self.require_auth(parsed) and not dispatch("DELETE", self, parsed):
+        if self.require_auth(parsed) and self.guard_outlets(parsed, None) and not dispatch("DELETE", self, parsed):
             self.send_error(404)
 
 

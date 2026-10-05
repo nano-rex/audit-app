@@ -3,6 +3,7 @@ from backend.relational_values import load_value, save_value
 import json
 import sqlite3
 import time
+from backend.outlet_access import role_scope, validate_scope, validate_user_outlets
 import os
 import secrets
 import re
@@ -291,6 +292,13 @@ def post_auth_change_password(self, parsed, payload=None):
     return
 
 
+def role_department(db, value):
+    value = str(value or "").strip()
+    if value and not db.execute("SELECT 1 FROM departments WHERE code = ?", (value,)).fetchone():
+        raise ValueError("Select an existing department")
+    return value or None
+
+
 def account_fields(db, payload, existing=None):
     """Validated account columns shared by administrator create and edit.
 
@@ -354,6 +362,7 @@ def post_users(self, parsed, payload=None):
         # Hash before the first write so the slow derivation never holds the database write lock.
         fields.update(password_hash=hash_password(password or DEFAULT_PASSWORD), created_at=now)
         fields["permission_overrides_data_id"] = save_value(db, overrides) if overrides is not None else None
+        fields["outlets_data_id"] = save_value(db, validate_user_outlets(db, role_scope(db, fields["role"]), payload.get("outlets") or []))
         insert_record(db, "users", fields)
     self.json({"ok": True})
 
@@ -370,8 +379,8 @@ def post_roles(self, parsed, payload=None):
             return
         db.execute(
             """
-            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at)
-            VALUES (?, ?, ?, ?, 0, ?)
+            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, outlet_scope, department)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?)
             """,
             (
                 name,
@@ -379,6 +388,8 @@ def post_roles(self, parsed, payload=None):
                 save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
                 save_value(db, validate_list(payload.get("inspectionPermissions", []), INSPECTION_PERMISSIONS)),
                 now,
+                validate_scope(payload.get("outletScope")),
+                role_department(db, payload.get("department")),
             ),
         )
     self.json({"ok": True})
@@ -411,6 +422,9 @@ def patch_users(self, parsed, payload=None):
             if reset_password:
                 # A password chosen by an administrator is temporary.
                 values["reset_required"] = 1
+        if "outlets" in payload or values["role"] != existing_user["role"]:
+            current = load_value(existing_user["outlets_data_id"]) if existing_user["outlets_data_id"] else []
+            values["outlets_data_id"] = save_value(db, validate_user_outlets(db, role_scope(db, values["role"]), payload.get("outlets", current) or []))
         db.execute(f"UPDATE users SET {', '.join(f'{column} = ?' for column in values)} WHERE id = ?", (*values.values(), int(user_id)))
         if not payload["active"] or reset_password or password:
             db.execute("DELETE FROM auth_sessions WHERE user_id = ?", (int(user_id),))
@@ -432,7 +446,7 @@ def patch_roles(self, parsed, payload=None):
         self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
-        role = db.execute("SELECT name, protected, inspection_permissions_data_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
+        role = db.execute("SELECT name, protected, inspection_permissions_data_id, outlet_scope, department FROM roles WHERE id = ?", (int(role_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
@@ -446,7 +460,7 @@ def patch_roles(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE roles
-            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?
+            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?, outlet_scope = ?, department = ?
             WHERE id = ?
             """,
             (
@@ -454,6 +468,8 @@ def patch_roles(self, parsed, payload=None):
                 payload.get("description", ""),
                 save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
                 save_value(db, validate_list(payload.get("inspectionPermissions", load_value(role["inspection_permissions_data_id"] or "[]")), INSPECTION_PERMISSIONS)),
+                validate_scope(payload.get("outletScope", role["outlet_scope"])),
+                role_department(db, payload.get("department", role["department"])),
                 int(role_id),
             ),
         )

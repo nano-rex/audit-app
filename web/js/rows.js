@@ -43,6 +43,7 @@ function roleRow(row) {
       <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
       <span>${escapeHtml(row.description || "No description")}</span>
       <span>Access: ${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "none selected")}</span>
+      <span>${escapeHtml(row.department || "No department")} | ${escapeHtml({ one: "One outlet per user", several: "Selected outlets per user" }[row.outlet_scope] || "All outlets")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-role='${escapeAttr(JSON.stringify(row))}' ${row.protected ? "disabled" : ""}>Edit</button>
         <button type="button" class="danger" data-delete-role="${row.id}" ${row.protected ? "disabled" : ""}>Delete</button>
@@ -119,7 +120,7 @@ function userRow(row) {
       <td class="user-name"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.username || "No username")}</small></td>
       <td class="user-email">${escapeHtml(row.email)}</td>
       <td class="user-department">${escapeHtml(row.department || "No department")}</td>
-      <td class="user-role">${escapeHtml(row.role || "No role")}</td>
+      <td class="user-role">${escapeHtml(row.role || "No role")}${(row.outlets || []).length ? `<small>${escapeHtml(row.outlets.join(", "))}</small>` : ""}</td>
       <td><span class="status-pill ${status === "Active" ? "status-complete" : "status-untouched"}">${status}</span>${row.reset_requested || row.reset_required || row.resetRequired ? `<small class="user-alert">Password action needed</small>` : ""}</td>
       <td class="user-login">${escapeHtml(login)}</td>
       <td class="row-actions">

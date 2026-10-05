@@ -3,6 +3,7 @@ from backend.common import sla_status
 from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
+from backend.outlet_access import keep
 from backend.work_requests import reviews_requests
 
 SIGNATURES = (("auditedBy", "auditor", "auditor"), ("verifiedBy", "verifier", "verifier"),
@@ -40,7 +41,7 @@ def todo_items(user):
                     items.append(inspection_item(row, "Close audit", "Signed and all work orders closed", "signoff"))
         if reviews_requests(user):
             for row in db.execute("SELECT * FROM work_requests WHERE status = 'Open' ORDER BY created_at LIMIT ?", (LIMIT,)):
-                items.append({"type": "work_request", "id": row["id"], "action": "Review work request",
+                items.append({"type": "work_request", "id": row["id"], "action": "Review work request", "outlet": row["outlet"],
                               "title": f"{row['request_ref']} {row['item_name'] or ''}".strip(),
                               "detail": f"{row['outlet']} | {row['location']} | Requested by {row['requested_by'] or 'someone'}"})
         if "work-orders" in permissions:
@@ -48,18 +49,19 @@ def todo_items(user):
                 order = dict(row)
                 if assigned_to(user, order):
                     items.append(order_item(order, "Resolve work order"))
+    items = keep(user, items)  # Only tasks at the account's outlets.
     return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread}
 
 
 def inspection_item(row, action, detail, view="checklist"):
-    return {"type": "inspection", "id": row["id"], "action": action, "view": view,
+    return {"type": "inspection", "id": row["id"], "action": action, "view": view, "outlet": row["outlet"],
             "title": f"{row['audit_ref'] or ''} {row['inspection_name'] or row['outlet']}".strip(),
             "detail": f"{row['outlet']} | {row['audit_date']} | {detail}"}
 
 
 def order_item(order, action):
     due = f"Due {order['due_date']}" if order.get("due_date") else "No due date"
-    return {"type": "work_order", "id": order["id"], "action": action,
+    return {"type": "work_order", "id": order["id"], "action": action, "outlet": order["outlet"],
             "title": f"{order.get('work_order_ref') or '#' + str(order['id'])} {order['title']}",
             "detail": f"{order['outlet']} | {order.get('zone') or 'No location'} | {order['priority']} | {due}",
             "overdue": sla_status(order["status"], order.get("due_date")) == "Overdue"}

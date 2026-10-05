@@ -753,6 +753,10 @@ class ServerTests(unittest.TestCase):
         session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": chosen})[2])["id"]
         session = json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])
         self.assertEqual(session["visit_locations"], names)
+        # The audit stays at the outlet it was scheduled for.
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"outlet": "MAM", "items": []})[0], 409)
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": []})[0], 200)
+        self.assertEqual(json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])["outlet"], "STP")
         # Editing the visit keeps the status the audit gave it, and a chosen location cannot be renamed.
         self.assertEqual(self.request(f"/api/schedules/{chosen}", "PATCH", {"outlet": "STP", "scheduledDate": "2026-09-22", "locations": names[:1]})[0], 200)
         rows = {row["id"]: row for row in json.loads(self.request("/api/schedules")[2])["items"]}
@@ -760,6 +764,56 @@ class ServerTests(unittest.TestCase):
         with app.connect() as db:
             location_id = db.execute("SELECT id FROM locations WHERE outlet_code = 'STP' AND name = ?", (names[1],)).fetchone()[0]
         self.assertEqual(self.request(f"/api/locations/{location_id}", "PATCH", {"name": "Renamed visit location"})[0], 409)
+
+
+    def test_z_outlet_limited_accounts_see_only_their_outlets(self):
+        roles = {row["name"]: row for row in json.loads(self.request("/api/roles")[2])["items"]}
+        self.assertEqual({name: (roles[name]["outlet_scope"], roles[name]["department"]) for name in ("Regional Manager", "Operation Manager", "PIC", "Captain")},
+                         {"Regional Manager": ("several", "Operation"), "Operation Manager": ("one", "Operation"), "PIC": ("one", "Operation"), "Captain": ("one", "Operation")})
+        manager = {"name": "Outlet Manager", "email": "outlet-manager@example.test", "role": "Operation Manager", "department": "Operation", "password": "a-long-password"}
+        # A one-outlet role needs exactly one outlet.
+        self.assertEqual(self.request("/api/users", "POST", manager)[0], 400)
+        self.assertEqual(self.request("/api/users", "POST", manager | {"outlets": ["MST", "MAM"]})[0], 400)
+        self.assertEqual(self.request("/api/users", "POST", manager | {"outlets": ["MST"]})[0], 200)
+        regional = {"name": "Region Lead", "email": "region-lead@example.test", "role": "Regional Manager", "department": "Operation", "password": "a-long-password"}
+        self.assertEqual(self.request("/api/users", "POST", regional | {"outlets": []})[0], 400)
+        self.assertEqual(self.request("/api/users", "POST", regional | {"outlets": ["MST", "MAM"]})[0], 200)
+        with app.connect() as db:
+            ids = {row["email"]: row["id"] for row in db.execute("SELECT id, email FROM users WHERE email IN ('outlet-manager@example.test', 'region-lead@example.test')")}
+            db.execute("UPDATE users SET reset_required = 0 WHERE id IN (?, ?)", tuple(ids.values()))
+        app.SESSION_TOKENS["outlet-manager"] = {"user_id": ids["outlet-manager@example.test"], "expires_at": time.time() + 3600}
+        app.SESSION_TOKENS["region-lead"] = {"user_id": ids["region-lead@example.test"], "expires_at": time.time() + 3600}
+        me = json.loads(self.request("/api/account", token="outlet-manager")[2])["user"]
+        self.assertEqual((me["outletScope"], me["outlets"]), ("one", ["MST"]))
+        get = lambda path, token: json.loads(self.request(path, token=token)[2])
+        self.assertEqual([row["code"] for row in get("/api/setup", "outlet-manager")["outlets"]], ["MST"])
+        self.assertEqual(sorted(row["code"] for row in get("/api/setup", "region-lead")["outlets"]), ["MAM", "MST"])
+        # Records at another outlet are neither listed nor reachable.
+        here = json.loads(self.request("/api/schedules", "POST", {"outlet": "MST", "scheduledDate": "2026-10-05", "auditor": "Here"})[2])["id"]
+        there = json.loads(self.request("/api/schedules", "POST", {"outlet": "MAM", "scheduledDate": "2026-10-05", "auditor": "There"})[2])["id"]
+        listed = {row["id"] for row in get("/api/schedules", "outlet-manager")["items"]}
+        self.assertIn(here, listed)
+        self.assertNotIn(there, listed)
+        self.assertIn(there, {row["id"] for row in get("/api/schedules", "region-lead")["items"]})
+        self.assertTrue(all(row["outlet"] == "MST" for row in get("/api/equipment", "outlet-manager")["items"]))
+        self.assertEqual(self.request("/api/equipment?outlet=MAM", token="outlet-manager")[0], 403)
+        self.assertEqual(self.request("/api/locations?outlet=MAM", token="outlet-manager")[0], 403)
+        self.assertEqual(self.request("/api/reports?outlet=MAM", token="outlet-manager")[0], 403)
+        # Changes outside the outlet are refused; inside it they go through.
+        self.assertEqual(self.request("/api/schedules", "POST", {"outlet": "MAM", "scheduledDate": "2026-10-06"}, token="outlet-manager")[0], 403)
+        self.assertEqual(self.request("/api/schedules", "POST", {"scheduledDate": "2026-10-06"}, token="outlet-manager")[0], 403)
+        self.assertEqual(self.request(f"/api/schedules/{there}", "PATCH", {"outlet": "MST", "scheduledDate": "2026-10-07"}, token="outlet-manager")[0], 403)
+        self.assertEqual(self.request(f"/api/schedules/{here}", "PATCH", {"outlet": "MAM", "scheduledDate": "2026-10-07"}, token="outlet-manager")[0], 403)
+        self.assertEqual(self.request("/api/schedules/start", "POST", {"scheduleId": there}, token="outlet-manager")[0], 403)
+        self.assertEqual(self.request("/api/setup/outlets/1", "PATCH", {"code": "X"}, token="region-lead")[0], 403)
+        self.assertEqual(self.request(f"/api/schedules/{here}", "PATCH", {"outlet": "MST", "scheduledDate": "2026-10-08"}, token="outlet-manager")[0], 200)
+        # The dashboard counts only the account's outlets.
+        everything = get("/api/dashboard", "test")
+        mine = get("/api/dashboard", "outlet-manager")
+        self.assertLessEqual(mine["today"]["kpi"]["assigned"] if "kpi" in mine.get("today", {}) else 0, everything["today"]["kpi"]["assigned"] if "kpi" in everything.get("today", {}) else 0)
+        self.assertTrue(all(row["outlet"] == "MST" for row in mine["today"]["scheduled"]))
+        for token in ("outlet-manager", "region-lead"):
+            app.SESSION_TOKENS.pop(token, None)
 
 
 if __name__ == "__main__":

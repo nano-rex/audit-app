@@ -10,7 +10,7 @@ from backend.common import audit_ref, hash_password, inspection_progress, locati
 from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
 from backend.control import adopt_organization_supers, ensure_super_account
-from backend.seed_data import normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
+from backend.seed_data import seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
 def ensure_column(db, table, column, definition):
@@ -346,6 +346,9 @@ def init_db():
         for column, kind in (("equipment_id", "INTEGER"), ("item_name", "TEXT"), ("criterion", "TEXT"), ("work_request_id", "INTEGER")):
             ensure_column(db, "findings", column, kind)
         ensure_column(db, "work_orders", "work_request_id", "INTEGER")
+        # A role limits its users to all outlets, one outlet, or the outlets chosen for each user.
+        ensure_column(db, "roles", "outlet_scope", "TEXT NOT NULL DEFAULT 'all'")
+        ensure_column(db, "roles", "department", "TEXT")
         ensure_column(db, "findings", "due_date", "TEXT")
         ensure_column(db, "findings", "priority_classification", "TEXT")
         for column in ("cause", "recommendation", "required_action", "images_data_id"):
@@ -510,6 +513,7 @@ def init_db():
         seed_zones(db)
         seed_roles(db)
         retire_corrective_actions_page(db)
+        seed_operation_roles(db)
         # Work orders no longer have Completed and Verified steps: work that had reached them is done.
         for table in ("work_orders", "findings"):
             db.execute(f"UPDATE {table} SET status = 'Closed', closed_at = COALESCE(NULLIF(closed_at, ''), NULLIF(verified_at, ''), "

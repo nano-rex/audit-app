@@ -75,7 +75,7 @@ function showInspectionSubtab(tabId) {
 async function loadInspectionItems() {
   const form = document.getElementById("inspection-form");
   if (!form || !checklistContainer) return;
-  const outlet = formValue(form, "outlet", "");
+  const outlet = form.elements.outlet.value;
   if (!outlet) {
     inspectionItems = [];
     checklistContainer.innerHTML = `<article class="check-item"><div><span>Outlet Required</span><strong>Select an outlet to load inspection items.</strong></div></article>`;
@@ -574,7 +574,7 @@ function collectInspectionPayload(complete = false) {
   });
   return {
     businessUnit: currentUnit,
-    outlet: formValue(form, "outlet", ""),
+    outlet: form.elements.outlet.value,
     zone: form.dataset.zoneLabel || "All Locations",
     auditDate: formValue(form, "auditDate", todayIsoDate()),
     auditor: formValue(form, "auditor", "Unnamed Inspector"),
@@ -807,7 +807,8 @@ async function openInspectionSession(id) {
   form.elements.remarks.value = session.remarks || "";
   form.dataset.remarksNull = String(session.remarks == null);
   const readOnly = session.status === "Completed" || !(currentUser?.inspectionPermissions || []).includes("auditor");
-  ["outlet", "auditDate", "auditTime", "auditType", "remarks"].forEach((name) => { form.elements[name].disabled = readOnly; });
+  ["auditDate", "auditTime", "auditType", "remarks"].forEach((name) => { form.elements[name].disabled = readOnly; });
+  form.elements.outlet.disabled = true;
   setText("[data-current-audit-reference]", session.audit_ref || "");
   setInspectionSignatures(session.signatures || {});
   await updateInspectionLocationSelect();

@@ -3,6 +3,7 @@ from backend.relational_values import load_value
 from backend.common import read_setting
 from backend.config import ADMIN_ROLE, DEFAULT_REPORT_SETTINGS, DEFAULT_THEME_SETTINGS, SUPER_ROLE
 from backend.database import connect
+from backend.outlet_access import role_scope
 from backend.permissions import resolve_permissions
 
 
@@ -16,6 +17,8 @@ def public_user(row, db=None):
     overrides = load_value(record["permission_overrides_data_id"]) if record and record["permission_overrides_data_id"] is not None else None
     navigation_order = [item[0] for item in db.execute("SELECT page_id FROM user_navigation WHERE user_id = ? ORDER BY position", (row["id"],))]
     permissions, inspection_permissions_data_id = resolve_permissions(db, row["role"], overrides)
+    scope = role_scope(db, row["role"])
+    outlets = db.execute("SELECT outlets_data_id FROM users WHERE id = ?", (row["id"],)).fetchone()
     return {
         "navigationOrder": navigation_order,
         "id": row["id"],
@@ -33,6 +36,8 @@ def public_user(row, db=None):
         "inspectionPermissions": inspection_permissions_data_id,
         "permissionOverrides": overrides,
         "permissionSource": "user" if overrides is not None else "role",
+        "outletScope": scope,
+        "outlets": (load_value(outlets["outlets_data_id"]) or []) if scope != "all" and outlets and outlets["outlets_data_id"] else [],
         "profilePhoto": load_value(row["profile_photo_data_id"] or "{}") if "profile_photo_data_id" in row.keys() else {},
         "signatureImage": load_value(row["signature_image_data_id"] or "{}") if "signature_image_data_id" in row.keys() else {},
     }

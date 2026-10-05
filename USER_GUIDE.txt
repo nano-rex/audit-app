@@ -27,6 +27,12 @@ An administrator should configure these records before staff begin auditing:
 
 1. In Users, create accounts and assign each person's role and department.
    Configure role permissions and inspection capabilities as required.
+   Each role also has an Outlet access setting. With All outlets its users
+   see every outlet. With One outlet (Operation Manager, PIC, Captain) or
+   Selected outlets (Regional Manager), choose each user's outlet or outlets
+   in the user editor; they then see and change only those outlets, in every
+   list, report, and export. These four roles belong to the Operation
+   department.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed. When editing a location, tick the
    assets and fixtures that belong in it (use the filter to find them);

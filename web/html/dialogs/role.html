@@ -9,6 +9,11 @@
       <section data-editor-panel="details">
       <label>Role Name<input name="name" placeholder="Auditor"></label>
       <label>Description<textarea name="description" placeholder="What this role is responsible for"></textarea></label>
+      <div class="form-grid">
+        <label>Department<select name="department"></select></label>
+        <label>Outlet access<select name="outletScope"><option value="all">All outlets</option><option value="one">One outlet</option><option value="several">Selected outlets</option></select></label>
+      </div>
+      <p class="muted">With One outlet or Selected outlets, each user of this role sees only the outlets chosen for them in Users; with none chosen they see no outlet.</p>
       </section>
       <section class="permission-picker" data-editor-panel="permissions" hidden>
         <h3>Accessible Sections</h3>
