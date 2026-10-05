@@ -507,6 +507,8 @@ def init_db():
         for statement in (
             "CREATE INDEX IF NOT EXISTS idx_equipment_outlet_name ON equipment(outlet, COALESCE(name, asset_id), id)",
             "CREATE INDEX IF NOT EXISTS idx_equipment_name ON equipment(COALESCE(name, asset_id), id)",
+            # Listing locations with the items in each.
+            "CREATE INDEX IF NOT EXISTS idx_equipment_outlet_location ON equipment(outlet, location)",
             "CREATE INDEX IF NOT EXISTS idx_audits_outlet_recent ON audits(business_unit, outlet, created_at DESC, id DESC)",
             "CREATE INDEX IF NOT EXISTS idx_sessions_completed ON inspection_sessions(status, audit_id)",
             "CREATE INDEX IF NOT EXISTS idx_sessions_updated ON inspection_sessions(updated_at DESC, id DESC)",

@@ -96,7 +96,15 @@ const equipmentFilters = {
   location: "",
   type: "",
   brand: "",
+  status: "",
+  warranty: "",
+  expiry: "",
 };
+// The "All outlets" / "All locations" choice in a select.
+const allChoice = "__all__";
+// The locations listed in the asset form, with their outlets.
+let equipmentFormLocations = [];
+let equipmentLocationRequest = 0;
 // What each kind of inspectable item is called, and the checks it starts with.
 const itemKinds = {
   asset: { label: "Fixed Asset", plural: "fixed assets" },

@@ -27,7 +27,7 @@ def record_for(method, path):
     rest = path.removeprefix("/api/")
     for record, (_, _, routes) in CHANGE_RECORDS.items():
         for route in routes:
-            if rest == route:
+            if rest in (route, route + "/bulk"):
                 return record, None
             if rest.startswith(route + "/"):
                 tail = rest[len(route) + 1:]
@@ -80,7 +80,9 @@ def hold(user, method, path, payload, record, record_id):
         before = snapshot(db, record, record_id)
         if record_id is not None and before is None:
             raise WorkflowError("That record no longer exists", 404)
-        name = describe(payload, before)
+        name = describe(payload.get("fields") or payload, before)
+        if path.endswith("/bulk"):
+            name = f"{name} ({len(payload['ids'])} items)" if isinstance(payload.get("ids"), list) else f"{name} (bulk)"
         change_id = db.execute(
             "INSERT INTO change_requests (record, action, record_id, method, path, payload_data_id, before_data_id, summary, "
             "status, requested_by, requested_by_user_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?, ?)",

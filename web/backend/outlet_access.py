@@ -73,6 +73,16 @@ def guard_mutation(db, user, method, path, payload):
         raise PermissionError("Outlets are managed by an account that covers every outlet")
     if route == "users" or route == "roles":
         return
+    if path == "/api/equipment/bulk":
+        # Several items: outlets named for a bulk add, or the outlets of the items in a bulk edit.
+        named = payload.get("outlets") if method == "POST" else None
+        ids = [int(value) for value in payload.get("ids") or [] if str(value).isdigit()] if method == "PATCH" else []
+        if ids:
+            marks = ",".join("?" for _ in ids)
+            named = [row[0] for row in db.execute(f"SELECT outlet FROM equipment WHERE id IN ({marks})", ids)]
+        if isinstance(named, list) and any(outlet not in scope for outlet in named):
+            raise PermissionError(DENIED)
+        return
     record_id = parts[1] if len(parts) > 1 and parts[1].isdigit() else None
     if record_id and route in RECORDS:
         outlet = record_outlet(db, route, record_id)

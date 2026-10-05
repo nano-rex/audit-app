@@ -79,6 +79,25 @@ test("equipment renders one page of rows and resets pagination on filtering", ()
   assert.equal((rendered.match(/<article>/g) || []).length, 3);
 });
 
+test("asset date filters read the date formats people type", () => {
+  const context = vm.createContext({ ...shared() });
+  vm.runInContext(source("dashboard.js"), context);
+  const day = (offset) => { const date = new Date(); date.setDate(date.getDate() + offset); return date; };
+  const dotted = (date) => `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}.${date.getFullYear()}`;
+  const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  assert.equal(context.parseItemDate("20/04/2027").getMonth(), 3);
+  assert.equal(context.parseItemDate("12.3.2016").getDate(), 12);
+  assert.equal(context.parseItemDate("31.02.2027"), null);
+  assert.equal(context.parseItemDate("soon"), null);
+  assert.ok(context.matchesDateFilter(dotted(day(-1)), "expired"));
+  assert.ok(context.matchesDateFilter(iso(day(10)), "30"));
+  assert.ok(!context.matchesDateFilter(iso(day(60)), "30"));
+  assert.ok(context.matchesDateFilter(iso(day(60)), "90"));
+  assert.ok(context.matchesDateFilter(dotted(day(0)), "valid"));
+  assert.ok(context.matchesDateFilter("", "none") && !context.matchesDateFilter("", "valid"));
+  assert.ok(context.matchesDateFilter("anything", ""));
+});
+
 test("inspection dates use the device's local day", () => {
   const priorTimezone = process.env.TZ;
   process.env.TZ = "Asia/Kuala_Lumpur";
