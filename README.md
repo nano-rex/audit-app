@@ -46,8 +46,8 @@ Settings are environment variables: `AUDIT_DATA_DIR`, `AUDIT_WORKERS`, `AUDIT_SE
    on their account). Once every linked work order is closed, a verifier closes the audit, which becomes read-only.
 6. Reports, charts, and CSV, Excel, JSON, and PDF exports are available throughout.
 
-The dashboard's **Waiting on you** list shows each signed-in user their next step in this
-chain. Full instructions are in [USER_GUIDE.txt](USER_GUIDE.txt).
+The dashboard lists every scheduled audit not yet finished, and each tab shows a number when
+something there waits for the signed-in user. Full instructions are in [USER_GUIDE.txt](USER_GUIDE.txt).
 
 ## Documentation
 

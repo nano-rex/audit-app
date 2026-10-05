@@ -79,7 +79,6 @@ def dashboard(unit, filters=None, include_room_trends=False):
             FROM (SELECT * FROM schedules WHERE {schedule_where} AND status NOT IN ('Completed', 'Cancelled')) AS schedules
             LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id
             ORDER BY schedules.scheduled_date ASC, schedules.created_at DESC, schedules.id DESC
-            LIMIT 5
             """,
             schedule_params,
         ).fetchall()

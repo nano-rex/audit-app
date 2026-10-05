@@ -173,12 +173,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const attentionButton = event.target.closest("[data-attention-type]");
-  if (attentionButton) {
-    openAttentionItem(attentionButton.dataset.attentionType, Number(attentionButton.dataset.attentionId), attentionButton.dataset.attentionView).catch(showLoadError);
-    return;
-  }
-
   const editWorkOrderButton = event.target.closest("[data-edit-work-order]");
   if (editWorkOrderButton) {
     openWorkOrderEditor(JSON.parse(editWorkOrderButton.dataset.editWorkOrder));
