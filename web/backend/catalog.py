@@ -97,8 +97,14 @@ def users(include_super=False):
     return {"items": items}
 
 
-def locations(outlet):
+def locations(outlet="", brief=False):
+    """An outlet's locations, or every outlet's when none is named. Brief: names only, without
+    the items in each (for pickers)."""
     with connect() as db:
+        if brief:
+            rows = db.execute("SELECT id, outlet_code, name FROM locations WHERE ? = '' OR outlet_code = ? ORDER BY outlet_code, name",
+                              (outlet or "", outlet or "")).fetchall()
+            return {"items": [dict(row) for row in rows]}
         rows = db.execute(
             """
             SELECT locations.id, locations.outlet_code, locations.name, locations.floor,
@@ -108,11 +114,11 @@ def locations(outlet):
             LEFT JOIN equipment
               ON equipment.outlet = locations.outlet_code
              AND equipment.location = locations.name
-            WHERE locations.outlet_code = ?
+            WHERE ? = '' OR locations.outlet_code = ?
             GROUP BY locations.id
             ORDER BY locations.display_order, locations.floor, locations.area, locations.name
             """,
-            (outlet,),
+            (outlet or "", outlet or ""),
         ).fetchall()
     return {"items": hydrate_many(rows)}
 

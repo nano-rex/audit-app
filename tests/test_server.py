@@ -1080,5 +1080,58 @@ class ServerTests(unittest.TestCase):
         for token in ("clerk", "viewer"):
             app.SESSION_TOKENS.pop(token, None)
 
+    def test_z_bulk_add_and_edit_assets(self):
+        for code in ("BULK-A", "BULK-B"):
+            self.assertEqual(self.request("/api/setup/outlets", "POST", {"code": code})[0], 200)
+        for outlet, name in (("BULK-A", "Hall"), ("BULK-A", "Bar"), ("BULK-B", "Hall")):
+            self.assertEqual(self.request("/api/locations", "POST", {"outlet": outlet, "name": name})[0], 200)
+        lamp = {"kind": "asset", "name": "Bulk Lamp", "brand": "Lumo", "code": "IGNORED", "serialNumber": "IGNORED"}
+        # Every location of the chosen outlets; a named location only where it exists.
+        status, _, body = self.request("/api/equipment/bulk", "POST", lamp | {"outlets": ["BULK-A", "BULK-B"], "locations": "all"})
+        self.assertEqual(status, 200, body)
+        self.assertEqual(json.loads(body)["count"], 3)
+        status, _, body = self.request("/api/equipment/bulk", "POST", lamp | {"name": "Bulk Sign", "outlets": ["BULK-A", "BULK-B"], "locations": ["Bar"]})
+        self.assertEqual(json.loads(body)["count"], 1, body)
+        self.assertEqual(self.request("/api/equipment/bulk", "POST", lamp | {"outlets": ["BULK-B"], "locations": ["Bar"]})[0], 400)
+        with app.connect() as db:
+            rows = db.execute("SELECT id, code, serial_number, outlet, location FROM equipment WHERE name = 'Bulk Lamp' ORDER BY id").fetchall()
+        self.assertEqual([(row["outlet"], row["location"]) for row in rows], [("BULK-A", "Bar"), ("BULK-A", "Hall"), ("BULK-B", "Hall")])
+        self.assertTrue(all(row["code"].startswith("AST-") and not row["serial_number"] for row in rows))
+        ids = [row["id"] for row in rows]
+        # Shared fields go to every item; code and serial number are each item's own.
+        edit = {"ids": ids, "fields": {"brand": "Brighta", "outlet": "BULK-B", "code": "SAME"},
+                "items": [{"id": ids[0], "code": "LAMP-1", "serialNumber": "SN-1"}, {"id": ids[1], "code": "LAMP-2", "serialNumber": "SN-2"}]}
+        status, _, body = self.request("/api/equipment/bulk", "PATCH", edit)
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            rows = db.execute("SELECT id, code, qr_code, serial_number, brand, outlet FROM equipment WHERE id IN (?, ?, ?) ORDER BY id", ids).fetchall()
+        self.assertEqual([row["brand"] for row in rows], ["Brighta"] * 3)
+        self.assertEqual([row["outlet"] for row in rows], ["BULK-A", "BULK-A", "BULK-B"])
+        self.assertEqual([(row["code"], row["qr_code"], row["serial_number"]) for row in rows[:2]], [("LAMP-1", "LAMP-1", "SN-1"), ("LAMP-2", "LAMP-2", "SN-2")])
+        # Codes may be swapped, but not repeated or taken from another item; serial numbers neither.
+        swap = {"ids": ids[:2], "items": [{"id": ids[0], "code": "LAMP-2"}, {"id": ids[1], "code": "LAMP-1"}]}
+        self.assertEqual(self.request("/api/equipment/bulk", "PATCH", swap)[0], 200)
+        for items in ([{"id": ids[0], "code": "X"}, {"id": ids[1], "code": "X"}], [{"id": ids[2], "code": "LAMP-1"}],
+                      [{"id": ids[2], "serialNumber": "SN-1"}]):
+            status, _, body = self.request("/api/equipment/bulk", "PATCH", {"ids": [ids[2]] if len(items) == 1 else ids[:2], "items": items})
+            self.assertEqual(status, 400, body)
+        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Copy", "outlet": "BULK-A", "serialNumber": "SN-1"})[0], 400)
+        # Someone covering one outlet adds only there and edits only items there.
+        self.outlet_role("Bulk Keeper", ("today", "equipment"))
+        with app.connect() as db:
+            keeper = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Keeper', 'Bulk Keeper', 'keeper@example.test', 1, 0)").lastrowid
+            db.execute("UPDATE roles SET action_permissions_data_id = ? WHERE name = 'Bulk Keeper'", (app_save_value(db, ["assets.manage", "assets.approve"]),))
+        self.limit_to(keeper, ["BULK-B"])
+        app.SESSION_TOKENS["keeper"] = {"user_id": keeper, "expires_at": time.time() + 3600}
+        status, _, body = self.request("/api/equipment/bulk", "POST", lamp | {"name": "Keeper Lamp", "outlets": "all", "locations": "all"}, token="keeper")
+        self.assertEqual((status, json.loads(body)["count"]), (200, 1), body)
+        self.assertEqual(self.request("/api/equipment/bulk", "POST", lamp | {"outlets": ["BULK-A"], "locations": "all"}, token="keeper")[0], 403)
+        self.assertEqual(self.request("/api/equipment/bulk", "PATCH", {"ids": ids, "fields": {"brand": "No"}}, token="keeper")[0], 403)
+        self.assertEqual(self.request("/api/equipment/bulk", "PATCH", {"ids": ids[2:], "fields": {"brand": "Yes"}}, token="keeper")[0], 200)
+        # Bulk changes wait for approval like single ones.
+        from backend import change_requests
+        for method in ("POST", "PATCH"):
+            self.assertEqual(change_requests.record_for(method, "/api/equipment/bulk"), ("assets", None))
+
 if __name__ == "__main__":
     unittest.main()

@@ -934,6 +934,65 @@ dialog header h2 {
   display: none;
 }
 
+/* A bulk edit keeps each item's place, code, and serial number (set in the item table); adding
+   at several places gives each item a generated code. */
+#equipment-form[data-mode="bulk"] [data-own-field],
+#equipment-form[data-mode="bulk"] [data-place-field],
+#equipment-form[data-many="true"] [data-own-field] {
+  display: none;
+}
+
+.bulk-edit {
+  margin-bottom: 16px;
+}
+
+.bulk-edit > label {
+  display: grid;
+  gap: 6px;
+  max-width: 480px;
+}
+
+.bulk-add-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.bulk-items {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bulk-items th,
+.bulk-items td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.bulk-items thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bulk-items th:first-child,
+.bulk-items td:first-child {
+  width: 32px;
+}
+
+.bulk-items input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.bulk-items input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 140px;
+}
+
 .kind-pill {
   display: inline-block;
   margin-left: 6px;

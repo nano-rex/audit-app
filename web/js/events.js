@@ -382,7 +382,8 @@ document.querySelector("[data-equipment-criteria]")?.addEventListener("click", (
 });
 
 document.querySelector('#equipment-form input[name="name"]')?.addEventListener("change", (event) => {
-  applyEquipmentTemplate(event.target.value.trim());
+  // A bulk edit renames the group; it does not take another item's details.
+  if (event.target.form.dataset.mode !== "bulk") applyEquipmentTemplate(event.target.value.trim());
 });
 
 document.querySelector('#equipment-form input[name="code"]')?.addEventListener("input", (event) => {
@@ -390,8 +391,12 @@ document.querySelector('#equipment-form input[name="code"]')?.addEventListener("
   if (form?.elements.qrCode) form.elements.qrCode.value = event.target.value.trim();
 });
 
-document.querySelector('#equipment-form select[name="outlet"]')?.addEventListener("change", () => {
-  updateEquipmentLocationSelect();
+document.querySelector('#equipment-form select[name="outlet"]')?.addEventListener("change", (event) => {
+  updateEquipmentLocationSelect(event.target.form.elements.location.value);
+});
+
+document.querySelector('#equipment-form select[name="location"]')?.addEventListener("change", (event) => {
+  updateBulkAddNote(event.target.form);
 });
 
 document.querySelector('#work-order-form select[name="outlet"]')?.addEventListener("change", () => {
@@ -702,6 +707,13 @@ document.getElementById("equipment-filter-type")?.addEventListener("change", (ev
 document.getElementById("equipment-filter-brand")?.addEventListener("change", (event) => {
   equipmentFilters.brand = event.target.value;
   renderEquipment();
+});
+
+[["equipment-filter-status", "status"], ["equipment-filter-warranty", "warranty"], ["equipment-filter-expiry", "expiry"]].forEach(([id, key]) => {
+  document.getElementById(id)?.addEventListener("change", (event) => {
+    equipmentFilters[key] = event.target.value;
+    renderEquipment();
+  });
 });
 
 document.getElementById("equipment-filter-category")?.addEventListener("change", (event) => {

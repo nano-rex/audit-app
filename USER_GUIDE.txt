@@ -64,6 +64,17 @@ An administrator should configure these records before staff begin auditing:
      These need only a name, location, category, and condition.
    Give each item a category and review its inspection criteria. A code is
    generated when you leave it blank.
+   - To add the same item in many places, choose All outlets and/or All
+     locations. The form says how many items it will add; each gets its own
+     generated code.
+   - To change many items at once, use Edit all on an item (or Bulk Edit and
+     pick the name and category). Changes apply to every ticked item; a field
+     left blank where the items differ keeps each item's own value. Codes (also
+     the QR label) and serial numbers must be unique, so set them per item in
+     the table at the bottom.
+   - Filter the list by category, outlet, location, asset type, brand, status,
+     and warranty or expiry date (expired, ending within 30 or 90 days, still
+     valid, or not recorded).
 4. Under Assets > Categories, set the department responsible for each category.
    Findings in that category are assigned to it unless the auditor chooses
    another. Audit types and priority levels are managed by the Super account

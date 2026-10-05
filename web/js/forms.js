@@ -308,11 +308,21 @@ async function openZoneEditor(row = null) {
   dialog.showModal();
 }
 
-function resetEquipmentForm(kind = "asset") {
+// The asset form adds one item or, with All outlets or All locations, several ("add"); edits
+// one ("edit"); or edits a group of items sharing a name and category ("bulk").
+function resetEquipmentForm(kind = "asset", mode = "add") {
   const form = document.getElementById("equipment-form");
   // A status kept from the last asset edited is not an option for a new one.
-  form.querySelectorAll("option[data-kept-status]").forEach((option) => option.remove());
+  form.querySelectorAll("option[data-kept-status], option[data-mixed-option]").forEach((option) => option.remove());
+  form.querySelectorAll("[data-mixed]").forEach((field) => {
+    field.placeholder = field.dataset.placeholder || "";
+    delete field.dataset.mixed;
+  });
   form.reset();
+  form.dataset.mode = mode;
+  form.dataset.many = "false";
+  form.querySelectorAll("[data-bulk-edit]").forEach((section) => { section.hidden = mode !== "bulk"; });
+  form.querySelector("[data-bulk-add-note]").hidden = true;
   form.elements.equipmentId.value = "";
   form.dataset.savedImages = "[]";
   form.querySelector("[data-equipment-photos]").innerHTML = "";
@@ -320,6 +330,12 @@ function resetEquipmentForm(kind = "asset") {
   form.querySelector("h2").textContent = `Register ${itemKinds[kind].label}`;
   form.querySelector('button[type="submit"]').textContent = `Save ${itemKinds[kind].label}`;
   updateSetupSelects();
+  if (mode === "add" && setupOptions.outlets.length > 1) {
+    const outlet = form.elements.outlet;
+    const current = outlet.value;
+    outlet.insertAdjacentHTML("afterbegin", `<option value="${allChoice}">All outlets</option>`);
+    outlet.value = current;
+  }
   updateSelectOptions(form.elements.itemCategory, setupOptions.categories, true, "No category");
   renderEquipmentCriteria(kind === "fixture" ? defaultFixtureCriteria : defaultInspectionCriteria);
   updateEquipmentNameOptions();
@@ -335,11 +351,20 @@ function setEquipmentFormKind(kind) {
   setText("[data-condition-label]", fixture ? "Condition" : "Operational Status");
 }
 
+function keepStatusOption(select, status) {
+  select.querySelectorAll("option[data-kept-status]").forEach((option) => option.remove());
+  if (![...select.options].some((option) => option.value === status)) {
+    select.add(Object.assign(document.createElement("option"), { value: status, textContent: status }), 0);
+    select.options[0].dataset.keptStatus = "";
+  }
+  select.value = status;
+}
+
 async function openEquipmentEditor(row) {
   const dialog = document.getElementById("equipment-dialog");
   const form = document.getElementById("equipment-form");
   const kind = row.kind === "fixture" ? "fixture" : "asset";
-  resetEquipmentForm(kind);
+  resetEquipmentForm(kind, "edit");
   form.elements.equipmentId.value = row.id;
   form.elements.itemCategory.value = row.category || "";
   form.elements.name.value = row.name || row.asset_id || "";
@@ -350,14 +375,7 @@ async function openEquipmentEditor(row) {
   form.elements.type.value = row.type || row.equipment_type || "";
   // Imported records use their own statuses (Active, Working, Spare...); keep them rather than
   // quietly replacing them with the first option when the asset is saved.
-  const status = row.operational_status || row.health_status || "Operational";
-  const select = form.elements.operationalStatus;
-  select.querySelectorAll("option[data-kept-status]").forEach((option) => option.remove());
-  if (![...select.options].some((option) => option.value === status)) {
-    select.add(Object.assign(document.createElement("option"), { value: status, textContent: status }), 0);
-    select.options[0].dataset.keptStatus = "";
-  }
-  select.value = status;
+  keepStatusOption(form.elements.operationalStatus, row.operational_status || row.health_status || "Operational");
   form.elements.brand.value = row.brand || "";
   form.elements.model.value = row.model || "";
   form.elements.serialNumber.value = row.serial_number || "";
@@ -557,7 +575,13 @@ document.getElementById("equipment-form").addEventListener("submit", async (even
     inspectionCriteria: collectEquipmentCriteria(form),
   };
   if (!form.reportValidity()) return;
-  await requestJson(id ? `/api/equipment/${id}` : "/api/equipment", id ? "PATCH" : "POST", payload);
+  if (form.dataset.mode === "bulk") {
+    if (!await saveEquipmentBulkEdit(form, payload)) return;
+  } else if (form.dataset.mode === "add" && form.dataset.many === "true") {
+    await saveEquipmentBulkAdd(payload);
+  } else {
+    await requestJson(id ? `/api/equipment/${id}` : "/api/equipment", id ? "PATCH" : "POST", payload);
+  }
   form.closest("dialog").close();
   resetEquipmentForm();
   loadApp();

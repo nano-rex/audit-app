@@ -3,18 +3,23 @@
         <header><h2>Register Fixed Asset</h2><button type="button" data-close-dialog>x</button></header>
         <input name="equipmentId" type="hidden">
         <input name="kind" type="hidden" value="asset">
+          <section class="bulk-edit" data-bulk-edit hidden>
+            <label>Items to edit<select data-bulk-group></select></label>
+            <p class="muted">Changes apply to every ticked item. A field left blank where the items differ keeps each item's own value. Outlet, location, code, and serial number stay with each item; set codes and serial numbers in the table below.</p>
+          </section>
           <div class="form-grid">
             <label>Name<input name="name" list="equipment-name-options" placeholder="Speaker, TV, amplifier, furniture" required></label>
             <label>Category<select name="itemCategory"></select></label>
-            <label data-asset-only>Code<input name="code" placeholder="Fixed asset code"></label>
-            <label data-asset-only>QR Code<input name="qrCode" placeholder="Auto-filled from Code" readonly></label>
-            <label>Outlet<select name="outlet"></select></label>
-            <label>Location<select name="location"></select></label>
+            <label data-asset-only data-own-field>Code<input name="code" placeholder="Fixed asset code"></label>
+            <label data-asset-only data-own-field>QR Code<input name="qrCode" placeholder="Auto-filled from Code" readonly></label>
+            <label data-place-field>Outlet<select name="outlet"></select></label>
+            <label data-place-field>Location<select name="location"></select></label>
+            <p class="muted bulk-add-note" data-bulk-add-note hidden></p>
             <label data-asset-only>Asset Type<input name="type" placeholder="Part of Musical, Part of Computer"></label>
             <label><span data-condition-label>Operational Status</span><select name="operationalStatus"><option>Operational</option><option>Needs Attention</option><option>Out of Service</option><option>Replace</option></select></label>
             <label data-asset-only>Brand<input name="brand" placeholder="Brand"></label>
             <label data-asset-only>Model<input name="model" placeholder="Model"></label>
-            <label data-asset-only>Serial Number<input name="serialNumber" placeholder="Serial number"></label>
+            <label data-asset-only data-own-field>Serial Number<input name="serialNumber" placeholder="Serial number"></label>
             <label data-asset-only>Installation Date<input name="installationDate" placeholder="DD.MM.YYYY or YYYY-MM-DD"></label>
             <label data-asset-only>Warranty Date<input name="warrantyDate" placeholder="Warranty date"></label>
             <label data-asset-only>Calibration Date<input name="calibrationDate" placeholder="Calibration date"></label>
@@ -23,6 +28,14 @@
             <label data-asset-only>Inverter Model<input name="inverterModel" placeholder="If applicable"></label>
             <label data-asset-only>Motor Capacity<input name="motorCapacity" placeholder="If applicable"></label>
           </div>
+          <section class="bulk-edit" data-bulk-edit hidden>
+            <div class="table-scroll">
+              <table class="bulk-items">
+                <thead><tr><th><input type="checkbox" data-bulk-all checked aria-label="Edit all items"></th><th>Outlet</th><th>Location</th><th>Code</th><th data-asset-only>Serial Number</th></tr></thead>
+                <tbody data-bulk-items></tbody>
+              </table>
+            </div>
+          </section>
           <label>Description<textarea name="description" placeholder="Description, condition, usage, or replacement note"></textarea></label>
           <div class="image-field">
             <span class="image-field-label">Photos</span>

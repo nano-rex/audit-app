@@ -10,7 +10,7 @@ def patch_changes(handler, parsed, payload=None):
     handler.json(decide(handler.current_user(), int(change_id), (payload or {}).get("decision"), (payload or {}).get("remark", "")))
 from backend.audit_closure import close_audit
 from backend.routes_accounts import delete_database, patch_database, post_database, patch_navigation, delete_roles, delete_users, patch_account, patch_roles, patch_users, post_auth_change_password, post_auth_forgot_password, post_auth_login, post_auth_logout, post_auth_register, post_roles, post_users
-from backend.routes_assets import delete_equipment, patch_equipment, post_equipment
+from backend.routes_assets import delete_equipment, patch_equipment, patch_equipment_bulk, post_equipment, post_equipment_bulk
 from backend.routes_inspections import delete_inspection_sessions, delete_schedules, patch_inspection_sessions, patch_schedules, post_inspection_sessions, post_schedules
 from backend.routes_inspections import start_audit, start_schedule
 from backend.routes_locations import delete_locations, delete_setup_outlets, delete_zones, patch_locations, patch_setup_outlets, patch_zones, post_locations, post_setup_outlets, post_zones
@@ -32,6 +32,7 @@ ROUTES = {
         '/api/work-orders': post_work_orders,
         '/api/work-requests': post_work_requests,
         '/api/equipment': post_equipment,
+        '/api/equipment/bulk': post_equipment_bulk,
         '/api/locations': post_locations,
         '/api/zones': post_zones,
         '/api/setup/departments': post_setup_departments,
@@ -59,6 +60,7 @@ ROUTES = {
         '/api/setup/categories': patch_setup_categories,
         '/api/setup/outlets': patch_setup_outlets,
         '/api/equipment': patch_equipment,
+        '/api/equipment/bulk': patch_equipment_bulk,
         '/api/work-orders': patch_work_orders,
         '/api/work-requests': patch_work_requests,
         '/api/changes': patch_changes,

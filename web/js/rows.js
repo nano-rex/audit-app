@@ -171,6 +171,8 @@ function equipmentRow(row) {
   const name = row.name || row.asset_id || row.code || "Fixed Asset";
   const code = row.code || row.asset_id || "";
   const location = row.location || row.zone || "No location";
+  // Items sharing this name and category, edited together with Bulk Edit.
+  const group = typeof equipmentGroup === "function" ? equipmentGroup(row).length : 0;
   const detail = fixture
     ? row.description || "No description"
     : `${row.type || row.equipment_type || "Fixed Asset"} | ${row.brand || "No brand"} ${row.model || ""}`;
@@ -185,6 +187,7 @@ function equipmentRow(row) {
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>
         ${photoSetButton(parseStoredImages(row.photos || "[]"), "Photos")}
         <button type="button" class="outline" data-edit-equipment='${escapeAttr(JSON.stringify(row))}'>Edit</button>
+        ${group > 1 ? `<button type="button" class="outline" data-bulk-edit-equipment="${row.id}" title="Edit every ${escapeAttr(name)} in ${escapeAttr(row.category || "no category")}">Edit all ${group}</button>` : ""}
         <button type="button" class="danger" data-delete-equipment="${row.id}">Delete</button>
       </span>
     </article>

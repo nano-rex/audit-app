@@ -359,7 +359,7 @@ class Handler(BaseHTTPRequestHandler):
             outlet = parse_qs(parsed.query).get("outlet", [""])[0]
             if outlet:
                 outlet_access.require(viewer, outlet)
-            self.json(listed(locations(outlet), "outlet_code"))
+            self.json(listed(locations(outlet, brief=parse_qs(parsed.query).get("brief") == ["1"]), "outlet_code"))
             return
         if parsed.path == "/api/zones":
             outlet = parse_qs(parsed.query).get("outlet", [""])[0]

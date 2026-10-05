@@ -207,17 +207,25 @@ function updateEquipmentFilterSelects() {
     .filter((row) => !outlet || row.outlet === outlet)
     .map((row) => row.location || row.zone || "")
     .filter(Boolean))].sort();
-  const types = [...new Set(equipmentCache.map((row) => row.type || row.equipment_type || "").filter(Boolean))].sort();
-  const brands = [...new Set(equipmentCache.map((row) => row.brand || "").filter(Boolean))].sort();
+  // Choices come from the items of the tab shown: fixed assets, or fixtures and finishes.
+  const items = equipmentCache.filter((row) => (row.kind || "asset") === equipmentFilters.kind);
+  const types = [...new Set(items.map((row) => row.type || row.equipment_type || "").filter(Boolean))].sort();
+  const brands = [...new Set(items.map((row) => row.brand || "").filter(Boolean))].sort();
+  const statuses = [...new Set(items.map((row) => row.operational_status || row.health_status || "").filter(Boolean))].sort();
   updateSelectOptions(document.getElementById("equipment-filter-location"), locations, true, "All locations");
   updateSelectOptions(document.getElementById("equipment-filter-type"), types, true, "All types");
   updateSelectOptions(document.getElementById("equipment-filter-brand"), brands, true, "All brands");
+  updateSelectOptions(document.getElementById("equipment-filter-status"), statuses, true, "All statuses");
   updateSelectOptions(document.getElementById("equipment-filter-category"), setupOptions.categories, true, "All categories");
   document.getElementById("equipment-filter-category").value = equipmentFilters.category;
   document.getElementById("equipment-filter-location").value = equipmentFilters.location;
   document.getElementById("equipment-filter-type").value = equipmentFilters.type;
   document.getElementById("equipment-filter-brand").value = equipmentFilters.brand;
+  document.getElementById("equipment-filter-status").value = equipmentFilters.status;
+  document.getElementById("equipment-filter-warranty").value = equipmentFilters.warranty;
+  document.getElementById("equipment-filter-expiry").value = equipmentFilters.expiry;
 }
+
 
 function updateWorkOrderFilterSelects() {
   updateSelectOptions(document.getElementById("work-order-filter-outlet"), setupOptions.outlets, true, "All outlets");
@@ -276,17 +284,31 @@ function updateHistoryFilterSelects() {
   });
 }
 
+// Adding offers All locations (and, with All outlets, the locations of every outlet), to add the
+// same item at each of them at once.
 async function updateEquipmentLocationSelect(selected = "") {
   const form = document.getElementById("equipment-form");
   if (!form) return;
   const outlet = formValue(form, "outlet", selectedLocationOutlet || setupOptions.outlets[0] || "");
-  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(outlet)}`);
+  const every = outlet === allChoice;
+  // Only the latest choice of outlet fills the list; an earlier, slower answer is dropped.
+  const request = ++equipmentLocationRequest;
+  const response = await authFetch(every ? "/api/locations?brief=1" : `/api/locations?brief=1&outlet=${encodeURIComponent(outlet)}`);
   const data = await response.json();
-  const values = data.items.map((row) => row.name);
-  updateSelectOptions(form.elements.location, values, false, "Select location");
-  if (values.includes(selected)) {
-    form.elements.location.value = selected;
+  if (request !== equipmentLocationRequest) return;
+  equipmentFormLocations = data.items || [];
+  const values = [...new Set(equipmentFormLocations.map((row) => row.name))].sort((a, b) => a.localeCompare(b));
+  const select = form.elements.location;
+  updateSelectOptions(select, values, every, "No location");
+  if (form.dataset.mode === "add" && values.length) {
+    const all = `<option value="${allChoice}">All locations</option>`;
+    if (every) select.options[0].insertAdjacentHTML("afterend", all);
+    else select.insertAdjacentHTML("afterbegin", all);
+    select.value = values.includes(selected) ? selected : every ? "" : values[0];
+  } else if (values.includes(selected)) {
+    select.value = selected;
   }
+  if (typeof updateBulkAddNote === "function") updateBulkAddNote(form);
 }
 
 async function updateInspectionLocationSelect() {

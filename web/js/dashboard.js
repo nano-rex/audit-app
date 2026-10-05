@@ -281,11 +281,13 @@ function setEquipmentKind(kind) {
   const search = document.getElementById("equipment-search");
   if (search) search.placeholder = kind === "fixture" ? "Search fixtures and finishes" : "Search fixed assets";
   document.querySelectorAll("#equipment [data-show-kind]").forEach((node) => { node.hidden = node.dataset.showKind !== kind; });
-  // Type and brand describe fixed assets only.
+  setText("[data-status-filter-label]", kind === "fixture" ? "Condition" : "Operational Status");
+  // Type, brand, warranty, and expiry describe fixed assets only; the statuses differ by tab.
+  equipmentFilters.status = "";
   if (kind === "fixture") {
-    equipmentFilters.type = equipmentFilters.brand = "";
-    ["equipment-filter-type", "equipment-filter-brand"].forEach((id) => { const select = document.getElementById(id); if (select) select.value = ""; });
+    equipmentFilters.type = equipmentFilters.brand = equipmentFilters.warranty = equipmentFilters.expiry = "";
   }
+  if (typeof updateEquipmentFilterSelects === "function" && document.getElementById("equipment-filter-status")) updateEquipmentFilterSelects();
   if (equipmentCache.length) renderEquipment();
 }
 
@@ -296,6 +298,34 @@ async function loadEquipment() {
   updateEquipmentFilterSelects();
   updateEquipmentNameOptions();
   renderEquipment();
+}
+
+// Item dates are typed as text: 2026-10-09, 09.10.2026, 9/10/2026, or 09-10-2026 (day first).
+function parseItemDate(text) {
+  const value = String(text || "").trim();
+  let match = value.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+  let [year, month, day] = match ? [match[1], match[2], match[3]] : [];
+  if (!match) {
+    match = value.match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2}|\d{4})$/);
+    if (!match) return null;
+    [day, month, year] = [match[1], match[2], match[3].length === 2 ? `20${match[3]}` : match[3]];
+  }
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return date.getMonth() === Number(month) - 1 && date.getDate() === Number(day) ? date : null;
+}
+
+// Expired, ends within 30 or 90 days, still valid, or not recorded.
+function matchesDateFilter(text, filter) {
+  if (!filter) return true;
+  const date = parseItemDate(text);
+  if (filter === "none") return !date;
+  if (!date) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((date - today) / 86400000);
+  if (filter === "expired") return days < 0;
+  if (filter === "valid") return days >= 0;
+  return days >= 0 && days <= Number(filter);
 }
 
 function renderEquipment() {
@@ -328,7 +358,10 @@ function renderEquipment() {
       && (!equipmentFilters.outlet || row.outlet === equipmentFilters.outlet)
       && (!equipmentFilters.location || location === equipmentFilters.location)
       && (!equipmentFilters.type || type === equipmentFilters.type)
-      && (!equipmentFilters.brand || brand === equipmentFilters.brand);
+      && (!equipmentFilters.brand || brand === equipmentFilters.brand)
+      && (!equipmentFilters.status || (row.operational_status || row.health_status || "") === equipmentFilters.status)
+      && matchesDateFilter(row.warranty_date, equipmentFilters.warranty)
+      && matchesDateFilter(row.expiry_date, equipmentFilters.expiry);
   });
   const pageSize = getPaginationSize();
   const pages = Math.max(1, Math.ceil(rows.length / pageSize));

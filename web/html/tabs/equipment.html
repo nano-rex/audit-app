@@ -5,6 +5,7 @@
           <div class="panel-actions">
             <button class="primary" type="button" data-open-equipment="asset" data-show-kind="asset">Add Fixed Asset</button>
             <button class="primary" type="button" data-open-equipment="fixture" data-show-kind="fixture">Add Fixture or Finish</button>
+            <button class="outline" type="button" data-bulk-edit-equipment>Bulk Edit</button>
           </div>
         </header>
         <div class="filter">
@@ -12,8 +13,11 @@
           <label>Category<select id="equipment-filter-category"><option value="">All categories</option></select></label>
           <label>Outlet<select id="equipment-filter-outlet"></select></label>
           <label>Location<select id="equipment-filter-location"></select></label>
-          <label data-show-kind="asset">Type<select id="equipment-filter-type"><option value="">All types</option></select></label>
+          <label data-show-kind="asset">Asset Type<select id="equipment-filter-type"><option value="">All types</option></select></label>
           <label data-show-kind="asset">Brand<select id="equipment-filter-brand"><option value="">All brands</option></select></label>
+          <label><span data-status-filter-label>Operational Status</span><select id="equipment-filter-status"><option value="">All statuses</option></select></label>
+          <label data-show-kind="asset">Warranty Date<select id="equipment-filter-warranty"><option value="">Any warranty</option><option value="expired">Expired</option><option value="30">Ends within 30 days</option><option value="90">Ends within 90 days</option><option value="valid">Still valid</option><option value="none">Not recorded</option></select></label>
+          <label data-show-kind="asset">Expiry Date<select id="equipment-filter-expiry"><option value="">Any expiry</option><option value="expired">Expired</option><option value="30">Ends within 30 days</option><option value="90">Ends within 90 days</option><option value="valid">Still valid</option><option value="none">Not recorded</option></select></label>
         </div>
         <p class="muted" data-show-kind="asset">Fixed assets are equipment with a code and serial details, such as TVs, chillers, and air conditioners.</p>
         <p class="muted" data-show-kind="fixture" hidden>Fixtures and finishes are parts of the building itself, such as wall paint, floor tiles, pipes, toilets, and sinks. They are inspected like fixed assets.</p>
