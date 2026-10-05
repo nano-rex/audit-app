@@ -4,6 +4,7 @@ from backend.accounts import is_company_admin_user
 from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
+from backend.permissions import CHANGE_RECORDS
 from backend.outlet_access import keep
 from backend.code_version import outdated
 from backend.schedule_assignment import assignees_of
@@ -60,6 +61,10 @@ def todo_items(user):
                 if assigned_to(user, order):
                     items.append(order_item(order, "Resolve work order"))
         items = keep(user, items)  # Only tasks at the account's outlets.
+        # Changes waiting for this person's approval (they are not tied to one outlet).
+        approvable = [record for record in CHANGE_RECORDS if f"{record}.approve" in user.get("actions", [])]
+        approvals = db.execute(f"SELECT count(*) FROM change_requests WHERE status = 'Pending' AND requested_by_user_id IS NOT ? "
+                               f"AND record IN ({','.join('?' for _ in approvable) or 'NULL'})", (user.get("id"), *approvable)).fetchone()[0]
         findings = items_needing_request(db, user)
         resets = db.execute("SELECT count(*) FROM password_reset_requests WHERE resolved_at IS NULL").fetchone()[0] if is_company_admin_user(user) else 0
     # How many things wait in each section, shown as a number beside its tab.
@@ -71,6 +76,7 @@ def todo_items(user):
         "orders": sum(item["type"] == "work_order" for item in items),
         "resets": resets,
         "notifications": unread,
+        "approvals": approvals,
     }
     return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts,
             "serverOutdated": outdated()}

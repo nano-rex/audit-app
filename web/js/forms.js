@@ -104,6 +104,7 @@ function openRoleEditor(row = null) {
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
   form.querySelector("[data-role-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, row?.inspectionPermissions || [], "inspectionPermissions", Boolean(row?.protected));
+  form.querySelector("[data-role-action-permissions]").innerHTML = actionPermissionTable(row?.actions || [], "actions", Boolean(row?.protected));
   showEditorTab(form, "details");
   form.querySelector("h2").textContent = row ? "Edit Role" : "Role Setup";
   form.querySelector('button[type="submit"], button[value="default"]').textContent = row ? "Save Changes" : "Save Role";
@@ -309,6 +310,8 @@ async function openZoneEditor(row = null) {
 
 function resetEquipmentForm(kind = "asset") {
   const form = document.getElementById("equipment-form");
+  // A status kept from the last asset edited is not an option for a new one.
+  form.querySelectorAll("option[data-kept-status]").forEach((option) => option.remove());
   form.reset();
   form.elements.equipmentId.value = "";
   form.dataset.savedImages = "[]";
@@ -345,7 +348,16 @@ async function openEquipmentEditor(row) {
   form.elements.outlet.value = row.outlet || "";
   await updateEquipmentLocationSelect(row.location || row.zone || "");
   form.elements.type.value = row.type || row.equipment_type || "";
-  form.elements.operationalStatus.value = row.operational_status || row.health_status || "Operational";
+  // Imported records use their own statuses (Active, Working, Spare...); keep them rather than
+  // quietly replacing them with the first option when the asset is saved.
+  const status = row.operational_status || row.health_status || "Operational";
+  const select = form.elements.operationalStatus;
+  select.querySelectorAll("option[data-kept-status]").forEach((option) => option.remove());
+  if (![...select.options].some((option) => option.value === status)) {
+    select.add(Object.assign(document.createElement("option"), { value: status, textContent: status }), 0);
+    select.options[0].dataset.keptStatus = "";
+  }
+  select.value = status;
   form.elements.brand.value = row.brand || "";
   form.elements.model.value = row.model || "";
   form.elements.serialNumber.value = row.serial_number || "";
@@ -645,6 +657,7 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
     reportsTo: Number(form.elements.reportsTo.value) || null,
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
+    actions: checkedValues(form, "actions"),
   };
   try {
     await requestJson(id ? `/api/roles/${id}` : "/api/roles", id ? "PATCH" : "POST", payload);

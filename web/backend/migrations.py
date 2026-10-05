@@ -11,6 +11,7 @@ from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
 from backend.control import adopt_organization_supers, ensure_super_account
 from backend.activity import backfill as backfill_activity
+from backend.change_requests import grant_existing_access
 from backend.seed_data import outlets_on_people, split_history_from_findings, seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
@@ -145,6 +146,25 @@ def init_db():
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
                 FOREIGN KEY(audit_id) REFERENCES audits(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS change_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record TEXT NOT NULL,
+                action TEXT NOT NULL,
+                record_id INTEGER,
+                method TEXT NOT NULL,
+                path TEXT NOT NULL,
+                payload_data_id INTEGER REFERENCES value_sets(id),
+                before_data_id INTEGER REFERENCES value_sets(id),
+                summary TEXT,
+                status TEXT NOT NULL,
+                requested_by TEXT,
+                requested_by_user_id INTEGER,
+                decided_by TEXT,
+                decided_at INTEGER,
+                remark TEXT,
+                created_at INTEGER NOT NULL
             );
 
             CREATE TABLE IF NOT EXISTS activity_log (
@@ -539,6 +559,7 @@ def init_db():
         seed_operation_roles(db)
         outlets_on_people(db)
         split_history_from_findings(db)
+        grant_existing_access(db)
         # Earlier audits, requests, and work orders, as far as their records tell who and when.
         backfill_activity(db)
         # Work orders no longer have Completed and Verified steps: work that had reached them is done.

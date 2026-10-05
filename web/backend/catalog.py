@@ -1,5 +1,6 @@
 """Catalog for the audit application."""
 from backend.relational_values import load_value, hydrate_many
+from backend.permissions import CHANGE_RECORDS
 from backend.config import APP_TABS, SUPER_ROLE
 from backend.database import connect
 from backend.response_cache import cached_response
@@ -19,7 +20,7 @@ def setup_records(include_super=False):
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
         ).fetchall()]
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, department, reports_to_id FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, action_permissions_data_id, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
             role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)
@@ -36,7 +37,10 @@ def setup_records(include_super=False):
     for role in roles:
         role["inspectionPermissions"] = load_value(role.pop("inspection_permissions_data_id") or "[]")
         role["permissions"] = load_value(role.pop("permissions_data_id") or "[]")
+        actions = role.pop("action_permissions_data_id")
+        role["actions"] = (load_value(actions) or []) if actions else []
     return {
+        "changeRecords": [{"id": record, "label": label} for record, (label, _, _) in CHANGE_RECORDS.items()],
         "departments": departments,
         "outlets": outlets,
         "zones": zones,
@@ -51,16 +55,19 @@ def setup_records(include_super=False):
 
 def role_items(include_super=False):
     with connect() as db:
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, department, reports_to_id FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, action_permissions_data_id, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         rows = db.execute(role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)).fetchall()
     items = []
     for row in rows:
         item = dict(row)
         item["permissions"] = load_value(item.pop("permissions_data_id") or "[]")
+        actions = item.pop("action_permissions_data_id")
+        item["actions"] = (load_value(actions) or []) if actions else []
         item["inspectionPermissions"] = load_value(item.pop("inspection_permissions_data_id") or "[]")
         items.append(item)
-    return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS]}
+    return {"items": items, "tabs": [{"id": tab[0], "label": tab[1]} for tab in APP_TABS],
+            "changeRecords": [{"id": record, "label": label} for record, (label, _, _) in CHANGE_RECORDS.items()]}
 
 
 def users(include_super=False):

@@ -353,7 +353,10 @@ async function requestJson(url, method, payload) {
     const data = await response.json().catch(() => ({}));
     throw new Error(data.error || `Request failed: ${response.status}`);
   }
-  return response.json();
+  const data = await response.json();
+  // A change that waits for approval is not an error, but the person should know it is not applied yet.
+  if (data?.pending && typeof showNotice === "function") showNotice(data.message || "Sent for approval.");
+  return data;
 }
 
 function formValue(form, name, fallback = "") {

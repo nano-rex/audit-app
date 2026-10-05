@@ -30,6 +30,10 @@ async function loadAttention() {
 }
 
 async function openAttentionItem(type, id, view = "") {
+  if (type === "change") {
+    showTab("approvals");
+    return;
+  }
   if (type === "schedule") {
     const response = await authFetch("/api/schedules");
     const row = ((await response.json()).items || []).find((item) => item.id === id);

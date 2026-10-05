@@ -6,6 +6,20 @@ from backend.config import APP_TABS, SUPER_ROLE
 
 INSPECTION_PERMISSIONS = ("auditor", "verifier", "acknowledger")
 
+# Records whose changes are permitted per person: adding, editing and deleting them ("manage"),
+# and approving changes made by those who may manage but not approve ("approve").
+# Each entry: label, the page that shows them, and the API routes that change them.
+CHANGE_RECORDS = {
+    "assets": ("Assets (fixed assets, fixtures & finishes)", "equipment", ("equipment",)),
+    "users": ("Users", "users", ("users",)),
+    "outlets": ("Outlets", "outlets", ("setup/outlets",)),
+    "zones": ("Zones", "outlets", ("zones",)),
+    "locations": ("Locations", "outlets", ("locations",)),
+    "departments": ("Departments", "departments", ("setup/departments",)),
+    "roles": ("Roles", "roles", ("roles",)),
+}
+ACTION_PERMISSIONS = tuple(f"{record}.{level}" for record in CHANGE_RECORDS for level in ("manage", "approve"))
+
 
 def validate_list(value, allowed):
     if not isinstance(value, list) or any(not isinstance(item, str) or item not in allowed for item in value):
@@ -18,10 +32,14 @@ def validate_overrides(value):
         return None
     if not isinstance(value, dict):
         raise ValueError("Permission overrides must be an object or null")
-    return {
+    validated = {
         "permissions": validate_list(value.get("permissions", []), {tab[0] for tab in APP_TABS}),
         "inspectionPermissions": validate_list(value.get("inspectionPermissions", []), INSPECTION_PERMISSIONS),
     }
+    # Personal change permissions are optional; without them the role's apply.
+    if "actions" in value:
+        validated["actions"] = validate_list(value["actions"], set(ACTION_PERMISSIONS))
+    return validated
 
 
 def resolve_permissions(db, role_name, overrides=None):
@@ -34,6 +52,16 @@ def resolve_permissions(db, role_name, overrides=None):
     if not role:
         return [], []
     return load_value(role["permissions_data_id"] or "[]"), load_value(role["inspection_permissions_data_id"] or "[]")
+
+
+def resolve_actions(db, role_name, overrides=None):
+    """The change permissions a person has: their own if set, otherwise their role's."""
+    if role_name == SUPER_ROLE:
+        return list(ACTION_PERMISSIONS)
+    if overrides is not None and "actions" in overrides:
+        return validate_overrides(overrides)["actions"]
+    role = db.execute("SELECT action_permissions_data_id FROM roles WHERE name = ?", (role_name,)).fetchone()
+    return (load_value(role["action_permissions_data_id"]) or []) if role and role["action_permissions_data_id"] else []
 
 
 def authorize_inspection_update(user, payload, existing=None):

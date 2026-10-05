@@ -21,7 +21,8 @@ from backend.reports import dashboard, inspection_pdf, report, report_pdf, repor
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.work_requests import work_request_items
-from backend import outlet_access
+from backend import change_requests, outlet_access
+from backend.permissions import CHANGE_RECORDS
 from backend.audit_exports import inspection_xlsx, location_pdf, location_xlsx
 from backend.schedule_assignment import assignable_people
 from backend.routes import dispatch
@@ -135,6 +136,19 @@ class Handler(BaseHTTPRequestHandler):
         if outlet_access.allowed(user) is not None:
             with connect() as db:
                 outlet_access.guard_mutation(db, user, self.command, parsed.path, payload)
+        return True
+
+    def hold_for_approval(self, parsed, payload):
+        """Changes to managed records need the person's permission; without approval rights they wait for an approver."""
+        record, record_id = change_requests.record_for(self.command, parsed.path)
+        if not record:
+            return False
+        user = self.current_user()
+        if not change_requests.allowed(user, record, "manage"):
+            raise PermissionError(f"You cannot add, edit, or delete {CHANGE_RECORDS[record][0].lower()}")
+        if change_requests.allowed(user, record, "approve"):
+            return False
+        self.json(change_requests.hold(user, self.command, parsed.path, payload, record, record_id))
         return True
 
     def require_auth(self, parsed):
@@ -286,6 +300,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/work-requests":
             self.json(listed(work_request_items(viewer)))
             return
+        if parsed.path == "/api/changes":
+            self.json(change_requests.change_items(viewer))
+            return
         if parsed.path == "/api/findings":
             self.json(listed(finding_items(user=viewer)))
             return
@@ -434,6 +451,8 @@ class Handler(BaseHTTPRequestHandler):
             self.json({"image": payload["image"]})
             return
         self.guard_outlets(parsed, payload)
+        if self.hold_for_approval(parsed, payload):
+            return
         if not dispatch("POST", self, parsed, payload):
             self.send_error(404)
 
@@ -449,6 +468,8 @@ class Handler(BaseHTTPRequestHandler):
             return
         payload = MediaStore(config.DB_PATH).normalize(payload)
         self.guard_outlets(parsed, payload)
+        if self.hold_for_approval(parsed, payload):
+            return
         if not dispatch("PATCH", self, parsed, payload):
             self.send_error(404)
 
@@ -456,7 +477,7 @@ class Handler(BaseHTTPRequestHandler):
     @api_errors
     def do_DELETE(self):
         parsed = urlparse(self.path)
-        if self.require_auth(parsed) and self.guard_outlets(parsed, None) and not dispatch("DELETE", self, parsed):
+        if self.require_auth(parsed) and self.guard_outlets(parsed, None) and not self.hold_for_approval(parsed, None) and not dispatch("DELETE", self, parsed):
             self.send_error(404)
 
 

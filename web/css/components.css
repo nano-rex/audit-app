@@ -1833,3 +1833,70 @@ people view: a card per person {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* Change permissions: a row per kind of record. */
+.action-permissions {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.action-permissions th,
+.action-permissions td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.action-permissions td {
+  width: 130px;
+  text-align: center;
+}
+
+.action-permissions thead th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.action-permissions input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Approvals: what a waiting change sets. */
+.change-fields {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.notice {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: 16px;
+  z-index: 50;
+  max-width: 520px;
+  margin-left: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  color: var(--text);
+  font-size: 13px;
+}

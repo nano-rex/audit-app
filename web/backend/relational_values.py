@@ -18,7 +18,8 @@ FIELDS = {
     "work_requests": {"images_json": "images_data_id"},
     "equipment": {"photos": "photos_data_id", "inspection_criteria": "inspection_criteria_data_id"},
     "zones": {"locations_json": "locations_data_id"},
-    "roles": {"permissions_json": "permissions_data_id", "inspection_permissions": "inspection_permissions_data_id"},
+    "roles": {"permissions_json": "permissions_data_id", "inspection_permissions": "inspection_permissions_data_id", "action_permissions": "action_permissions_data_id"},
+    "change_requests": {"payload_json": "payload_data_id", "before_json": "before_data_id"},
     "users": {"permission_overrides": "permission_overrides_data_id", "profile_photo": "profile_photo_data_id", "signature_image": "signature_image_data_id", "outlets_json": "outlets_data_id"},
     "app_settings": {"value": "value_data_id"},
 }

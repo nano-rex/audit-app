@@ -88,6 +88,7 @@ async function loadTabData(tabId) {
     users: () => (currentUser?.permissions || ["users"]).includes("users") ? loadUsers() : Promise.resolve(),
     account: loadAccount,
     notifications: loadNotifications,
+    approvals: () => loadChanges(),
     outlets: async () => {
       // Outlet rows are already part of the initial setup response. Keep them
       // visible while the dependent location and zone lists refresh.

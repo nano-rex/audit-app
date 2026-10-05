@@ -18,6 +18,7 @@ const allTabs = [
   { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
   { id: "notifications", label: "Notifications" },
+  { id: "approvals", label: "Approvals" },
   { id: "categories", label: "Assets" },
   { id: "departments", label: "Departments" },
   { id: "outlets", label: "Outlets" },
