@@ -1901,3 +1901,60 @@ h4,
     margin: 10px 12px 0;
   }
 }
+
+/* Schedule dialog: the people a visit is assigned to. */
+.assignee-picker {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px 12px;
+}
+
+.assignee-picker legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.assignee-picker > p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.assignee-picker [data-assignee-options] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  gap: 6px;
+  max-height: min(260px, 40vh);
+  overflow: auto;
+}
+
+.assignee-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.assignee-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.assignee-option span {
+  display: grid;
+  min-width: 0;
+}
+
+.assignee-option b {
+  font-size: 13px;
+}
+
+.assignee-option small {
+  color: var(--muted);
+  font-size: 11px;
+}

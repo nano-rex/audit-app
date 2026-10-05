@@ -10,6 +10,7 @@ from backend.common import inspection_name, inspection_progress, normalize_audit
 from backend.database import connect, first_outlet, insert_record
 from backend.inspections import finalize_inspection, visit_locations_of
 from backend.location_integrity import locations_label, visit_locations
+from backend.schedule_assignment import assignees_of, save_assignment, validate_assignees
 
 
 def append_inspection_photos(db, items, now):
@@ -123,6 +124,10 @@ def post_schedules(self, parsed, payload=None):
                 now,
             ),
         )
+        if "assignees" in payload:
+            people = validate_assignees(db, outlet, payload["assignees"])
+            save_assignment(db, self.current_user(), cursor.lastrowid, outlet, payload.get("scheduledDate", "Today"), people,
+                            business_unit=payload.get("businessUnit", "Ottotree"))
     self.json({"ok": True, "id": cursor.lastrowid, "scheduleRef": f"SCH-{cursor.lastrowid:05d}"})
 
 
@@ -300,7 +305,7 @@ def patch_schedules(self, parsed, payload=None):
         self.send_error(400)
         return
     with connect() as db:
-        existing = db.execute("SELECT status FROM schedules WHERE id = ?", (int(schedule_id),)).fetchone()
+        existing = db.execute("SELECT status, auditor, assignees_data_id, business_unit FROM schedules WHERE id = ?", (int(schedule_id),)).fetchone()
         if not existing:
             self.send_error(404)
             return
@@ -317,13 +322,17 @@ def patch_schedules(self, parsed, payload=None):
                 locations_label(locations),
                 save_value(db, locations),
                 payload.get("scheduledDate", "Today"),
-                payload.get("auditor", "Unassigned"),
+                payload.get("auditor") or existing["auditor"] or "Unassigned",
                 payload.get("remarks", ""),
                 # Status follows the audit's progress; an edit keeps it unless a status is sent.
                 payload.get("status") or existing["status"],
                 int(schedule_id),
             ),
         )
+        if "assignees" in payload:
+            people = validate_assignees(db, outlet, payload["assignees"])
+            save_assignment(db, self.current_user(), int(schedule_id), outlet, payload.get("scheduledDate", "Today"), people,
+                            assignees_of(existing["assignees_data_id"]), existing["business_unit"])
     self.json({"ok": True})
 
 

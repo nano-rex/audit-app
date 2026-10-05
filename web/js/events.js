@@ -484,7 +484,16 @@ document.getElementById("photo-mark-form")?.addEventListener("submit", async (ev
 
 document.querySelector('#schedule-form select[name="outlet"]')?.addEventListener("change", () => {
   updateScheduleLocationSelect();
+  // Assignees must cover the outlet, so the choice starts again for a new outlet.
+  loadScheduleAssignees([]).catch(showLoadError);
 });
+
+document.querySelector("[data-assignee-search]")?.addEventListener("input", (event) => {
+  const term = event.target.value.trim().toLowerCase();
+  document.querySelectorAll("[data-assignee-name]").forEach((option) => { option.hidden = Boolean(term) && !option.dataset.assigneeName.includes(term); });
+});
+
+document.querySelector("[data-only-mine]")?.addEventListener("change", () => renderGuidedSchedules());
 
 document.querySelector("#schedule-form [data-visit-location-options]")?.addEventListener("change", (event) => {
   const container = event.currentTarget;

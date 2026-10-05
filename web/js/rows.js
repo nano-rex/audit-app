@@ -88,6 +88,7 @@ function notificationTarget(row) {
   const id = Number(row.related_id);
   if (!id) return null;
   if (row.related_type === "inspection" && permissions.includes("inspections")) return { type: "inspection", id };
+  if (row.related_type === "schedule" && permissions.includes("inspections")) return { type: "schedule", id };
   if (row.related_type === "work_order" && permissions.includes("work-orders")) return { type: "work_order", id };
   if (row.related_type === "user" && permissions.includes("users")) return { type: "user", id };
   return null;
@@ -273,7 +274,7 @@ function scheduleRow(row) {
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
         <b>${escapeHtml(auditTitle(session, `${row.outlet}_${row.scheduled_date}`))}</b>
         <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
-        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(shown.auditor || "No auditor")} | ${escapeHtml(scheduleLabel(row.id))}</span>
+        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>

@@ -7,7 +7,7 @@ async function resetScheduleForm() {
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
   await updateScheduleLocationSelect();
   form.elements.scheduledDate.value = todayIsoDate();
-  form.elements.auditor.value = currentUser?.name || "";
+  await loadScheduleAssignees([]);
   form.querySelector("[data-delete-current-schedule]").hidden = true;
   setText("[data-schedule-message]", "");
   // An audit that happens now is scheduled and opened in one step.
@@ -22,7 +22,7 @@ async function openScheduleEditor(row) {
   form.elements.outlet.value = row.outlet;
   await updateScheduleLocationSelect(row.visit_locations || []);
   form.elements.scheduledDate.value = row.scheduled_date;
-  form.elements.auditor.value = row.auditor;
+  await loadScheduleAssignees(row.assignees || []);
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
   form.querySelector('button[value="default"]').textContent = "Save Changes";
@@ -422,7 +422,7 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
     outlet: formValue(form, "outlet", ""),
     locations: chosenVisitLocations(form),
     scheduledDate: formValue(form, "scheduledDate", "Today"),
-    auditor: formValue(form, "auditor", "Unassigned"),
+    assignees: [...form.querySelectorAll('input[name="assignee"]:checked')].map((input) => Number(input.value)),
     remarks: formValue(form, "remarks", ""),
   };
   const id = formValue(form, "scheduleId", "");

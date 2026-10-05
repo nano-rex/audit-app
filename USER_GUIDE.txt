@@ -67,12 +67,18 @@ An administrator should configure these records before staff begin auditing:
 --------------------
 1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
    Dashboard.
-2. Select the outlet, set the date and auditor, and add any scheduling
-   remarks. Under Locations, All locations is ticked: the audit covers the
+2. Select the outlet and date, and under Assigned to tick the person or
+   people who should do it (for example a supervisor assigning staff). Only
+   people who can audit and whose outlets include the visit's outlet are
+   listed. Each person assigned is notified, and the visit waits for them
+   under Waiting on you until it is started. Anyone with audit permission
+   can still start it. Add any scheduling remarks. Under Locations, All locations is ticked: the audit covers the
    whole outlet. Tick one or more locations instead to audit only those; the
    inspection then shows only their tabs. Untick them all to return to All.
    Save the schedule. A new schedule is always Pending; it becomes In Progress
    when the audit starts and Completed when it is finished.
+   Tick Only mine above Scheduled Work to see just the visits assigned to
+   you and the drafts you started.
    To remove a visit, choose Edit and Delete. A visit that was already
    opened has a draft audit, which is deleted with it (you are told first);
    a visit whose audit is completed is kept with that audit record.
