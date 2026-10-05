@@ -4,6 +4,8 @@ async function loadAttention() {
   const data = await response.json();
   unreadNotifications = data.unreadNotifications || 0;
   attentionCounts = data.counts || {};
+  const outdated = document.querySelector("[data-server-outdated]");
+  if (outdated) outdated.hidden = !data.serverOutdated;
   renderUnreadBadge();
   const items = data.items || [];
   const count = document.querySelector("[data-attention-count]");

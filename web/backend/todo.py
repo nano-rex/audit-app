@@ -5,6 +5,7 @@ from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
 from backend.outlet_access import keep
+from backend.code_version import outdated
 from backend.work_requests import reviews_requests
 
 SIGNATURES = (("auditedBy", "auditor", "auditor"), ("verifiedBy", "verifier", "verifier"),
@@ -63,7 +64,8 @@ def todo_items(user):
         "resets": resets,
         "notifications": unread,
     }
-    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts}
+    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts,
+            "serverOutdated": outdated()}
 
 
 def items_needing_request(db, user):
