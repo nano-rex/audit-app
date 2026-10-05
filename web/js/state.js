@@ -12,7 +12,8 @@ let currentUnit = branding.businessUnitLabel;
 const allTabs = [
   { id: "today", label: "Dashboard" },
   { id: "inspections", label: "Inspections" },
-  { id: "findings", label: "History & Findings" },
+  { id: "history", label: "History" },
+  { id: "findings", label: "Findings" },
   { id: "work-orders", label: "Maintenance" },
   { id: "equipment", label: "Fixed Assets" },
   { id: "reports", label: "Reports" },
@@ -30,7 +31,7 @@ const superTabs = [
   { id: "super-dashboard", label: "Super Dashboard" },
   { id: "super-settings", label: "Super Settings" },
 ];
-const contextParents = { reports: "today", findings: "inspections", equipment: "categories" };
+const contextParents = { reports: "today", history: "inspections", findings: "inspections", equipment: "categories" };
 // Opening a page from the bar or menu lands on this sub-page when the user may see it.
 const defaultContextChild = { categories: "equipment" };
 // Mirrors TRANSITIONS in web/backend/workflow.py, which remains the authority.

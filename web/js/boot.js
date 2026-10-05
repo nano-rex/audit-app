@@ -77,7 +77,8 @@ async function loadTabData(tabId) {
   const loaders = {
     today: loadDashboard,
     reports: async () => { await loadDashboard(); await loadReport(); },
-    findings: () => Promise.all([loadInspectionHistory(), loadFindings()]),
+    history: loadInspectionHistory,
+    findings: loadFindings,
     "work-orders": () => Promise.all([loadWorkOrders(), loadWorkRequests()]),
     equipment: loadEquipment,
     categories: async () => {

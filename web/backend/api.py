@@ -170,7 +170,7 @@ class Handler(BaseHTTPRequestHandler):
         if route == "findings":
             with connect() as db:
                 if read_setting(db, "system.findingsEnabled", True) is False:
-                    self.json({"ok": False, "error": "History and Findings is disabled"}, 403)
+                    self.json({"ok": False, "error": "Findings is turned off"}, 403)
                     return False
         permissions = {
             "dashboard": {"today", "reports"},
@@ -204,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
             allowed |= {"inspections"}  # Inspectors can request work for what failed.
         if self.command == "GET":
             if route == "inspection-sessions":
-                allowed |= {"findings"}
+                allowed |= {"findings", "history"}
             if route in {"setup", "locations", "zones"}:
                 return True  # Shared selection lists used by the permitted workflows.
             if route == "equipment":

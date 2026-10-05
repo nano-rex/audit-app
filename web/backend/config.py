@@ -156,7 +156,8 @@ OTTOTREE_THEME = {"preset": "ottotree", "font": "noto-sans-sc"}
 APP_TABS = (
     ("today", "Dashboard"),
     ("inspections", "Inspections"),
-    ("findings", "History & Findings"),
+    ("history", "History"),
+    ("findings", "Findings"),
     ("work-orders", "Maintenance"),
     ("equipment", "Fixed Assets"),
     ("reports", "Reports"),

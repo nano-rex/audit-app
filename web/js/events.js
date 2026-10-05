@@ -17,7 +17,7 @@ document.addEventListener("click", async (event) => {
     findingFilters.auditId = findingLink?.dataset.viewInspectionFindings || "";
     setText("[data-finding-inspection-scope]", findingFilters.auditId ? `Audit #${findingFilters.auditId}` : "All inspections");
     renderFindings();
-    showHistoryFindingsSection("findings");
+    showContextTab("findings");
     return;
   }
   if (event.target.closest("[data-back-to-schedules]")) {

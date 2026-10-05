@@ -175,13 +175,13 @@ def seed_roles(db):
     admin_permissions = [tab[0] for tab in APP_TABS if tab[0] not in ("settings",)]
     role_rows = [
         (ADMIN_ROLE, "Company administrator access", admin_permissions),
-        ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),
-        ("Department/PIC", "Corrective action ownership", ["today", "findings", "work-orders", "notifications", "reports"]),
-        ("Management", "Management reporting access", ["reports", "findings", "notifications"]),
-        ("System Support Executive", "System support executive access", ["today", "equipment", "findings", "work-orders", "notifications"]),
-        ("System Support Officer", "System support officer access", ["today", "equipment", "findings", "work-orders", "notifications"]),
-        ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "findings", "work-orders", "notifications"]),
-        ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "findings", "work-orders", "notifications"]),
+        ("Auditor", "Field inspection and verification access", ["today", "inspections", "equipment", "reports", "history", "findings", "work-orders"]),
+        ("Department/PIC", "Corrective action ownership", ["today", "history", "findings", "work-orders", "notifications", "reports"]),
+        ("Management", "Management reporting access", ["reports", "history", "findings", "notifications"]),
+        ("System Support Executive", "System support executive access", ["today", "equipment", "history", "findings", "work-orders", "notifications"]),
+        ("System Support Officer", "System support officer access", ["today", "equipment", "history", "findings", "work-orders", "notifications"]),
+        ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "history", "findings", "work-orders", "notifications"]),
+        ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "history", "findings", "work-orders", "notifications"]),
     ]
     # Default roles are for a new database only; once roles exist, removing one keeps it removed.
     if not db.execute("SELECT 1 FROM roles LIMIT 1").fetchone():
@@ -210,7 +210,7 @@ def seed_roles(db):
     # Upgrade only the original defaults, preserving administrator-customized roles.
     if auditor and set(load_value(auditor["permissions_data_id"])) == {"today", "inspections", "equipment", "reports"}:
         db.execute("UPDATE roles SET permissions_data_id = ? WHERE name = 'Auditor'",
-                   (save_value(db, ["today", "inspections", "equipment", "reports", "findings", "work-orders"]),))
+                   (save_value(db, ["today", "inspections", "equipment", "reports", "history", "findings", "work-orders"]),))
 
 
 def retire_corrective_actions_page(db):
@@ -278,13 +278,13 @@ def seed_settings(db):
 
 OPERATION_ROLES = (
     ("Regional Manager", "Oversees the outlets of a region",
-     ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["verifier", "acknowledger"]),
+     ["today", "inspections", "history", "findings", "work-orders", "equipment", "reports", "notifications"], ["verifier", "acknowledger"]),
     ("Operation Manager", "Runs one outlet",
-     ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["auditor", "acknowledger"]),
+     ["today", "inspections", "history", "findings", "work-orders", "equipment", "reports", "notifications"], ["auditor", "acknowledger"]),
     ("PIC", "Person in charge at one outlet",
-     ["today", "findings", "work-orders", "notifications"], ["acknowledger"]),
+     ["today", "history", "findings", "work-orders", "notifications"], ["acknowledger"]),
     ("Captain", "Team lead at one outlet",
-     ["today", "inspections", "findings", "equipment", "work-orders", "notifications"], ["auditor"]),
+     ["today", "inspections", "history", "findings", "equipment", "work-orders", "notifications"], ["auditor"]),
 )
 
 
@@ -318,3 +318,21 @@ def outlets_on_people(db):
     if "outlet_scope" in columns:
         db.execute("UPDATE users SET outlets_data_id = NULL WHERE role NOT IN (SELECT name FROM roles WHERE outlet_scope IN ('one', 'several'))")
     db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.outletsOnPeople', ?)", (save_value(db, True),))
+
+
+def split_history_from_findings(db):
+    """Once: History became its own page beside Findings. Whoever could open "History & Findings"
+    keeps both, in their role and in any permissions set on them personally."""
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.historySplit'").fetchone():
+        return
+    for row in db.execute("SELECT id, permissions_data_id FROM roles WHERE permissions_data_id IS NOT NULL").fetchall():
+        pages = load_value(row["permissions_data_id"]) or []
+        if "findings" in pages and "history" not in pages:
+            db.execute("UPDATE roles SET permissions_data_id = ? WHERE id = ?", (save_value(db, [*pages, "history"]), row["id"]))
+    for row in db.execute("SELECT id, permission_overrides_data_id FROM users WHERE permission_overrides_data_id IS NOT NULL").fetchall():
+        overrides = load_value(row["permission_overrides_data_id"]) or {}
+        pages = overrides.get("permissions") or []
+        if "findings" in pages and "history" not in pages:
+            db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?",
+                       (save_value(db, {**overrides, "permissions": [*pages, "history"]}), row["id"]))
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.historySplit', ?)", (save_value(db, True),))
