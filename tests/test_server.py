@@ -921,5 +921,13 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(f"/api/roles/{ids['Chain Middle']}", "DELETE")[0], 200)
         self.assertEqual(roles()["Chain Bottom"]["reports_to_id"], ids["Chain Top"])
 
+    def test_z_opened_visit_can_be_deleted_with_its_draft(self):
+        schedule_id = json.loads(self.request("/api/schedules", "POST", {"outlet": "MST", "scheduledDate": "2026-10-06", "auditor": "Delete me"})[2])["id"]
+        session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": schedule_id})[2])["id"]
+        self.assertEqual(self.request(f"/api/schedules/{schedule_id}", "DELETE")[0], 200)
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM schedules WHERE id = ?", (schedule_id,)).fetchone())
+            self.assertIsNone(db.execute("SELECT 1 FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone())
+
 if __name__ == "__main__":
     unittest.main()

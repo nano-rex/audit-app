@@ -9,6 +9,7 @@ async function resetScheduleForm() {
   form.elements.scheduledDate.value = todayIsoDate();
   form.elements.auditor.value = currentUser?.name || "";
   form.querySelector("[data-delete-current-schedule]").hidden = true;
+  setText("[data-schedule-message]", "");
   // An audit that happens now is scheduled and opened in one step.
   form.querySelector("[data-schedule-start-now]").hidden = !(currentUser?.inspectionPermissions || []).includes("auditor");
 }
@@ -25,8 +26,11 @@ async function openScheduleEditor(row) {
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
   form.querySelector('button[value="default"]').textContent = "Save Changes";
-  form.querySelector("[data-delete-current-schedule]").hidden = false;
+  // A visit whose audit is completed is kept with that audit record.
+  form.querySelector("[data-delete-current-schedule]").hidden = row.inspection_status === "Completed";
   form.querySelector("[data-schedule-start-now]").hidden = true;
+  // A visit that was opened has an audit; an unfinished one is deleted with the visit.
+  form.dataset.draft = row.inspection_id && row.inspection_status !== "Completed" ? JSON.stringify({ ref: row.audit_ref || "", progress: row.progress || 0 }) : "";
   dialog.showModal();
 }
 
@@ -438,8 +442,18 @@ document.querySelector("[data-delete-current-schedule]")?.addEventListener("clic
   const form = event.currentTarget.closest("form");
   const id = formValue(form, "scheduleId", "");
   if (!id) return;
-  if (!confirm("Delete this scheduled visit?")) return;
-  await requestJson(`/api/schedules/${id}`, "DELETE");
+  // A visit that was opened already has a draft audit; say so before it goes too.
+  const draft = form.dataset.draft ? JSON.parse(form.dataset.draft) : null;
+  const warning = draft
+    ? `Delete this scheduled visit? Its draft audit ${draft.ref} (${draft.progress}% done) will be deleted too.`
+    : "Delete this scheduled visit?";
+  if (!confirm(warning.replace("  ", " "))) return;
+  try {
+    await requestJson(`/api/schedules/${id}`, "DELETE");
+  } catch (error) {
+    setText("[data-schedule-message]", error.message);
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });

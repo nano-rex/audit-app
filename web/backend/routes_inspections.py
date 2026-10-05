@@ -356,10 +356,18 @@ def delete_schedules(self, parsed, payload=None):
     if not schedule_id.isdigit():
         self.send_error(400)
         return
+    user = self.current_user()
     with connect() as db:
-        if db.execute("SELECT 1 FROM inspection_sessions WHERE schedule_id = ?", (int(schedule_id),)).fetchone():
-            self.json({"error": "A schedule linked to an inspection must be retained"}, 409)
+        db.execute("BEGIN IMMEDIATE")
+        session = db.execute("SELECT id, status, closed_at, audit_ref FROM inspection_sessions WHERE schedule_id = ?", (int(schedule_id),)).fetchone()
+        if session and (session["status"] == "Completed" or session["closed_at"]):
+            self.json({"error": f"This visit's audit {session['audit_ref'] or ''} is completed and is kept as an audit record, so the visit cannot be deleted.".replace("  ", " ")}, 409)
             return
+        if session:
+            # Opening a visit starts a draft at once; deleting the visit deletes that unfinished draft with it.
+            if "auditor" not in user.get("inspectionPermissions", []):
+                raise PermissionError("This visit has a draft audit; deleting it needs auditor permission")
+            db.execute("DELETE FROM inspection_sessions WHERE id = ?", (session["id"],))
         cursor = db.execute("DELETE FROM schedules WHERE id = ?", (int(schedule_id),))
         if cursor.rowcount == 0:
             self.send_error(404)
