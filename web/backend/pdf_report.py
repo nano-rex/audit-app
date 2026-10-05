@@ -222,3 +222,42 @@ def build_location_report(outlet, location, period, audits, brand, media, settin
         writer.findings(audit["findings"])
         writer.signatures(audit["session"])
     return writer.build(f"{outlet} · {location}", f"Location report {outlet} {location}")
+
+
+def build_summary_report(data, findings, scope, brand, settings=None):
+    """The Reports page on paper: its figures, outlet rankings, critical issues, and findings."""
+    writer = ReportWriter(brand, None, settings)
+    writer.letterhead("Audit Report")
+    writer.text(scope, "Heading2")
+    summary, kpi = data["monthlySummary"], data["kpi"]
+    writer.table([
+        ["Audits", f"{summary['audits']} total / {summary['auditsCompleted']} completed / {summary['auditsPending']} pending"],
+        ["Average score", f"{summary['averageScore']}/100"],
+        ["Findings", f"{summary['totalFindings']} total / {summary['priorityFindings']} priority / {summary['nonPriorityFindings']} non-priority"],
+        ["Outstanding", f"{summary['outstandingFindings']} findings open / {summary['overdueFindings']} overdue"],
+        ["Work orders", f"{summary['openWorkOrders']} open / {summary['closedWorkOrders']} closed / {summary['completionRate']}% complete"],
+        ["Scheduled audits", f"{kpi['assigned']} assigned / {kpi['completed']} completed / {kpi['pending']} pending / {kpi['responseRate']}% response"],
+    ], [125, 355], header=False, label_column=True)
+    writer.add(Spacer(1, 12), writer.paragraph("Outlet rankings", "Heading1"))
+    if data["rankings"]:
+        writer.table([["#", "Outlet", "Latest", "Average", "Audits", "Last audit"]]
+                     + [[index, row["outlet"], row["latest"], row["average"], row["audit_count"], row["audit_date"]]
+                        for index, row in enumerate(data["rankings"], 1)], [30, 120, 70, 70, 70, 120])
+    else:
+        writer.text("No completed audits in this period.")
+    writer.add(Spacer(1, 12), writer.paragraph("Critical issues", "Heading1"))
+    if data["criticalIssues"]:
+        writer.table([["Work order", "Outlet", "Location", "Title", "Status", "Due"]]
+                     + [[row.get("work_order_ref") or row["id"], row["outlet"], row.get("zone") or "", row.get("title") or "",
+                         row["status"], row.get("due_date") or ""] for row in data["criticalIssues"]], [80, 55, 70, 155, 60, 60])
+    else:
+        writer.text("No open high-priority work orders.")
+    writer.add(Spacer(1, 12), writer.paragraph("Findings", "Heading1"))
+    if findings:
+        writer.table([["Finding", "Audit", "Outlet", "Location", "Item / check", "Priority", "Status"]]
+                     + [[row.get("finding_ref") or "", row.get("audit_ref") or "", row.get("outlet") or "", row.get("location") or "",
+                         " · ".join(value for value in (row.get("item_name"), row.get("criterion")) if value) or row.get("comment") or "",
+                         row.get("priority") or "", row.get("status") or ""] for row in findings], [65, 72, 45, 60, 130, 50, 58])
+    else:
+        writer.text("No findings in this period.")
+    return writer.build(scope, "Audit report")
