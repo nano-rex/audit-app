@@ -19,7 +19,7 @@ def setup_records(include_super=False):
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
         ).fetchall()]
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department, reports_to_id FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
             role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)
@@ -51,7 +51,7 @@ def setup_records(include_super=False):
 
 def role_items(include_super=False):
     with connect() as db:
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department, reports_to_id FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         rows = db.execute(role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)).fetchall()
     items = []
@@ -80,8 +80,9 @@ def users(include_super=False):
     for item in items:
         raw = item.pop("permission_overrides_data_id")
         item["permissionOverrides"] = load_value(raw) if raw is not None else None
+        # None: every outlet; otherwise the outlets ticked for this person.
         outlets = item.pop("outlets_data_id")
-        item["outlets"] = (load_value(outlets) or []) if outlets else []
+        item["outlets"] = (load_value(outlets) or []) if outlets is not None else None
         # The picture is shown on the organization chart; only its address is sent.
         photo = item.pop("profile_photo_data_id")
         picture = (load_value(photo) or {}) if photo else {}

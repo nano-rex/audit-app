@@ -1,12 +1,10 @@
 """Which outlets an account may see and change.
 
-A role either covers every outlet ("all"), or limits its users to one outlet ("one") or to
-the several outlets assigned to them ("several"). Lists are filtered to those outlets, and a
-change or a single record outside them is refused.
+Each person has their outlets: all of them (the default), or the ones ticked for them. People
+sharing a role can cover different outlets (two Regional Managers, two regions). Lists are
+filtered to them, and a change or a single record outside them is refused.
 """
-from backend.config import SUPER_ROLE
-
-SCOPES = {"all": "All outlets", "one": "One outlet", "several": "Selected outlets"}
+from backend.relational_values import load_value
 
 # Records reached by /api/<route>/<id>, and the column naming their outlet.
 RECORDS = {
@@ -21,35 +19,22 @@ RECORDS = {
 DENIED = "That outlet is not assigned to your account"
 
 
-def role_scope(db, role_name):
-    if role_name == SUPER_ROLE:
-        return "all"
-    row = db.execute("SELECT outlet_scope FROM roles WHERE name = ?", (role_name,)).fetchone()
-    return (row["outlet_scope"] if row else None) or "all"
+def person_outlets(reference):
+    """None when the person covers every outlet, otherwise the list of their outlet codes."""
+    return None if reference is None else (load_value(reference) or [])
 
 
-def validate_scope(value):
-    value = value or "all"
-    if value not in SCOPES:
-        raise ValueError("Choose all outlets, one outlet, or selected outlets")
-    return value
-
-
-def validate_user_outlets(db, scope, outlets):
-    """The outlets kept on a user: none for an all-outlet role, otherwise existing outlet codes."""
-    if scope == "all":
-        return []
+def validate_outlets(db, outlets):
+    """None (every outlet) or a list of existing outlet codes."""
+    if outlets is None:
+        return None
     if not isinstance(outlets, list) or any(not isinstance(code, str) for code in outlets):
         raise ValueError("Outlets must be a list of outlet codes")
     outlets = list(dict.fromkeys(outlets))
     known = {row[0] for row in db.execute("SELECT code FROM outlets")}
     if any(code not in known for code in outlets):
         raise ValueError("Select existing outlets")
-    if scope == "one" and len(outlets) != 1:
-        raise ValueError("This role works at exactly one outlet; choose it")
-    if scope == "several" and not outlets:
-        raise ValueError("Choose the outlets this person covers")
-    return outlets
+    return outlets or None
 
 
 def allowed(user):

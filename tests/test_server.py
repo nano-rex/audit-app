@@ -57,6 +57,17 @@ class ServerTests(unittest.TestCase):
         cls.thread.join()
         cls.storage.cleanup()
 
+    def outlet_role(self, name, permissions=("today", "inspections", "findings", "work-orders", "equipment", "notifications"), capabilities=("auditor",)):
+        status, _, body = self.request("/api/roles", "POST", {"name": name, "permissions": list(permissions), "inspectionPermissions": list(capabilities)})
+        self.assertEqual(status, 200, body)
+        return name
+
+    @staticmethod
+    def limit_to(user_id, outlets):
+        """The person sees only these outlets."""
+        with app.connect() as db:
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, outlets), user_id))
+
     def from_request(self, order=None, **request):
         """A work order is made from a work request: raise one, then point the order at it."""
         fields = {"outlet": "STP", "location": "Room", "itemName": "Test item", "description": "Needs work"} | request
@@ -789,15 +800,13 @@ class ServerTests(unittest.TestCase):
 
     def test_z_outlet_limited_accounts_see_only_their_outlets(self):
         roles = {row["name"]: row for row in json.loads(self.request("/api/roles")[2])["items"]}
-        self.assertEqual({name: (roles[name]["outlet_scope"], roles[name]["department"]) for name in ("Regional Manager", "Operation Manager", "PIC", "Captain")},
-                         {"Regional Manager": ("several", "Operation"), "Operation Manager": ("one", "Operation"), "PIC": ("one", "Operation"), "Captain": ("one", "Operation")})
+        self.assertEqual({name: roles[name]["department"] for name in ("Regional Manager", "Operation Manager", "PIC", "Captain")},
+                         {name: "Operation" for name in ("Regional Manager", "Operation Manager", "PIC", "Captain")})
+        # Outlets are set on each person; people sharing a role can cover different outlets.
         manager = {"name": "Outlet Manager", "email": "outlet-manager@example.test", "role": "Operation Manager", "department": "Operation", "password": "a-long-password"}
-        # A one-outlet role needs exactly one outlet.
-        self.assertEqual(self.request("/api/users", "POST", manager)[0], 400)
-        self.assertEqual(self.request("/api/users", "POST", manager | {"outlets": ["MST", "MAM"]})[0], 400)
+        self.assertEqual(self.request("/api/users", "POST", manager | {"outlets": ["NOPE"]})[0], 400)
         self.assertEqual(self.request("/api/users", "POST", manager | {"outlets": ["MST"]})[0], 200)
-        regional = {"name": "Region Lead", "email": "region-lead@example.test", "role": "Regional Manager", "department": "Operation", "password": "a-long-password"}
-        self.assertEqual(self.request("/api/users", "POST", regional | {"outlets": []})[0], 400)
+        regional = {"name": "Region Lead", "email": "region-lead@example.test", "role": "Operation Manager", "department": "Operation", "password": "a-long-password"}
         self.assertEqual(self.request("/api/users", "POST", regional | {"outlets": ["MST", "MAM"]})[0], 200)
         with app.connect() as db:
             ids = {row["email"]: row["id"] for row in db.execute("SELECT id, email FROM users WHERE email IN ('outlet-manager@example.test', 'region-lead@example.test')")}
@@ -805,7 +814,7 @@ class ServerTests(unittest.TestCase):
         app.SESSION_TOKENS["outlet-manager"] = {"user_id": ids["outlet-manager@example.test"], "expires_at": time.time() + 3600}
         app.SESSION_TOKENS["region-lead"] = {"user_id": ids["region-lead@example.test"], "expires_at": time.time() + 3600}
         me = json.loads(self.request("/api/account", token="outlet-manager")[2])["user"]
-        self.assertEqual((me["outletScope"], me["outlets"]), ("one", ["MST"]))
+        self.assertEqual((me["outletScope"], me["outlets"]), ("selected", ["MST"]))
         get = lambda path, token: json.loads(self.request(path, token=token)[2])
         self.assertEqual([row["code"] for row in get("/api/setup", "outlet-manager")["outlets"]], ["MST"])
         self.assertEqual(sorted(row["code"] for row in get("/api/setup", "region-lead")["outlets"]), ["MAM", "MST"])
@@ -872,9 +881,10 @@ class ServerTests(unittest.TestCase):
         empty = self.request("/api/location-report.xlsx?outlet=MST&location=Export%20Room&from=2030-01-01")
         self.assertEqual(empty[0], 200)
         # An account limited to other outlets cannot export this one.
+        self.outlet_role("Exporter", permissions=("today", "findings", "reports"))
         with app.connect() as db:
-            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Export PIC', 'PIC', 'export-pic@example.test', 1, 0)").lastrowid
-            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MAM"]), user_id))
+            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Export PIC', 'Exporter', 'export-pic@example.test', 1, 0)").lastrowid
+        self.limit_to(user_id, ["MAM"])
         app.SESSION_TOKENS["export-pic"] = {"user_id": user_id, "expires_at": time.time() + 3600}
         self.assertEqual(self.request("/api/location-report.pdf?outlet=MST&location=Export%20Room", token="export-pic")[0], 403)
         self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}/export.xlsx", token="export-pic")[0], 403)
@@ -894,9 +904,9 @@ class ServerTests(unittest.TestCase):
 
 
     def test_reports_need_the_reports_permission(self):
+        self.outlet_role("Without Reports", permissions=("today", "findings", "work-orders", "notifications"), capabilities=())
         with app.connect() as db:
-            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('No Reports', 'PIC', 'no-reports@example.test', 1, 0)").lastrowid
-            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MST"]), user_id))
+            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('No Reports', 'Without Reports', 'no-reports@example.test', 1, 0)").lastrowid
         app.SESSION_TOKENS["no-reports"] = {"user_id": user_id, "expires_at": time.time() + 3600}
         for path in ("/api/reports", "/api/reports/export.pdf", "/api/reports/export.xlsx", "/api/location-report.pdf?outlet=MST&location=Room"):
             self.assertEqual(self.request(path, token="no-reports")[0], 403, path)
@@ -930,12 +940,13 @@ class ServerTests(unittest.TestCase):
             self.assertIsNone(db.execute("SELECT 1 FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone())
 
     def test_z_superior_assigns_scheduled_work(self):
+        self.outlet_role("Outlet Staff")
         with app.connect() as db:
-            here = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff Here', 'Operation Manager', 'staff-here@example.test', 1, 0)").lastrowid
-            there = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff There', 'Operation Manager', 'staff-there@example.test', 1, 0)").lastrowid
+            here = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff Here', 'Outlet Staff', 'staff-here@example.test', 1, 0)").lastrowid
+            there = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff There', 'Outlet Staff', 'staff-there@example.test', 1, 0)").lastrowid
             viewer = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Report Reader', 'Management', 'reader@example.test', 1, 0)").lastrowid
-            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MST"]), here))
-            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MAM"]), there))
+        self.limit_to(here, ["MST"])
+        self.limit_to(there, ["MAM"])
         # Only people who can audit, at this outlet, are offered.
         offered = {row["id"] for row in json.loads(self.request("/api/schedules/assignees?outlet=MST")[2])["items"]}
         self.assertIn(here, offered)
@@ -980,6 +991,26 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT count(*) FROM users").fetchone()[0], users_before)
             self.assertIsNone(db.execute("SELECT 1 FROM roles WHERE name = 'Facilities Officer'").fetchone())
             self.assertIsNone(db.execute("SELECT 1 FROM users WHERE email = 'gavin@audit.local'").fetchone())
+
+    def test_z_outlets_move_to_people_once(self):
+        # Before: a role covered every outlet or limited its people to theirs.
+        with app.connect() as db:
+            db.execute("INSERT INTO roles(name, permissions_data_id, protected, created_at, outlet_scope) VALUES ('Legacy Limited', ?, 0, 0, 'several')", (app_save_value(db, ["today"]),))
+            limited = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Legacy Limited One', 'Legacy Limited', 'legacy.limited@example.test', 1, 0)").lastrowid
+            everyone = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Legacy Everywhere', 'Auditor', 'legacy.everywhere@example.test', 1, 0)").lastrowid
+            # A person in an all-outlet role was stored with an empty list.
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MAM", "MST"]), limited))
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, []), everyone))
+            db.execute("DELETE FROM app_settings WHERE key = 'system.outletsOnPeople'")
+        app.init_db()
+        people = {row["id"]: row for row in json.loads(self.request("/api/users")[2])["items"]}
+        self.assertEqual(sorted(people[limited]["outlets"]), ["MAM", "MST"])
+        self.assertIsNone(people[everyone]["outlets"])
+        # Editing a person without naming outlets keeps them; All outlets clears them.
+        self.assertEqual(self.request(f"/api/users/{limited}", "PATCH", {"title": "Still limited"})[0], 200)
+        self.assertEqual(sorted(next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == limited)["outlets"]), ["MAM", "MST"])
+        self.assertEqual(self.request(f"/api/users/{limited}", "PATCH", {"outlets": None})[0], 200)
+        self.assertIsNone(next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == limited)["outlets"])
 
 if __name__ == "__main__":
     unittest.main()

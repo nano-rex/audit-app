@@ -380,3 +380,21 @@
     padding: 20px;
   }
 }
+
+@media (max-width: 520px) {
+  /* Two people across on a phone. */
+  .org-row {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .org-row .org-person {
+    width: 132px;
+    padding: 10px 6px;
+  }
+
+  .org-row .org-avatar {
+    width: 52px;
+    height: 52px;
+  }
+}

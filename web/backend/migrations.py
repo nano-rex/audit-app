@@ -11,7 +11,7 @@ from backend.config import DEFAULT_INSPECTION_CRITERIA, DEFAULT_PASSWORD
 from backend.database import connect, first_department
 from backend.control import adopt_organization_supers, ensure_super_account
 from backend.activity import backfill as backfill_activity
-from backend.seed_data import seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
+from backend.seed_data import outlets_on_people, seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
 def ensure_column(db, table, column, definition):
@@ -537,6 +537,7 @@ def init_db():
         seed_roles(db)
         retire_corrective_actions_page(db)
         seed_operation_roles(db)
+        outlets_on_people(db)
         # Earlier audits, requests, and work orders, as far as their records tell who and when.
         backfill_activity(db)
         # Work orders no longer have Completed and Verified steps: work that had reached them is done.

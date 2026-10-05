@@ -277,13 +277,13 @@ def seed_settings(db):
 
 
 OPERATION_ROLES = (
-    ("Regional Manager", "Oversees the outlets of a region", "several",
+    ("Regional Manager", "Oversees the outlets of a region",
      ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["verifier", "acknowledger"]),
-    ("Operation Manager", "Runs one outlet", "one",
+    ("Operation Manager", "Runs one outlet",
      ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["auditor", "acknowledger"]),
-    ("PIC", "Person in charge at one outlet", "one",
+    ("PIC", "Person in charge at one outlet",
      ["today", "findings", "work-orders", "notifications"], ["acknowledger"]),
-    ("Captain", "Team lead at one outlet", "one",
+    ("Captain", "Team lead at one outlet",
      ["today", "inspections", "findings", "equipment", "work-orders", "notifications"], ["auditor"]),
 )
 
@@ -298,12 +298,23 @@ def seed_operation_roles(db):
     now = int(time.time() * 1000)
     db.execute("INSERT OR IGNORE INTO departments (code, description, responsibilities, created_at) VALUES (?, ?, ?, ?)",
                ("Operation", "Operation department", "Outlet operations: regional and outlet managers, PICs, and captains", now))
-    for name, description, scope, permissions, capabilities in OPERATION_ROLES:
+    for name, description, permissions, capabilities in OPERATION_ROLES:
         if db.execute("SELECT 1 FROM roles WHERE name = ?", (name,)).fetchone():
             # PIC and Captain may already exist with their own access; only place them in Operation.
-            db.execute("UPDATE roles SET outlet_scope = ?, department = 'Operation' WHERE name = ?", (scope, name))
+            db.execute("UPDATE roles SET department = 'Operation' WHERE name = ?", (name,))
         else:
-            db.execute("INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, outlet_scope, department) "
-                       "VALUES (?, ?, ?, ?, 0, ?, ?, 'Operation')",
-                       (name, description, save_value(db, permissions), save_value(db, capabilities), now, scope))
+            db.execute("INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, department) "
+                       "VALUES (?, ?, ?, ?, 0, ?, 'Operation')",
+                       (name, description, save_value(db, permissions), save_value(db, capabilities), now))
     db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.operationRolesSeeded', ?)", (save_value(db, True),))
+
+
+def outlets_on_people(db):
+    """Once: outlet access belongs to each person, with every outlet the default. People in a role
+    that covered every outlet get every outlet; people in a limited role keep their outlets."""
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.outletsOnPeople'").fetchone():
+        return
+    columns = {row[1] for row in db.execute("PRAGMA table_info(roles)")}
+    if "outlet_scope" in columns:
+        db.execute("UPDATE users SET outlets_data_id = NULL WHERE role NOT IN (SELECT name FROM roles WHERE outlet_scope IN ('one', 'several'))")
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.outletsOnPeople', ?)", (save_value(db, True),))
