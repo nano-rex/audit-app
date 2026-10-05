@@ -1580,3 +1580,34 @@ h4,
 .kpi-table td:first-child {
   text-align: left;
 }
+
+/* Role editor: each person with the role, and their outlets. */
+.role-outlets {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.role-outlets h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.role-outlet-person {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.role-outlet-person small {
+  margin-top: -4px;
+}
+
+.role-outlet-ticks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
+  gap: 6px;
+}

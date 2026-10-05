@@ -13,7 +13,11 @@
         <label>Department<select name="department"></select></label>
         <label>Outlet access<select name="outletScope"><option value="all">All outlets</option><option value="one">One outlet</option><option value="several">Selected outlets</option></select></label>
       </div>
-      <p class="muted">With One outlet or Selected outlets, each user of this role sees only the outlets chosen for them in Users; with none chosen they see no outlet.</p>
+      <section class="role-outlets" data-role-outlets hidden>
+        <h3>Outlets for each person</h3>
+        <p class="muted" data-role-outlets-hint></p>
+        <div data-role-outlet-people></div>
+      </section>
       </section>
       <section class="permission-picker" data-editor-panel="permissions" hidden>
         <h3>Accessible Sections</h3>
