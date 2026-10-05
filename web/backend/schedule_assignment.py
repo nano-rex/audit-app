@@ -1,7 +1,7 @@
 """Who a scheduled visit is assigned to: people who can audit, at the visit's outlet.
 
 A superior picks one or more people; each newly assigned person is notified, the visit waits
-for them under Waiting on you, and the assignment is logged.
+for them in the Dashboard's Scheduled audits, and the assignment is logged.
 """
 import time
 
