@@ -19,7 +19,7 @@ def setup_records(include_super=False):
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
         ).fetchall()]
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
             role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)
@@ -51,7 +51,7 @@ def setup_records(include_super=False):
 
 def role_items(include_super=False):
     with connect() as db:
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         rows = db.execute(role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)).fetchall()
     items = []
@@ -69,7 +69,7 @@ def users(include_super=False):
         rows = db.execute(
             f"""
             SELECT id, name, username, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id,
+                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id, outlets_data_id,
                    EXISTS(SELECT 1 FROM password_reset_requests WHERE user_id = users.id AND resolved_at IS NULL) AS reset_requested
             FROM users
             {role_filter}
@@ -80,6 +80,8 @@ def users(include_super=False):
     for item in items:
         raw = item.pop("permission_overrides_data_id")
         item["permissionOverrides"] = load_value(raw) if raw is not None else None
+        outlets = item.pop("outlets_data_id")
+        item["outlets"] = (load_value(outlets) or []) if outlets else []
     return {"items": items}
 
 

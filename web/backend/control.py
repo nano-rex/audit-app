@@ -115,6 +115,8 @@ def public_super(row, db):
         "inspectionPermissions": ["auditor", "verifier", "acknowledger"],
         "permissionOverrides": None,
         "permissionSource": "role",
+        "outletScope": "all",
+        "outlets": [],
         "profilePhoto": {},
         "signatureImage": {},
         # Marks an account that lives in the control database rather than the organization's.

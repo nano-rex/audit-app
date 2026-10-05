@@ -65,6 +65,7 @@ function openUserEditor(row = null) {
   }
   form.elements.inheritPermissions.checked = row?.permissionOverrides == null;
   renderUserPermissions(row?.permissionOverrides);
+  renderUserOutlets(row?.outlets || []);
   dialog.showModal();
 }
 
@@ -87,6 +88,9 @@ function openRoleEditor(row = null) {
   form.elements.roleId.value = row?.id || "";
   form.elements.name.value = row?.name || "";
   form.elements.description.value = row?.description || "";
+  updateSelectOptions(form.elements.department, setupOptions.departments, true, "No department");
+  form.elements.department.value = row?.department || "";
+  form.elements.outletScope.value = row?.outlet_scope || "all";
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
   form.querySelector("[data-role-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, row?.inspectionPermissions || [], "inspectionPermissions", Boolean(row?.protected));
@@ -593,6 +597,7 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
     resetRequired: Boolean(form.elements.resetRequired.checked),
     resetPassword: Boolean(form.elements.resetPassword.checked),
     permissionOverrides: userPermissionOverrides(form),
+    outlets: userOutletChoices(form),
   };
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
@@ -616,6 +621,8 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
   const payload = {
     name: formValue(form, "name", "New Role"),
     description: formValue(form, "description", ""),
+    department: form.elements.department.value,
+    outletScope: form.elements.outletScope.value,
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
   };

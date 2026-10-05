@@ -16,6 +16,11 @@
         <label>Title<input name="title" placeholder="Job title"></label>
         <label>Password<input name="password" type="password" autocomplete="new-password" placeholder="Leave blank unless setting/resetting"></label>
       </div>
+      <fieldset class="user-outlets" data-user-outlets hidden>
+        <legend>Outlets</legend>
+        <p class="muted" data-user-outlets-hint></p>
+        <div data-user-outlet-options></div>
+      </fieldset>
       <label>Responsibilities<textarea name="responsibilities" placeholder="Main responsibilities or ownership"></textarea></label>
       <label class="inline-check"><input name="active" type="checkbox" checked> Active user</label>
       <label class="inline-check"><input name="resetRequired" type="checkbox"> Require password change on next login</label>

@@ -1499,3 +1499,25 @@ h4,
 .pre-line {
   white-space: pre-line;
 }
+
+.user-outlets {
+  display: block;
+  margin: 12px 0;
+  padding: 12px 14px 14px;
+}
+
+.user-outlets legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.user-outlets [data-user-outlet-options] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
+  gap: 8px;
+}
+
+.users-table .user-role small {
+  display: block;
+  color: var(--muted);
+}

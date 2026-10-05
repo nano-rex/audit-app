@@ -45,4 +45,30 @@ document.querySelector('#user-form [name="role"]').addEventListener("change", ()
   const form = document.getElementById("user-form");
   if (form.elements.role.value === "Super") form.elements.inheritPermissions.checked = true;
   if (form.elements.inheritPermissions.checked) renderUserPermissions();
+  // A role that belongs to a department brings it along, and its outlet access decides the picker.
+  const role = roleCache.find((row) => row.name === form.elements.role.value);
+  if (role?.department) form.elements.department.value = role.department;
+  const ticked = [...form.querySelectorAll('[name="userOutlet"]:checked')].map((input) => input.value);
+  renderUserOutlets(role?.outlet_scope === "one" ? ticked.slice(0, 1) : ticked);
 });
+
+// A role limited to one outlet takes a single choice; one limited to selected outlets takes several.
+function renderUserOutlets(selected = []) {
+  const form = document.getElementById("user-form");
+  const role = roleCache.find((row) => row.name === form.elements.role.value);
+  const scope = role?.outlet_scope || "all";
+  const box = form.querySelector("[data-user-outlets]");
+  box.hidden = scope === "all";
+  if (scope === "all") return;
+  const chosen = new Set(selected);
+  const type = scope === "one" ? "radio" : "checkbox";
+  setText("[data-user-outlets-hint]", scope === "one"
+    ? `A ${role.name} works at one outlet and sees only that outlet.`
+    : `A ${role.name} sees only the outlets ticked here.`);
+  form.querySelector("[data-user-outlet-options]").innerHTML = (setupOptions.outlets || []).map((code) =>
+    `<label class="zone-location-option"><input type="${type}" name="userOutlet" value="${escapeAttr(code)}"${chosen.has(code) ? " checked" : ""}><span>${escapeHtml(code)}</span></label>`).join("");
+}
+
+function userOutletChoices(form) {
+  return [...form.querySelectorAll('[name="userOutlet"]:checked')].map((input) => input.value);
+}

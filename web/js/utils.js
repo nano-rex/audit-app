@@ -289,10 +289,7 @@ async function updateEquipmentLocationSelect(selected = "") {
   }
 }
 
-async function updateInspectionLocationSelect(selected = "") {
-  const form = document.getElementById("inspection-form");
-  if (!form) return;
-  const outlet = formValue(form, "outlet", setupOptions.outlets[0] || "");
+async function updateInspectionLocationSelect() {
   await loadInspectionItems();
 }
 

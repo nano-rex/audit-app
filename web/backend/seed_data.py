@@ -271,3 +271,36 @@ def seed_settings(db):
         row = db.execute("SELECT value_data_id FROM app_settings WHERE key = ?", (f"report.{key}",)).fetchone()
         if row and load_value(row[0]) == previous:
             db.execute("UPDATE app_settings SET value_data_id = ? WHERE key = ?", (save_value(db, DEFAULT_REPORT_SETTINGS[key]), f"report.{key}"))
+
+
+OPERATION_ROLES = (
+    ("Regional Manager", "Oversees the outlets of a region", "several",
+     ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["verifier", "acknowledger"]),
+    ("Operation Manager", "Runs one outlet", "one",
+     ["today", "inspections", "findings", "work-orders", "equipment", "reports", "notifications"], ["auditor", "acknowledger"]),
+    ("PIC", "Person in charge at one outlet", "one",
+     ["today", "findings", "work-orders", "notifications"], ["acknowledger"]),
+    ("Captain", "Team lead at one outlet", "one",
+     ["today", "inspections", "findings", "equipment", "work-orders", "notifications"], ["auditor"]),
+)
+
+
+def seed_operation_roles(db):
+    """The Operation department and its roles, each limited to the outlets of its users.
+
+    Applied once per database: an administrator may later change these roles freely.
+    """
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.operationRolesSeeded'").fetchone():
+        return
+    now = int(time.time() * 1000)
+    db.execute("INSERT OR IGNORE INTO departments (code, description, responsibilities, created_at) VALUES (?, ?, ?, ?)",
+               ("Operation", "Operation department", "Outlet operations: regional and outlet managers, PICs, and captains", now))
+    for name, description, scope, permissions, capabilities in OPERATION_ROLES:
+        if db.execute("SELECT 1 FROM roles WHERE name = ?", (name,)).fetchone():
+            # PIC and Captain may already exist with their own access; only place them in Operation.
+            db.execute("UPDATE roles SET outlet_scope = ?, department = 'Operation' WHERE name = ?", (scope, name))
+        else:
+            db.execute("INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, outlet_scope, department) "
+                       "VALUES (?, ?, ?, ?, 0, ?, ?, 'Operation')",
+                       (name, description, save_value(db, permissions), save_value(db, capabilities), now, scope))
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.operationRolesSeeded', ?)", (save_value(db, True),))

@@ -494,12 +494,6 @@ document.querySelector("#schedule-form [data-visit-location-options]")?.addEvent
   all.checked = !picks.some((input) => input.checked);
 });
 
-document.querySelector('#inspection-form select[name="outlet"]')?.addEventListener("change", () => {
-  // Chosen locations belong to the outlet they were chosen for.
-  document.getElementById("inspection-form").dataset.visitLocations = "[]";
-  document.getElementById("inspection-form").dataset.zoneLabel = "All Locations";
-  updateInspectionLocationSelect();
-});
 
 checklistContainer?.addEventListener("change", async (event) => {
   const input = event.target.closest("[data-inspection-check]");

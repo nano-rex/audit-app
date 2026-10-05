@@ -19,6 +19,10 @@ def report_scope(unit, table, filters=None):
     if filters.get("outlet"):
         where += f" AND {table}.outlet = ?"
         params.append(filters["outlet"])
+    if filters.get("outlets") is not None:
+        outlets = list(filters["outlets"])
+        where += f" AND {table}.outlet IN ({','.join('?' for _ in outlets)})" if outlets else " AND 0"
+        params.extend(outlets)
     date_field = {"audits": "audit_date", "inspection_sessions": "audit_date", "schedules": "scheduled_date"}.get(table)
     expression = f"{table}.{date_field}" if date_field else f"date({table}.created_at / 1000, 'unixepoch')"
     if table in {"findings", "work_orders"}:
