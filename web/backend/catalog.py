@@ -19,7 +19,7 @@ def setup_records(include_super=False):
         categories = [dict(row) for row in db.execute(
             "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
         ).fetchall()]
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
             role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)
@@ -51,7 +51,7 @@ def setup_records(include_super=False):
 
 def role_items(include_super=False):
     with connect() as db:
-        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department FROM roles"
+        role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, outlet_scope, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         rows = db.execute(role_query + " ORDER BY protected DESC, name", () if include_super else (SUPER_ROLE,)).fetchall()
     items = []

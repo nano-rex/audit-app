@@ -299,6 +299,26 @@ def role_department(db, value):
     return value or None
 
 
+def role_reports_to(db, value, role_id=None):
+    """The role this one reports to; refused if it is itself or reports to it, which would make a loop."""
+    if value in (None, "", 0):
+        return None
+    try:
+        parent = int(value)
+    except (TypeError, ValueError):
+        raise ValueError("Choose the role this one reports to") from None
+    if not db.execute("SELECT 1 FROM roles WHERE id = ?", (parent,)).fetchone():
+        raise ValueError("Choose an existing role to report to")
+    seen, current = set(), parent
+    while current is not None and current not in seen:
+        if role_id is not None and current == role_id:
+            raise ValueError("A role cannot report to itself or to a role below it")
+        seen.add(current)
+        row = db.execute("SELECT reports_to_id FROM roles WHERE id = ?", (current,)).fetchone()
+        current = row["reports_to_id"] if row else None
+    return parent
+
+
 def account_fields(db, payload, existing=None):
     """Validated account columns shared by administrator create and edit.
 
@@ -379,8 +399,8 @@ def post_roles(self, parsed, payload=None):
             return
         db.execute(
             """
-            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, outlet_scope, department)
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, outlet_scope, department, reports_to_id)
+            VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)
             """,
             (
                 name,
@@ -390,6 +410,7 @@ def post_roles(self, parsed, payload=None):
                 now,
                 validate_scope(payload.get("outletScope")),
                 role_department(db, payload.get("department")),
+                role_reports_to(db, payload.get("reportsTo")),
             ),
         )
     self.json({"ok": True})
@@ -446,7 +467,7 @@ def patch_roles(self, parsed, payload=None):
         self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
-        role = db.execute("SELECT name, protected, inspection_permissions_data_id, outlet_scope, department FROM roles WHERE id = ?", (int(role_id),)).fetchone()
+        role = db.execute("SELECT name, protected, inspection_permissions_data_id, outlet_scope, department, reports_to_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
@@ -460,7 +481,7 @@ def patch_roles(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE roles
-            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?, outlet_scope = ?, department = ?
+            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?, outlet_scope = ?, department = ?, reports_to_id = ?
             WHERE id = ?
             """,
             (
@@ -470,6 +491,7 @@ def patch_roles(self, parsed, payload=None):
                 save_value(db, validate_list(payload.get("inspectionPermissions", load_value(role["inspection_permissions_data_id"] or "[]")), INSPECTION_PERMISSIONS)),
                 validate_scope(payload.get("outletScope", role["outlet_scope"])),
                 role_department(db, payload.get("department", role["department"])),
+                role_reports_to(db, payload.get("reportsTo", role["reports_to_id"]), int(role_id)),
                 int(role_id),
             ),
         )
@@ -522,13 +544,15 @@ def delete_roles(self, parsed, payload=None):
         self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
-        role = db.execute("SELECT name, protected FROM roles WHERE id = ?", (int(record_id),)).fetchone()
+        role = db.execute("SELECT name, protected, reports_to_id FROM roles WHERE id = ?", (int(record_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
         if role["protected"]:
             self.json({"ok": False, "error": "The Super role cannot be deleted"}, status=400)
             return
+        # The roles that reported to it now report to its own manager, so the chain stays whole.
+        db.execute("UPDATE roles SET reports_to_id = ? WHERE reports_to_id = ?", (role["reports_to_id"], int(record_id)))
         cursor = db.execute("DELETE FROM roles WHERE id = ?", (int(record_id),))
         db.execute("UPDATE users SET role = '' WHERE role = ?", (role["name"],))
         if cursor.rowcount == 0:

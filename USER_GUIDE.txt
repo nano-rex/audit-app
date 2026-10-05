@@ -34,6 +34,11 @@ An administrator should configure these records before staff begin auditing:
    everyone with that role) or in the person's user editor; they then see and
    change only those outlets, in every list, report, and export. These four roles belong to the Operation
    department.
+   Each role can report to another role (Reports to, in the role editor);
+   a role cannot report to itself or to a role below it. Users >
+   Organization draws these chains as a tree, with the people in each role
+   and their outlets; roles not in any chain are listed below it. Removing
+   a role moves the roles under it up to the role it reported to.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed. When editing a location, tick the
    assets and fixtures that belong in it (use the filter to find them);

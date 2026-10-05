@@ -3,6 +3,7 @@
         <button class="active" type="button" data-user-subtab="users" aria-controls="user-accounts">Users</button>
         <button type="button" data-user-subtab="departments" aria-controls="departments">Departments</button>
         <button type="button" data-user-subtab="roles" aria-controls="roles">Roles</button>
+        <button type="button" data-user-subtab="organization" aria-controls="organization">Organization</button>
       </nav>
       <section id="user-accounts" class="user-subpanel active" data-user-panel="users">
       <section class="panel list-panel">
@@ -22,4 +23,12 @@
       </section>
       <!-- include: html/tabs/departments.html -->
       <!-- include: html/tabs/roles.html -->
+      <section id="organization" class="user-subpanel" data-user-panel="organization" hidden>
+        <section class="panel">
+          <h2>Organization</h2>
+          <p class="muted">Roles by whom they report to, with the people in each role and their outlets. Set who a role reports to in its editor under Roles.</p>
+          <div class="org-tree" data-org-tree></div>
+          <div data-org-unlinked></div>
+        </section>
+      </section>
     </section>

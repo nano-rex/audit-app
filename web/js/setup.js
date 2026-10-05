@@ -205,6 +205,7 @@ async function loadUsers() {
   const data = await response.json();
   userCache = data.items;
   renderUsers();
+  if (activeUserSection === "organization") renderOrgTree();
 }
 
 function renderDepartments() {

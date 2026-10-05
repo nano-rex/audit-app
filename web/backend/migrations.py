@@ -367,6 +367,8 @@ def init_db():
         # A role limits its users to all outlets, one outlet, or the outlets chosen for each user.
         ensure_column(db, "roles", "outlet_scope", "TEXT NOT NULL DEFAULT 'all'")
         ensure_column(db, "roles", "department", "TEXT")
+        # The chain of command: the role each role reports to.
+        ensure_column(db, "roles", "reports_to_id", "INTEGER")
         ensure_column(db, "findings", "due_date", "TEXT")
         ensure_column(db, "findings", "priority_classification", "TEXT")
         for column in ("cause", "recommendation", "required_action", "images_data_id"):
