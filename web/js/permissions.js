@@ -8,6 +8,21 @@ function permissionCheckboxes(options, selected, name, disabled) {
   return options.map((option) => `<label class="permission-option"><input type="checkbox" name="${name}" value="${escapeAttr(option.id)}" ${selected.includes(option.id) ? "checked" : ""} ${disabled ? "disabled" : ""}><span>${escapeHtml(option.label)}</span></label>`).join("");
 }
 
+// Add / edit / delete and approve, per kind of record, as a table of checkboxes.
+function actionPermissionTable(selected = [], name = "actions", disabled = false) {
+  const chosen = new Set(selected);
+  const records = setupOptions.changeRecords || [];
+  const box = (value) => `<input type="checkbox" name="${name}" value="${escapeAttr(value)}"${chosen.has(value) ? " checked" : ""}${disabled ? " disabled" : ""}>`;
+  return `<table class="action-permissions"><thead><tr><th>Records</th><th>Add / edit / delete</th><th>Approve changes</th></tr></thead>
+    <tbody>${records.map((record) => `<tr><th scope="row">${escapeHtml(record.label)}</th>
+      <td><label>${box(`${record.id}.manage`)}<span class="visually-hidden">Add, edit, delete ${escapeHtml(record.label)}</span></label></td>
+      <td><label>${box(`${record.id}.approve`)}<span class="visually-hidden">Approve ${escapeHtml(record.label)} changes</span></label></td></tr>`).join("")}</tbody></table>`;
+}
+
+function checkedValues(form, name) {
+  return [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((input) => input.value);
+}
+
 function showEditorTab(form, name) {
   form.querySelectorAll("[data-editor-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.editorTab === name);
@@ -25,6 +40,8 @@ function renderUserPermissions(overrides = null) {
   const permissionTabs = (setupOptions.tabs || allTabs).filter((tab) => tab.id !== "settings");
   form.querySelector("[data-user-permissions]").innerHTML = permissionCheckboxes(permissionTabs, value.permissions || [], "userPermissions", disabled);
   form.querySelector("[data-user-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, value.inspectionPermissions || [], "userInspectionPermissions", disabled);
+  const actions = inherit || !overrides?.actions ? role?.actions || [] : overrides.actions;
+  form.querySelector("[data-user-action-permissions]").innerHTML = actionPermissionTable(actions, "userActions", disabled);
   form.elements.inheritPermissions.disabled = Boolean(role?.protected);
 }
 
@@ -33,6 +50,7 @@ function userPermissionOverrides(form) {
   return {
     permissions: [...form.querySelectorAll('input[name="userPermissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="userInspectionPermissions"]:checked')].map((input) => input.value),
+    actions: checkedValues(form, "userActions"),
   };
 }
 

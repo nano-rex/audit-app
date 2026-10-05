@@ -14,7 +14,7 @@ from backend.common import hash_password, verify_password
 from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_PASSWORD, SESSION_TOKENS, SUPER_ROLE, SUPER_TABS
 from backend.database import connect, first_department, insert_record
 from backend.workflow import WorkflowError
-from backend.permissions import INSPECTION_PERMISSIONS, validate_list, validate_overrides
+from backend.permissions import ACTION_PERMISSIONS, INSPECTION_PERMISSIONS, validate_list, validate_overrides
 from backend import control
 from backend.database_manager import create_database, remove_database, switch_database
 from backend.login_throttle import LOGIN_THROTTLE, REGISTRATION_THROTTLE, client_address
@@ -368,9 +368,6 @@ def account_fields(db, payload, existing=None):
 def post_users(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
-        if not is_company_admin_user(self.current_user()):
-            self.json({"ok": False, "error": "Admin access required"}, status=403)
-            return
         if not is_super_user(self.current_user()) and payload.get("role") == SUPER_ROLE:
             self.json({"ok": False, "error": "Super role assignment requires Super access"}, status=403)
             return
@@ -391,23 +388,21 @@ def post_users(self, parsed, payload=None):
 def post_roles(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
-        if not is_company_admin_user(self.current_user()):
-            self.json({"ok": False, "error": "Admin access required"}, status=403)
-            return
         name = (payload.get("name") or "New Role").strip()
         if name.lower() in ("admin", "super"):
             self.json({"ok": False, "error": "The Super role is built in and cannot be recreated"}, status=400)
             return
         db.execute(
             """
-            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, protected, created_at, department, reports_to_id)
-            VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+            INSERT INTO roles (name, description, permissions_data_id, inspection_permissions_data_id, action_permissions_data_id, protected, created_at, department, reports_to_id)
+            VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)
             """,
             (
                 name,
                 payload.get("description", ""),
                 save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
                 save_value(db, validate_list(payload.get("inspectionPermissions", []), INSPECTION_PERMISSIONS)),
+                save_value(db, validate_list(payload.get("actions", []), set(ACTION_PERMISSIONS))),
                 now,
                 role_department(db, payload.get("department")),
                 role_reports_to(db, payload.get("reportsTo")),
@@ -420,9 +415,6 @@ def patch_users(self, parsed, payload=None):
     user_id = parsed.path.rsplit("/", 1)[-1]
     if not user_id.isdigit():
         self.send_error(400)
-        return
-    if not is_company_admin_user(self.current_user()):
-        self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -463,11 +455,8 @@ def patch_roles(self, parsed, payload=None):
     if not role_id.isdigit():
         self.send_error(400)
         return
-    if not is_company_admin_user(self.current_user()):
-        self.json({"ok": False, "error": "Admin access required"}, status=403)
-        return
     with connect() as db:
-        role = db.execute("SELECT name, protected, inspection_permissions_data_id, department, reports_to_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
+        role = db.execute("SELECT name, protected, inspection_permissions_data_id, action_permissions_data_id, department, reports_to_id FROM roles WHERE id = ?", (int(role_id),)).fetchone()
         if not role:
             self.send_error(404)
             return
@@ -481,7 +470,7 @@ def patch_roles(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE roles
-            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?, department = ?, reports_to_id = ?
+            SET name = ?, description = ?, permissions_data_id = ?, inspection_permissions_data_id = ?, action_permissions_data_id = ?, department = ?, reports_to_id = ?
             WHERE id = ?
             """,
             (
@@ -489,6 +478,7 @@ def patch_roles(self, parsed, payload=None):
                 payload.get("description", ""),
                 save_value(db, validate_list(payload.get("permissions", []), {tab[0] for tab in APP_TABS})),
                 save_value(db, validate_list(payload.get("inspectionPermissions", load_value(role["inspection_permissions_data_id"] or "[]")), INSPECTION_PERMISSIONS)),
+                save_value(db, validate_list(payload.get("actions", load_value(role["action_permissions_data_id"]) or [] if role["action_permissions_data_id"] else []), set(ACTION_PERMISSIONS))),
                 role_department(db, payload.get("department", role["department"])),
                 role_reports_to(db, payload.get("reportsTo", role["reports_to_id"]), int(role_id)),
                 int(role_id),
@@ -507,9 +497,6 @@ def delete_users(self, parsed, payload=None):
     record_id = parsed.path.rsplit("/", 1)[-1]
     if not record_id.isdigit():
         self.send_error(400)
-        return
-    if not is_company_admin_user(self.current_user()):
-        self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
@@ -538,9 +525,6 @@ def delete_roles(self, parsed, payload=None):
     record_id = parsed.path.rsplit("/", 1)[-1]
     if not record_id.isdigit():
         self.send_error(400)
-        return
-    if not is_company_admin_user(self.current_user()):
-        self.json({"ok": False, "error": "Admin access required"}, status=403)
         return
     with connect() as db:
         role = db.execute("SELECT name, protected, reports_to_id FROM roles WHERE id = ?", (int(record_id),)).fetchone()

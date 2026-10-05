@@ -1,4 +1,13 @@
 """HTTP mutation dispatch, grouped by domain in routes_*.py."""
+from backend.change_requests import decide
+
+
+def patch_changes(handler, parsed, payload=None):
+    change_id = parsed.path.rsplit("/", 1)[-1]
+    if not change_id.isdigit():
+        handler.send_error(400)
+        return
+    handler.json(decide(handler.current_user(), int(change_id), (payload or {}).get("decision"), (payload or {}).get("remark", "")))
 from backend.audit_closure import close_audit
 from backend.routes_accounts import delete_database, patch_database, post_database, patch_navigation, delete_roles, delete_users, patch_account, patch_roles, patch_users, post_auth_change_password, post_auth_forgot_password, post_auth_login, post_auth_logout, post_auth_register, post_roles, post_users
 from backend.routes_assets import delete_equipment, patch_equipment, post_equipment
@@ -52,6 +61,7 @@ ROUTES = {
         '/api/equipment': patch_equipment,
         '/api/work-orders': patch_work_orders,
         '/api/work-requests': patch_work_requests,
+        '/api/changes': patch_changes,
         '/api/locations': patch_locations,
         '/api/zones': patch_zones,
         '/api/schedules': patch_schedules,

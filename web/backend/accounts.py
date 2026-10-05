@@ -4,7 +4,7 @@ from backend.common import read_setting
 from backend.config import ADMIN_ROLE, DEFAULT_REPORT_SETTINGS, DEFAULT_THEME_SETTINGS, SUPER_ROLE
 from backend.database import connect
 from backend.outlet_access import person_outlets
-from backend.permissions import resolve_permissions
+from backend.permissions import resolve_actions, resolve_permissions
 
 
 def public_user(row, db=None):
@@ -36,6 +36,7 @@ def public_user(row, db=None):
         "inspectionPermissions": inspection_permissions_data_id,
         "permissionOverrides": overrides,
         "permissionSource": "user" if overrides is not None else "role",
+        "actions": resolve_actions(db, row["role"], overrides),
         "outletScope": "all" if outlets is None else "selected",
         "outlets": outlets or [],
         "profilePhoto": load_value(row["profile_photo_data_id"] or "{}") if "profile_photo_data_id" in row.keys() else {},

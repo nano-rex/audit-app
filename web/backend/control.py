@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 
 from backend import config
+from backend.permissions import ACTION_PERMISSIONS
 
 _SCHEMA_READY = set()
 _SCHEMA_LOCK = threading.Lock()
@@ -115,6 +116,7 @@ def public_super(row, db):
         "inspectionPermissions": ["auditor", "verifier", "acknowledger"],
         "permissionOverrides": None,
         "permissionSource": "role",
+        "actions": list(ACTION_PERMISSIONS),
         "outletScope": "all",
         "outlets": [],
         "profilePhoto": {},

@@ -23,6 +23,7 @@ function tabAttention(tabId) {
     "work-orders": count("requests", "orders"),
     notifications: unreadNotifications,
     users: count("resets"),
+    approvals: count("approvals"),
   }[tabId] || 0;
 }
 
@@ -254,6 +255,7 @@ function applyNavbarTabs() {
   document.querySelectorAll('[data-feature-section="findings"]').forEach((node) => { node.hidden = !findingsEnabled; });
   // Reports, and the location reports in History, need the Reports permission.
   document.querySelectorAll('[data-context-tab="reports"], [data-requires="reports"]').forEach((node) => { node.hidden = !allowedIds.has("reports"); });
+  if (typeof applyActionPermissions === "function") applyActionPermissions();
   renderTabMenu();
   layoutNavbar();
 }
@@ -286,6 +288,8 @@ function allowedAppTabs() {
   const allowedIds = new Set(permissions);
   allowedIds.add("account");
   allowedIds.add("notifications");
+  // Approvals is for anyone who may change or approve managed records.
+  if (isSuper || (currentUser?.actions || []).length) allowedIds.add("approvals");
   allowedIds.add("settings");
   // Inspection users see their audits' History, and Findings while that feature is on.
   if (allowedIds.has("inspections")) allowedIds.add("history");
@@ -325,4 +329,3 @@ function showUserSubtab(sectionId) {
 document.querySelectorAll("[data-user-subtab]").forEach((button) => {
   button.addEventListener("click", () => showUserSubtab(button.dataset.userSubtab));
 });
-

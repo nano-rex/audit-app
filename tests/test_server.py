@@ -1027,5 +1027,58 @@ class ServerTests(unittest.TestCase):
         person = next(row for row in json.loads(self.request("/api/users")[2])["items"] if row["id"] == user_id)
         self.assertEqual(sorted(person["permissionOverrides"]["permissions"]), ["findings", "history"])
 
+    def test_z_changes_wait_for_approval(self):
+        roles = {row["name"]: row for row in json.loads(self.request("/api/roles")[2])["items"]}
+        # Everyone keeps what they could do: a role that opens Assets may change and approve assets.
+        self.assertTrue({"assets.manage", "assets.approve"}.issubset(roles["Auditor"]["actions"]))
+        self.assertNotIn("users.manage", roles["Auditor"]["actions"])
+        self.assertTrue({"users.manage", "users.approve", "roles.approve"}.issubset(roles["Admin"]["actions"]))
+        for name, actions in (("Asset Clerk", ["assets.manage", "users.manage"]), ("Asset Viewer", [])):
+            status, _, body = self.request("/api/roles", "POST", {"name": name, "permissions": ["today", "equipment", "users"], "actions": actions})
+            self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            clerk = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Clerk', 'Asset Clerk', 'clerk@example.test', 1, 0)").lastrowid
+            viewer = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Viewer', 'Asset Viewer', 'viewer@example.test', 1, 0)").lastrowid
+        app.SESSION_TOKENS["clerk"] = {"user_id": clerk, "expires_at": time.time() + 3600}
+        app.SESSION_TOKENS["viewer"] = {"user_id": viewer, "expires_at": time.time() + 3600}
+        asset = {"kind": "asset", "name": "Approval Lamp", "outlet": "MST", "location": "Room"}
+        self.assertEqual(self.request("/api/equipment", "POST", asset, token="viewer")[0], 403)
+        # Without approval rights, the change waits.
+        status, _, body = self.request("/api/equipment", "POST", asset, token="clerk")
+        self.assertEqual(status, 200, body)
+        held = json.loads(body)
+        self.assertTrue(held["pending"])
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM equipment WHERE name = 'Approval Lamp'").fetchone())
+        mine = next(row for row in json.loads(self.request("/api/changes", token="clerk")[2])["items"] if row["id"] == held["changeId"])
+        self.assertEqual((mine["status"], mine["mine"], mine["canDecide"]), ("Pending", True, False))
+        self.assertEqual(self.request(f"/api/changes/{held['changeId']}", "PATCH", {"decision": "approve"}, token="clerk")[0], 403)
+        theirs = next(row for row in json.loads(self.request("/api/changes")[2])["items"] if row["id"] == held["changeId"])
+        self.assertTrue(theirs["canDecide"])
+        self.assertGreaterEqual(json.loads(self.request("/api/todo")[2])["counts"]["approvals"], 1)
+        self.assertEqual(self.request(f"/api/changes/{held['changeId']}", "PATCH", {"decision": "approve"})[0], 200)
+        with app.connect() as db:
+            lamp = db.execute("SELECT id, notes FROM equipment WHERE name = 'Approval Lamp'").fetchone()
+            told = db.execute("SELECT title FROM notifications WHERE recipient_user_id = ? AND related_type = 'change' AND related_id = ?", (clerk, held["changeId"])).fetchone()
+        self.assertIsNotNone(lamp)
+        self.assertEqual(told["title"], "Your change was approved")
+        self.assertEqual(self.request(f"/api/changes/{held['changeId']}", "PATCH", {"decision": "approve"})[0], 409)
+        # A rejected edit changes nothing.
+        held = json.loads(self.request(f"/api/equipment/{lamp['id']}", "PATCH", {"name": "Renamed Lamp"}, token="clerk")[2])
+        self.assertEqual(self.request(f"/api/changes/{held['changeId']}", "PATCH", {"decision": "reject", "remark": "Keep the name"})[0], 200)
+        with app.connect() as db:
+            self.assertIsNotNone(db.execute("SELECT 1 FROM equipment WHERE name = 'Approval Lamp'").fetchone())
+        # A password never waits in a request.
+        held = json.loads(self.request("/api/users", "POST", {"name": "New Starter", "email": "starter@example.test", "role": "Asset Viewer", "password": "secret-password-1"}, token="clerk")[2])
+        with app.connect() as db:
+            stored = db.execute("SELECT payload_data_id FROM change_requests WHERE id = ?", (held["changeId"],)).fetchone()[0]
+        from backend.relational_values import load_value
+        self.assertNotIn("password", load_value(stored))
+        self.assertEqual(self.request(f"/api/changes/{held['changeId']}", "PATCH", {"decision": "approve"})[0], 200)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT reset_required FROM users WHERE email = 'starter@example.test'").fetchone()[0], 1)
+        for token in ("clerk", "viewer"):
+            app.SESSION_TOKENS.pop(token, None)
+
 if __name__ == "__main__":
     unittest.main()

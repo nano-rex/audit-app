@@ -89,6 +89,7 @@ function notificationTarget(row) {
   if (!id) return null;
   if (row.related_type === "inspection" && permissions.includes("inspections")) return { type: "inspection", id };
   if (row.related_type === "schedule" && permissions.includes("inspections")) return { type: "schedule", id };
+  if (row.related_type === "change") return { type: "change", id };
   if (row.related_type === "work_order" && permissions.includes("work-orders")) return { type: "work_order", id };
   if (row.related_type === "user" && permissions.includes("users")) return { type: "user", id };
   return null;

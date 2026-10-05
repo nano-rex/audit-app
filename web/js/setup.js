@@ -122,6 +122,7 @@ async function loadSetup() {
   outletCache = data.outlets;
   zoneCache = data.zones || [];
   roleCache = data.roles || [];
+  setupOptions.changeRecords = data.changeRecords || [];
   priorityCache = data.priorities || [];
   auditTypeCache = data.auditTypes || [];
   selectedLocationOutlet = selectedLocationOutlet || setupOptions.outlets[0] || "";

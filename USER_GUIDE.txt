@@ -27,6 +27,16 @@ An administrator should configure these records before staff begin auditing:
 
 1. In Users, create accounts and assign each person's role and department.
    Configure role permissions and inspection capabilities as required.
+   History and Findings are separate pages (each has its own permission).
+   Change Permissions, on a role or on a person, set who may change assets
+   (fixed assets and fixtures & finishes), users, outlets, zones, locations,
+   departments, and roles. Add / edit / delete lets someone change those
+   records; Approve changes lets them approve others' changes. Someone with
+   Add / edit / delete but not Approve changes does not change the record
+   directly: their change waits on the Approvals page, the approvers are
+   notified, and it is applied once one of them approves it (or dropped if
+   rejected, with the reason). Nobody approves their own change. Without
+   Add / edit / delete, the add, edit, and delete buttons are not shown.
    Each person has Outlet access, in their user editor: All outlets is
    ticked by default; tick particular outlets instead to limit them to those.
    They then see and change only those outlets, in every list, report, and
