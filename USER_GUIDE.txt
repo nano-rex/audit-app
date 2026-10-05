@@ -69,6 +69,9 @@ An administrator should configure these records before staff begin auditing:
    inspection then shows only their tabs. Untick them all to return to All.
    Save the schedule. A new schedule is always Pending; it becomes In Progress
    when the audit starts and Completed when it is finished.
+   To remove a visit, choose Edit and Delete. A visit that was already
+   opened has a draft audit, which is deleted with it (you are told first);
+   a visit whose audit is completed is kept with that audit record.
 3. For an audit that happens now, choose Schedule and start now instead of
    Schedule. The signed-in account is recorded as the auditor, an audit
    reference is reserved, and the checklist opens straight away. Audit time,
