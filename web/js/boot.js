@@ -132,3 +132,9 @@ async function initializeApp() {
 
 wireAuth();
 loadApp();
+// Keep the counts beside the tabs current while the page stays open.
+if (typeof setInterval === "function") {
+  setInterval(() => {
+    if (appReady && currentUser && document.visibilityState === "visible") loadAttention().catch(() => {});
+  }, 60000);
+}

@@ -868,7 +868,7 @@ dialog header h2 {
   flex: 1 1 160px;
 }
 
-/* Unread count on the Notifications button, or on the page menu while that button does not fit. */
+/* How many things wait in a section, beside its tab or subtab; the page menu button sums the tabs that do not fit on the bar. */
 .tab-badge {
   display: inline-block;
   min-width: 18px;

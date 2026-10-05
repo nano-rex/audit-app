@@ -1,5 +1,6 @@
 """What is waiting on the signed-in user: drafts, signatures, assigned work orders, closure."""
-from backend.common import sla_status
+from backend.common import read_setting, sla_status
+from backend.accounts import is_company_admin_user
 from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
@@ -49,8 +50,38 @@ def todo_items(user):
                 order = dict(row)
                 if assigned_to(user, order):
                     items.append(order_item(order, "Resolve work order"))
-    items = keep(user, items)  # Only tasks at the account's outlets.
-    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread}
+        items = keep(user, items)  # Only tasks at the account's outlets.
+        findings = items_needing_request(db, user)
+        resets = db.execute("SELECT count(*) FROM password_reset_requests WHERE resolved_at IS NULL").fetchone()[0] if is_company_admin_user(user) else 0
+    # How many things wait in each section, shown as a number beside its tab.
+    counts = {
+        "guided": sum(item["type"] == "inspection" and item["view"] == "checklist" for item in items),
+        "signoff": sum(item["type"] == "inspection" and item["view"] == "signoff" for item in items),
+        "findings": findings,
+        "requests": sum(item["type"] == "work_request" for item in items),
+        "orders": sum(item["type"] == "work_order" for item in items),
+        "resets": resets,
+        "notifications": unread,
+    }
+    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts}
+
+
+def items_needing_request(db, user):
+    """Failed items (one per audit, item, and location) that nobody has requested work for yet."""
+    permissions = set(user.get("permissions", []))
+    if user.get("role") == "Department/PIC" or not permissions & {"findings", "inspections", "work-orders"} and user.get("role") != "Super":
+        return 0
+    if read_setting(db, "system.findingsEnabled", True) is False and user.get("role") != "Super":
+        return 0
+    rows = db.execute(
+        """
+        SELECT findings.outlet
+        FROM findings LEFT JOIN inspection_items ON inspection_items.id = findings.source_item_id
+        GROUP BY findings.audit_id, COALESCE(findings.equipment_id, NULLIF(findings.item_name, ''), inspection_items.section), findings.location
+        HAVING SUM(findings.status != 'Open') = 0 AND SUM(findings.work_request_id IS NOT NULL) = 0
+           AND SUM(EXISTS(SELECT 1 FROM work_orders WHERE work_orders.source_finding_id = findings.id)) = 0
+        """).fetchall()
+    return len(keep(user, [{"outlet": row[0]} for row in rows]))
 
 
 def inspection_item(row, action, detail, view="checklist"):

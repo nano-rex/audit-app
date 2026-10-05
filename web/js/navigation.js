@@ -12,14 +12,56 @@ function openTab(tabId) {
 }
 
 let unreadNotifications = 0;
+// What waits in each section (from /api/todo), shown as a number beside its tab.
+let attentionCounts = {};
+
+function tabAttention(tabId) {
+  const count = (...keys) => keys.reduce((total, key) => total + (Number(attentionCounts[key]) || 0), 0);
+  return {
+    inspections: count("guided", "signoff", "findings"),
+    findings: count("findings"),
+    "work-orders": count("requests", "orders"),
+    notifications: unreadNotifications,
+    users: count("resets"),
+  }[tabId] || 0;
+}
+
+// Subtabs that lead to the waiting work: [selector, count key].
+const SUBTAB_ATTENTION = [
+  ['[data-context-tab="inspections"]', "guided"],
+  ['[data-context-tab="signoff"]', "signoff"],
+  ['[data-context-tab="findings"]', "findings"],
+  ['[data-maintenance-subtab="requests"]', "requests"],
+  ['[data-maintenance-subtab="orders"]', "orders"],
+  ['[data-user-subtab="users"]', "resets"],
+];
+
+function setBadge(host, count, label) {
+  if (!host) return;
+  let badge = host.querySelector(":scope > .tab-badge");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "tab-badge";
+    host.appendChild(badge);
+  }
+  badge.hidden = !count;
+  badge.textContent = count > 99 ? "99+" : String(count);
+  badge.setAttribute("aria-label", count ? `${count} ${label}` : "");
+}
 
 function renderUnreadBadge() {
-  const barButton = document.querySelector('.tabs [data-tab="notifications"]');
-  document.querySelectorAll("[data-unread-badge]").forEach((badge) => {
-    const onMenu = badge.dataset.unreadBadge === "menu";
-    // The menu button carries the count only while the Notifications button does not fit on the bar.
-    badge.hidden = !unreadNotifications || (onMenu && barButton && !barButton.hidden);
-    badge.textContent = unreadNotifications > 99 ? "99+" : String(unreadNotifications);
+  attentionCounts.notifications = unreadNotifications;
+  let offBar = 0;
+  document.querySelectorAll(".tabs [data-tab]").forEach((button) => {
+    const count = tabAttention(button.dataset.tab);
+    setBadge(button, count, "waiting");
+    // A tab that does not fit on the bar passes its count to the menu button.
+    if (button.hidden && !button.hasAttribute("data-nested-only") && allowedAppTabs().some((tab) => tab.id === button.dataset.tab)) offBar += count;
+  });
+  setBadge(document.querySelector("[data-menu-toggle]"), offBar, "waiting in the menu");
+  document.querySelectorAll("[data-menu-open-tab]").forEach((button) => setBadge(button, tabAttention(button.dataset.menuOpenTab), "waiting"));
+  SUBTAB_ATTENTION.forEach(([selector, key]) => {
+    document.querySelectorAll(selector).forEach((button) => setBadge(button, Number(attentionCounts[key]) || 0, "waiting"));
   });
 }
 
@@ -162,7 +204,7 @@ function renderTabMenu() {
   const tabs = orderedAppTabs();
   container.innerHTML = tabs.map((tab, index) => `
     <div class="menu-tab-row">
-      <button type="button" class="outline" data-menu-open-tab="${tab.id}">${escapeHtml(tab.label)}</button>
+      <button type="button" class="outline" data-menu-open-tab="${tab.id}">${escapeHtml(tab.label)}${tabAttention(tab.id) ? `<span class="tab-badge">${tabAttention(tab.id) > 99 ? "99+" : tabAttention(tab.id)}</span>` : ""}</button>
       <div class="menu-tab-moves">
         <button type="button" class="outline" data-menu-move="${tab.id}" data-direction="-1" aria-label="Move ${escapeAttr(tab.label)} up" ${navigationSaving || index === 0 ? "disabled" : ""}>↑</button>
         <button type="button" class="outline" data-menu-move="${tab.id}" data-direction="1" aria-label="Move ${escapeAttr(tab.label)} down" ${navigationSaving || index === tabs.length - 1 ? "disabled" : ""}>↓</button>

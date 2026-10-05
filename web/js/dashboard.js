@@ -3,6 +3,7 @@ async function loadAttention() {
   const response = await authFetch("/api/todo");
   const data = await response.json();
   unreadNotifications = data.unreadNotifications || 0;
+  attentionCounts = data.counts || {};
   renderUnreadBadge();
   const items = data.items || [];
   const count = document.querySelector("[data-attention-count]");
