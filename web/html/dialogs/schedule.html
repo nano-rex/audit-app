@@ -4,7 +4,12 @@
       <input name="scheduleId" type="hidden">
       <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
       <label>Scheduled Date<input name="scheduledDate" type="date" required></label>
-      <label>Auditor<input name="auditor" placeholder="Who will audit?"></label>
+      <fieldset class="assignee-picker">
+        <legend>Assigned to</legend>
+        <p class="muted" data-assignee-hint>Choose an outlet to see who can audit there.</p>
+        <input type="search" data-assignee-search placeholder="Find a person" hidden>
+        <div data-assignee-options></div>
+      </fieldset>
       <fieldset class="zone-location-picker visit-location-picker">
         <legend>Locations</legend>
         <div data-visit-location-options></div>

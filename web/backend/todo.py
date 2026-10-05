@@ -5,6 +5,8 @@ from backend.database import connect
 from backend.relational_values import load_values
 from backend.workflow import assigned_to
 from backend.outlet_access import keep
+from backend.code_version import outdated
+from backend.schedule_assignment import assignees_of
 from backend.work_requests import reviews_requests
 
 SIGNATURES = (("auditedBy", "auditor", "auditor"), ("verifiedBy", "verifier", "verifier"),
@@ -40,6 +42,13 @@ def todo_items(user):
                         "SELECT 1 FROM work_orders WHERE source_audit_id = ? AND status != 'Closed' UNION ALL SELECT 1 FROM findings WHERE audit_id = ? AND status != 'Closed' LIMIT 1",
                         (row["audit_id"], row["audit_id"])).fetchone():
                     items.append(inspection_item(row, "Close audit", "Signed and all work orders closed", "signoff"))
+        if "inspections" in permissions and "auditor" in capabilities:
+            # Visits a superior assigned to this person that nobody has started yet.
+            for row in db.execute("SELECT * FROM schedules WHERE status = 'Pending' AND assignees_data_id IS NOT NULL "
+                                  "AND NOT EXISTS (SELECT 1 FROM inspection_sessions WHERE schedule_id = schedules.id) ORDER BY scheduled_date, id LIMIT 200"):
+                if user["id"] in assignees_of(row["assignees_data_id"]):
+                    items.append({"type": "schedule", "id": row["id"], "action": "Start assigned audit", "view": "checklist", "outlet": row["outlet"],
+                                  "title": f"SCH-{row['id']:05d} {row['outlet']}", "detail": f"{row['outlet']} | {row['zone'] or 'All Locations'} | {row['scheduled_date']}"})
         if reviews_requests(user):
             for row in db.execute("SELECT * FROM work_requests WHERE status = 'Open' ORDER BY created_at LIMIT ?", (LIMIT,)):
                 items.append({"type": "work_request", "id": row["id"], "action": "Review work request", "outlet": row["outlet"],
@@ -55,7 +64,7 @@ def todo_items(user):
         resets = db.execute("SELECT count(*) FROM password_reset_requests WHERE resolved_at IS NULL").fetchone()[0] if is_company_admin_user(user) else 0
     # How many things wait in each section, shown as a number beside its tab.
     counts = {
-        "guided": sum(item["type"] == "inspection" and item["view"] == "checklist" for item in items),
+        "guided": sum(item["type"] in ("inspection", "schedule") and item.get("view") == "checklist" for item in items),
         "signoff": sum(item["type"] == "inspection" and item["view"] == "signoff" for item in items),
         "findings": findings,
         "requests": sum(item["type"] == "work_request" for item in items),
@@ -63,7 +72,8 @@ def todo_items(user):
         "resets": resets,
         "notifications": unread,
     }
-    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts}
+    return {"items": items[:LIMIT], "total": len(items), "unreadNotifications": unread, "counts": counts,
+            "serverOutdated": outdated()}
 
 
 def items_needing_request(db, user):

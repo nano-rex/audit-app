@@ -929,5 +929,43 @@ class ServerTests(unittest.TestCase):
             self.assertIsNone(db.execute("SELECT 1 FROM schedules WHERE id = ?", (schedule_id,)).fetchone())
             self.assertIsNone(db.execute("SELECT 1 FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone())
 
+    def test_z_superior_assigns_scheduled_work(self):
+        with app.connect() as db:
+            here = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff Here', 'Operation Manager', 'staff-here@example.test', 1, 0)").lastrowid
+            there = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Staff There', 'Operation Manager', 'staff-there@example.test', 1, 0)").lastrowid
+            viewer = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Report Reader', 'Management', 'reader@example.test', 1, 0)").lastrowid
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MST"]), here))
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MAM"]), there))
+        # Only people who can audit, at this outlet, are offered.
+        offered = {row["id"] for row in json.loads(self.request("/api/schedules/assignees?outlet=MST")[2])["items"]}
+        self.assertIn(here, offered)
+        self.assertNotIn(there, offered)
+        self.assertNotIn(viewer, offered)
+        base = {"outlet": "MST", "scheduledDate": "2026-10-09", "remarks": "Assigned visit"}
+        self.assertEqual(self.request("/api/schedules", "POST", base | {"assignees": [there]})[0], 400)
+        status, _, body = self.request("/api/schedules", "POST", base | {"assignees": [here]})
+        self.assertEqual(status, 200, body)
+        schedule_id = json.loads(body)["id"]
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["assignees"], row["auditor"]), ([here], "Staff Here"))
+        app.SESSION_TOKENS["staff-here"] = {"user_id": here, "expires_at": time.time() + 3600}
+        with app.connect() as db:
+            db.execute("UPDATE users SET reset_required = 0 WHERE id = ?", (here,))
+            notified = db.execute("SELECT title FROM notifications WHERE recipient_user_id = ? AND related_type = 'schedule' AND related_id = ?", (here, schedule_id)).fetchone()
+            logged = db.execute("SELECT user_name, detail FROM activity_log WHERE action = 'audit_assigned' AND record_id = ?", (schedule_id,)).fetchone()
+        self.assertEqual(notified["title"], "Scheduled audit assigned to you")
+        self.assertEqual((logged["user_name"], logged["detail"]), ("Super User", "Staff Here"))
+        todo = json.loads(self.request("/api/todo", token="staff-here")[2])
+        self.assertIn(("schedule", schedule_id), {(item["type"], item["id"]) for item in todo["items"]})
+        self.assertGreaterEqual(todo["counts"]["guided"], 1)
+        # Editing without naming assignees keeps them; starting the visit takes it off the waiting list.
+        self.assertEqual(self.request(f"/api/schedules/{schedule_id}", "PATCH", base | {"remarks": "Changed"})[0], 200)
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["assignees"], row["auditor"]), ([here], "Staff Here"))
+        self.assertEqual(self.request("/api/schedules/start", "POST", {"scheduleId": schedule_id}, token="staff-here")[0], 200)
+        todo = json.loads(self.request("/api/todo", token="staff-here")[2])
+        self.assertNotIn(("schedule", schedule_id), {(item["type"], item["id"]) for item in todo["items"]})
+        app.SESSION_TOKENS.pop("staff-here", None)
+
 if __name__ == "__main__":
     unittest.main()

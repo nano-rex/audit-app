@@ -6,6 +6,7 @@ where a step answers an earlier one, the time it took to act (duration_ms).
 import time
 
 ACTIONS = {
+    "audit_assigned": "Assigned scheduled audit",
     "audit_started": "Started audit",
     "audit_completed": "Completed audit",
     "audit_signed": "Signed audit",

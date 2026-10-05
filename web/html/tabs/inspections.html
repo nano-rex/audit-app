@@ -7,9 +7,14 @@
       </nav>
       <section class="inspection-subpanel active" data-inspection-panel="guided">
         <section class="panel" data-guided-schedules-panel>
-          <h2>Scheduled Work</h2>
+          <header class="panel-head">
+            <h2>Scheduled Work</h2>
+            <div class="panel-actions">
+              <label class="checkbox-line"><input type="checkbox" data-only-mine> Only mine</label>
+              <button type="button" class="primary" data-open="schedule">Schedule Work</button>
+            </div>
+          </header>
           <p>Select a schedule to start or resume its guided inspection.</p>
-          <button type="button" class="primary" data-open="schedule">Schedule Work</button>
           <div class="list" data-guided-schedules></div>
         </section>
         <section class="inspect-layout" data-guided-content hidden>

@@ -311,6 +311,34 @@ async function updateScheduleLocationSelect(selected = []) {
     + names.map((name) => `<label class="zone-location-option"><input type="checkbox" name="visitLocation" value="${escapeAttr(name)}"${chosen.has(name) ? " checked" : ""}><span>${escapeHtml(name)}</span></label>`).join("");
 }
 
+// People who can audit at the chosen outlet, ticked when already assigned.
+async function loadScheduleAssignees(selected = null) {
+  const form = document.getElementById("schedule-form");
+  if (!form) return;
+  const container = form.querySelector("[data-assignee-options]");
+  const chosen = new Set((selected ?? [...form.querySelectorAll('input[name="assignee"]:checked')].map((input) => Number(input.value))).map(Number));
+  const outlet = formValue(form, "outlet", "");
+  const search = form.querySelector("[data-assignee-search]");
+  if (!outlet) {
+    container.innerHTML = "";
+    search.hidden = true;
+    setText("[data-assignee-hint]", "Choose an outlet to see who can audit there.");
+    return;
+  }
+  const people = ((await (await authFetch(`/api/schedules/assignees?outlet=${encodeURIComponent(outlet)}`)).json()).items) || [];
+  search.hidden = people.length < 8;
+  search.value = "";
+  setText("[data-assignee-hint]", people.length
+    ? `People who can audit at ${outlet}. Leave everyone unticked to leave the visit unassigned.`
+    : `Nobody with audit permission covers ${outlet} yet.`);
+  container.innerHTML = people.map((person) => `
+    <label class="assignee-option" data-assignee-name="${escapeAttr(person.name.toLowerCase())}">
+      <input type="checkbox" name="assignee" value="${person.id}"${chosen.has(person.id) ? " checked" : ""}>
+      ${typeof personAvatar === "function" ? personAvatar(person, "small") : ""}
+      <span><b>${escapeHtml(person.name)}</b><small>${escapeHtml(person.title || person.role || "")}</small></span>
+    </label>`).join("");
+}
+
 function chosenVisitLocations(form) {
   return [...form.querySelectorAll('input[name="visitLocation"]:checked')].map((input) => input.value);
 }

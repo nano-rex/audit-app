@@ -4,6 +4,8 @@ async function loadAttention() {
   const data = await response.json();
   unreadNotifications = data.unreadNotifications || 0;
   attentionCounts = data.counts || {};
+  const outdated = document.querySelector("[data-server-outdated]");
+  if (outdated) outdated.hidden = !data.serverOutdated;
   renderUnreadBadge();
   const items = data.items || [];
   const count = document.querySelector("[data-attention-count]");
@@ -28,6 +30,13 @@ async function loadAttention() {
 }
 
 async function openAttentionItem(type, id, view = "") {
+  if (type === "schedule") {
+    const response = await authFetch("/api/schedules");
+    const row = ((await response.json()).items || []).find((item) => item.id === id);
+    if (!row) throw new Error("That scheduled visit is no longer available");
+    openScheduledInspection(row);
+    return;
+  }
   if (type === "work_request") {
     showTab("work-orders");
     showMaintenanceSubtab("requests");

@@ -1878,3 +1878,83 @@ h4,
   gap: 4px;
   padding: 4px 10px 4px 4px;
 }
+
+/* Shown when the server runs older code than its files: changes may not be saved until it restarts. */
+.server-outdated {
+  margin: 12px 38px 0;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, var(--border));
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--red) 10%, var(--surface));
+  color: var(--text);
+  font-size: 13px;
+}
+
+.server-outdated code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-sunken);
+}
+
+@media (max-width: 680px) {
+  .server-outdated {
+    margin: 10px 12px 0;
+  }
+}
+
+/* Schedule dialog: the people a visit is assigned to. */
+.assignee-picker {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px 12px;
+}
+
+.assignee-picker legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.assignee-picker > p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.assignee-picker [data-assignee-options] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
+  gap: 6px;
+  max-height: min(260px, 40vh);
+  overflow: auto;
+}
+
+.assignee-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.assignee-option:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.assignee-option span {
+  display: grid;
+  min-width: 0;
+}
+
+.assignee-option b {
+  font-size: 13px;
+}
+
+.assignee-option small {
+  color: var(--muted);
+  font-size: 11px;
+}

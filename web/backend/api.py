@@ -23,6 +23,7 @@ from backend.work_orders import comments, finding_items, notifications, work_ord
 from backend.work_requests import work_request_items
 from backend import outlet_access
 from backend.audit_exports import inspection_xlsx, location_pdf, location_xlsx
+from backend.schedule_assignment import assignable_people
 from backend.routes import dispatch
 from backend import control
 from backend.todo import todo_items
@@ -271,6 +272,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parsed.path == "/api/schedules":
             self.json(listed(schedule_items()))
+            return
+        if parsed.path == "/api/schedules/assignees":
+            outlet = parse_qs(parsed.query).get("outlet", [""])[0]
+            if outlet:
+                outlet_access.require(viewer, outlet)
+            with connect() as db:
+                self.json({"items": assignable_people(db, outlet)})
             return
         if parsed.path == "/api/work-orders":
             self.json(listed(work_order_items(viewer)))

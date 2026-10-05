@@ -188,7 +188,8 @@ def dashboard(unit, filters=None, include_room_trends=False):
             "responseRate": response_rate,
         },
         "today": {
-            "scheduled": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"])} for row in schedules],
+            "scheduled": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"]),
+                                    "assignees": visit_locations_of(row["assignees_data_id"])} for row in schedules],
             "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),
             "overdue": len(overdue_orders),
