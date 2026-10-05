@@ -6,7 +6,7 @@ for them under Waiting on you, and the assignment is logged.
 import time
 
 from backend import activity
-from backend.outlet_access import role_scope
+from backend.outlet_access import person_outlets
 from backend.permissions import resolve_permissions
 from backend.relational_values import load_value, save_value
 
@@ -20,8 +20,8 @@ def assignable_people(db, outlet):
         pages, capabilities = resolve_permissions(db, row["role"], overrides)
         if "inspections" not in pages or "auditor" not in capabilities:
             continue
-        outlets = (load_value(row["outlets_data_id"]) or []) if row["outlets_data_id"] else []
-        if outlet and role_scope(db, row["role"]) != "all" and outlet not in outlets:
+        outlets = person_outlets(row["outlets_data_id"])
+        if outlet and outlets is not None and outlet not in outlets:
             continue
         photo = (load_value(row["profile_photo_data_id"]) or {}) if row["profile_photo_data_id"] else {}
         people.append({"id": row["id"], "name": row["name"], "role": row["role"], "title": row["title"] or "",

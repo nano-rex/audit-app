@@ -27,22 +27,21 @@ An administrator should configure these records before staff begin auditing:
 
 1. In Users, create accounts and assign each person's role and department.
    Configure role permissions and inspection capabilities as required.
-   Each role also has an Outlet access setting. With All outlets its users
-   see every outlet. With One outlet (Operation Manager, PIC, Captain) or
-   Selected outlets (Regional Manager), choose each person's outlet or
-   outlets, either in the role editor (Outlets for each person, listing
-   everyone with that role) or in the person's user editor; they then see and
-   change only those outlets, in every list, report, and export. These four roles belong to the Operation
-   department.
+   Each person has Outlet access, in their user editor: All outlets is
+   ticked by default; tick particular outlets instead to limit them to those.
+   They then see and change only those outlets, in every list, report, and
+   export. People sharing a role can cover different outlets (for example two
+   Regional Managers, each with their own region). Regional Manager,
+   Operation Manager, PIC, and Captain belong to the Operation department.
    Each role can report to another role (Reports to, in the role editor);
-   a role cannot report to itself or to a role below it. Users >
-   Organization draws the chain of command: each person as a card with their
-   profile picture (or initials), name, and designation (their role), with
-   branches to the people under them. A person sits under someone in the
-   role above who covers the same outlet. People whose roles are not in a
-   chain are listed below the chart. A profile picture is added under
-   Account. Removing
-   a role moves the roles under it up to the role it reported to.
+   a role cannot report to itself or to a role below it. Removing a role
+   moves the roles under it up to the role it reported to.
+   Users > Organization draws the chain of command: each person as a card
+   with their profile picture (or initials), name, and designation (their
+   role), with branches to the people under them. A person sits under
+   someone in the role above who covers the same outlet. People with nobody
+   above or below them are shown together at the top. A profile picture is
+   added under Account.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed. When editing a location, tick the
    assets and fixtures that belong in it (use the filter to find them);

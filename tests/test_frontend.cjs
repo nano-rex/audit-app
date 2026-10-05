@@ -139,7 +139,7 @@ test("Edit User opens from the real dialog markup and saves existing users", asy
   let request;
   const context = vm.createContext({
     document: { getElementById: (id) => id === "user-form" ? form : id === "user-dialog" ? dialog : dummy, querySelector: () => dummy },
-    wireForm() {}, updateSetupSelects() {}, setText() {}, loadApp() {}, showEditorTab() {}, renderUserPermissions() {}, renderUserOutlets() {}, userOutletChoices: () => [], userPermissionOverrides() { return null; },
+    wireForm() {}, updateSetupSelects() {}, setText() {}, loadApp() {}, showEditorTab() {}, renderUserPermissions() {}, renderUserOutletOptions() {}, chosenUserOutlets: () => null, userPermissionOverrides() { return null; },
     formValue: (target, key, fallback) => target.elements[key]?.value || fallback,
     requestJson: async (...args) => { request = args; },
   });

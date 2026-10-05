@@ -33,8 +33,7 @@ function activeUsers() {
 function managerFor(user, roleByName, roleById, peopleByRole) {
   const role = roleByName.get(user.role);
   const covers = (person) => {
-    const scope = roleByName.get(person.role)?.outlet_scope || "all";
-    if (scope === "all" || !(user.outlets || []).length) return 0.5;
+    if (!person.outlets || !user.outlets) return 0.5;
     return (user.outlets || []).filter((code) => (person.outlets || []).includes(code)).length;
   };
   const seen = new Set();
@@ -67,35 +66,34 @@ function renderPeopleTree() {
   if (!container) return;
   const roleByName = new Map(roleCache.map((role) => [role.name, role]));
   const roleById = new Map(roleCache.map((role) => [role.id, role]));
-  const chained = new Set(roleCache.filter((role) => role.reports_to_id && roleById.has(role.reports_to_id)).flatMap((role) => [role.id, role.reports_to_id]));
   const people = activeUsers();
-  const inChain = people.filter((user) => chained.has(roleByName.get(user.role)?.id));
   const peopleByRole = new Map();
-  inChain.forEach((user) => {
-    const id = roleByName.get(user.role).id;
-    peopleByRole.set(id, [...(peopleByRole.get(id) || []), user]);
+  people.forEach((user) => {
+    const id = roleByName.get(user.role)?.id;
+    if (id) peopleByRole.set(id, [...(peopleByRole.get(id) || []), user]);
   });
   const children = new Map();
-  const roots = [];
-  inChain.forEach((user) => {
+  const tops = [];
+  people.forEach((user) => {
     const manager = managerFor(user, roleByName, roleById, peopleByRole);
     if (manager) children.set(manager.id, [...(children.get(manager.id) || []), user]);
-    else roots.push(user);
+    else tops.push(user);
   });
-  roots.sort((a, b) => a.name.localeCompare(b.name));
-  container.innerHTML = roots.length
-    ? roots.map((user) => `<div class="org-chart org-people-chart"><ul>${personNode(user, children)}</ul></div>`).join("")
-    : `<p class="muted">Nobody is in a chain of command yet. Set who each role reports to under Roles, and give people those roles.</p>`;
-  const others = people.filter((user) => !inChain.includes(user)).sort((a, b) => a.name.localeCompare(b.name));
-  setHtml("[data-org-people-others]", others.length
-    ? `<h3>Not in a chain</h3><div class="org-unlinked">${others.map((user) => `<span class="org-chip org-person-chip">${personAvatar(user, "small")}<b>${escapeHtml(user.name)}</b> <small>${escapeHtml(user.role || "No role")}</small></span>`).join("")}</div>`
-    : "");
+  // Everyone nobody is above is at the top: people on their own in a row that wraps to the
+  // screen, then each chain drawn as its own tree, the largest first.
+  const size = (user) => 1 + (children.get(user.id) || []).reduce((total, child) => total + size(child), 0);
+  const order = (a, b) => a.role.localeCompare(b.role) || a.name.localeCompare(b.name);
+  const alone = tops.filter((user) => !children.has(user.id)).sort(order);
+  const heads = tops.filter((user) => children.has(user.id)).sort((a, b) => size(b) - size(a) || order(a, b));
+  container.innerHTML = (alone.length ? `<ul class="org-row">${alone.map((user) => personNode(user, children)).join("")}</ul>` : "")
+    + heads.map((user) => `<div class="org-chart org-people-chart"><ul>${personNode(user, children)}</ul></div>`).join("")
+    || `<p class="muted">No people yet.</p>`;
 }
 
 function renderOrganization() {
   renderPeopleTree();
   // A chart wider than the screen starts centred on its top, not cut off at the left.
-  requestAnimationFrame(() => document.querySelectorAll(".org-tree").forEach((tree) => {
-    tree.scrollLeft = Math.max(0, (tree.scrollWidth - tree.clientWidth) / 2);
+  requestAnimationFrame(() => document.querySelectorAll(".org-chart").forEach((chart) => {
+    chart.scrollLeft = Math.max(0, (chart.scrollWidth - chart.clientWidth) / 2);
   }));
 }

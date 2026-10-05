@@ -43,7 +43,7 @@ function roleRow(row) {
       <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
       <span>${escapeHtml(row.description || "No description")}</span>
       <span>Access: ${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "none selected")}</span>
-      <span>${escapeHtml(row.department || "No department")} | ${escapeHtml({ one: "One outlet per user", several: "Selected outlets per user" }[row.outlet_scope] || "All outlets")} | Reports to ${escapeHtml(roleCache.find((role) => role.id === row.reports_to_id)?.name || "nobody")}</span>
+      <span>${escapeHtml(row.department || "No department")} | Reports to ${escapeHtml(roleCache.find((role) => role.id === row.reports_to_id)?.name || "nobody")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-role='${escapeAttr(JSON.stringify(row))}' ${row.protected ? "disabled" : ""}>Edit</button>
         <button type="button" class="danger" data-delete-role="${row.id}" ${row.protected ? "disabled" : ""}>Delete</button>

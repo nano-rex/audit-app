@@ -69,7 +69,7 @@ function openUserEditor(row = null) {
   }
   form.elements.inheritPermissions.checked = row?.permissionOverrides == null;
   renderUserPermissions(row?.permissionOverrides);
-  renderUserOutlets(row?.outlets || []);
+  renderUserOutletOptions(row ? row.outlets ?? null : null);
   dialog.showModal();
 }
 
@@ -94,14 +94,13 @@ function openRoleEditor(row = null) {
   form.elements.description.value = row?.description || "";
   updateSelectOptions(form.elements.department, setupOptions.departments, true, "No department");
   form.elements.department.value = row?.department || "";
-  form.elements.outletScope.value = row?.outlet_scope || "all";
-  form.dataset.roleName = row?.name || "";
+
   // A role may report to any role except itself and those below it.
   const below = new Set(row?.id ? roleDescendants(row.id) : []);
   const choices = roleCache.filter((role) => role.id !== row?.id && !below.has(role.id));
   form.elements.reportsTo.innerHTML = `<option value="">Nobody (top of a chain)</option>` + choices.map((role) => `<option value="${role.id}">${escapeHtml(role.name)}</option>`).join("");
   form.elements.reportsTo.value = row?.reports_to_id ? String(row.reports_to_id) : "";
-  renderRoleOutlets();
+
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
   form.querySelector("[data-role-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, row?.inspectionPermissions || [], "inspectionPermissions", Boolean(row?.protected));
@@ -618,7 +617,7 @@ document.getElementById("user-form").addEventListener("submit", async (event) =>
     resetRequired: Boolean(form.elements.resetRequired.checked),
     resetPassword: Boolean(form.elements.resetPassword.checked),
     permissionOverrides: userPermissionOverrides(form),
-    outlets: userOutletChoices(form),
+    outlets: chosenUserOutlets(form),
   };
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
@@ -643,21 +642,14 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
     name: formValue(form, "name", "New Role"),
     description: formValue(form, "description", ""),
     department: form.elements.department.value,
-    outletScope: form.elements.outletScope.value,
     reportsTo: Number(form.elements.reportsTo.value) || null,
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
   };
-  const message = form.querySelector("[data-role-outlets-hint]");
   try {
     await requestJson(id ? `/api/roles/${id}` : "/api/roles", id ? "PATCH" : "POST", payload);
-    // Then each person's outlets, as chosen in the list under Outlet access.
-    for (const [userId, outlets] of roleOutletChoices(form)) {
-      await requestJson(`/api/users/${userId}`, "PATCH", { outlets });
-    }
   } catch (error) {
-    if (message) message.textContent = error.message;
-    form.querySelector("[data-role-outlets]").hidden = false;
+    alert(error.message);
     return;
   }
   form.closest("dialog").close();

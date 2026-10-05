@@ -11,14 +11,8 @@
       <label>Description<textarea name="description" placeholder="What this role is responsible for"></textarea></label>
       <div class="form-grid">
         <label>Department<select name="department"></select></label>
-        <label>Outlet access<select name="outletScope"><option value="all">All outlets</option><option value="one">One outlet</option><option value="several">Selected outlets</option></select></label>
         <label>Reports to<select name="reportsTo"></select></label>
       </div>
-      <section class="role-outlets" data-role-outlets hidden>
-        <h3>Outlets for each person</h3>
-        <p class="muted" data-role-outlets-hint></p>
-        <div data-role-outlet-people></div>
-      </section>
       </section>
       <section class="permission-picker" data-editor-panel="permissions" hidden>
         <h3>Accessible Sections</h3>

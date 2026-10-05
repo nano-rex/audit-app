@@ -1501,23 +1501,6 @@ h4,
   white-space: pre-line;
 }
 
-.user-outlets {
-  display: block;
-  margin: 12px 0;
-  padding: 12px 14px 14px;
-}
-
-.user-outlets legend {
-  padding: 0 6px;
-  font-weight: 600;
-}
-
-.user-outlets [data-user-outlet-options] {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(130px, 100%), 1fr));
-  gap: 8px;
-}
-
 .users-table .user-role small {
   display: block;
   color: var(--muted);
@@ -1581,48 +1564,37 @@ h4,
   text-align: left;
 }
 
-/* Role editor: each person with the role, and their outlets. */
-.role-outlets {
+/* Role editor: each person with the role {
   display: grid;
   gap: 10px;
   margin-top: 6px;
-}
-
-.role-outlets h3 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.role-outlet-person {
-  display: grid;
-  gap: 6px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-alt);
-}
-
-.role-outlet-person small {
-  margin-top: -4px;
-}
-
-.role-outlet-ticks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
-  gap: 6px;
 }
 
 /* Organization tree: top-down chart with connecting lines; wide trees scroll sideways. */
 .org-tree {
   display: grid;
   gap: 16px;
-  overflow-x: auto;
   padding-bottom: 8px;
 }
 
 /* Each separate chain sits in its own band, so two chains do not read as one. */
+/* People with nobody above or below them: a row of cards that wraps to the screen. */
+.org-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+  list-style: none;
+}
+
+/* Each chain scrolls on its own when it is wider than the screen. */
 .org-chart {
-  min-width: max-content;
+  overflow-x: auto;
   padding: 16px;
   border: 1px dashed var(--border);
   border-radius: var(--radius);
@@ -1639,6 +1611,7 @@ h4,
 }
 
 .org-chart > ul {
+  min-width: max-content;
   padding-top: 0;
 }
 
@@ -1719,24 +1692,6 @@ h4,
   border-left: 2px solid var(--border);
 }
 
-.org-unlinked {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.org-chip {
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-alt);
-  font-size: 13px;
-}
-
-.org-chip small {
-  color: var(--muted);
-}
-
 /* Organization,
 people view: a card per person {
   border-color: var(--accent);
@@ -1797,13 +1752,6 @@ people view: a card per person {
   border-width: 0;
   outline-width: 1px;
   font-size: 11px;
-}
-
-.org-person-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px 4px 4px;
 }
 
 /* Shown when the server runs older code than its files: changes may not be saved until it restarts. */
