@@ -3,6 +3,7 @@ async function loadAttention() {
   const response = await authFetch("/api/todo");
   const data = await response.json();
   unreadNotifications = data.unreadNotifications || 0;
+  attentionCounts = data.counts || {};
   renderUnreadBadge();
   const items = data.items || [];
   const count = document.querySelector("[data-attention-count]");
@@ -378,8 +379,7 @@ async function loadReport() {
   document.querySelector("[data-report-critical]").innerHTML = data.criticalIssues.length
     ? data.criticalIssues.map(workOrderRow).join("")
     : `<article><div><b>No critical issues</b><span>High priority work orders will appear here.</span></div></article>`;
-  document.querySelector("[data-export-json]").href = `/api/reports/export.json?${query}`;
-  document.querySelector("[data-export-csv]").href = `/api/reports/export.csv?${query}`;
+  document.querySelector("[data-export-pdf]").href = `/api/reports/export.pdf?${query}`;
   document.querySelector("[data-export-xls]").href = `/api/reports/export.xlsx?${query}`;
   setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
   for (const key of ["assigned", "completed", "pending", "responseRate"]) setText(`[data-kpi="${key}"]`, `${data.kpi[key]}${key === "responseRate" ? "%" : ""}`);

@@ -10,3 +10,4 @@ web/data/media/
 web/data/backups/
 web/data/control/
 web/data/active-database
+web/data/*.log

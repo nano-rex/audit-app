@@ -17,7 +17,7 @@ from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
 from backend.http_support import api_errors, static_content, static_fingerprint
 from backend.inspections import inspection_session, inspection_sessions, schedule_items
-from backend.reports import dashboard, inspection_pdf, report, report_csv, report_xls
+from backend.reports import dashboard, inspection_pdf, report, report_pdf, report_xls
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.work_requests import work_request_items
@@ -364,13 +364,9 @@ class Handler(BaseHTTPRequestHandler):
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.json(cached_response(("report", unit, report_filters["outlet"], report_filters["from"], report_filters["to"], *scope_key), lambda: report(unit, report_filters)))
             return
-        if parsed.path == "/api/reports/export.json":
+        if parsed.path == "/api/reports/export.pdf":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(json.dumps(report(unit, report_filters), indent=2).encode("utf-8"), "application/json", "audit-report.json")
-            return
-        if parsed.path == "/api/reports/export.csv":
-            unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
-            self.download(report_csv(unit, report_filters), "text/csv", "audit-report.csv")
+            self.download(report_pdf(unit, report_filters), "application/pdf", "audit-report.pdf")
             return
         if parsed.path in {"/api/reports/export.xls", "/api/reports/export.xlsx"}:
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]

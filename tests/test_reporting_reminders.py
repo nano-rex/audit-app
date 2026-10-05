@@ -10,7 +10,8 @@ from backend import config
 from backend.database import insert_record
 from backend.relational_values import save_value
 from backend.reminders import deliver_due_reminders
-from backend.reports import report, report_csv, report_xls
+from pypdf import PdfReader
+from backend.reports import report, report_pdf, report_xls
 
 
 class ReportingReminderTests(unittest.TestCase):
@@ -37,11 +38,14 @@ class ReportingReminderTests(unittest.TestCase):
         self.assertEqual(result["monthlySummary"]["totalFindings"], 1)
         self.assertEqual(result["rankings"][0]["audit_date"], "2026-01-02")
         self.assertEqual(result["charts"]["roomAuditTrend"], [{"label": "A / Room 1 / 2026-01", "score": 50}])
-        csv = report_csv("Mini Studio", filters).decode()
-        self.assertIn("F-Mini Studio-A", csv)
-        self.assertNotIn("F-Mini Studio-B", csv)
-        self.assertNotIn("F-Loudspeaker-A", csv)
-        self.assertIn("'=1+1", csv)
+        text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(report_pdf("Mini Studio", filters))).pages)
+        self.assertIn("Audit Report", text)
+        self.assertIn("A | 2026-01-01 to 2026-01-31", text)
+        # Long references wrap inside their table cell.
+        joined = text.replace("\n", "")
+        self.assertIn("F-Mini Studio-A", joined)
+        self.assertNotIn("F-Mini Studio-B", joined)
+        self.assertNotIn("F-Loudspeaker-A", joined)
         workbook = load_workbook(BytesIO(report_xls("Mini Studio", filters)))
         self.assertEqual(workbook.sheetnames, ["Summary", "Findings"])
         self.assertEqual(workbook["Findings"].max_row, 2)

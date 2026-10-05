@@ -1,7 +1,5 @@
 """Reports for the audit application."""
 from backend.relational_values import load_value, hydrate_many
-from io import StringIO
-import csv
 from datetime import datetime
 from backend.media_store import MediaStore
 from backend.scoring import summarize as summarize_score, rating_for_score
@@ -253,39 +251,14 @@ def report(unit, filters=None):
     }
 
 
-def report_csv(unit, filters=None):
-    data = report(unit, filters)
-    brand = branding_settings()
-    out = StringIO()
-    writer = csv.writer(out)
-    def write_row(values):
-        writer.writerow(["'" + value if isinstance(value, str) and value.startswith(("=", "+", "-", "@")) else value for value in values])
-    write_row([f"{brand['appTitle']} Report", unit])
-    write_row([])
-    write_row(["Audits", "Completed", "Pending", "Average Score", "Open Work Orders", "Total Findings", "Priority", "Non-Priority", "Completion Rate"])
-    summary = data["monthlySummary"]
-    write_row([summary["audits"], summary["auditsCompleted"], summary["auditsPending"], summary["averageScore"], summary["openWorkOrders"], summary["totalFindings"], summary["priorityFindings"], summary["nonPriorityFindings"], str(summary["completionRate"]) + "%"])
-    write_row([])
-    write_row(["KPI"])
-    write_row(["Assigned Tasks", "Completed", "Pending", "Response Rate"])
-    kpi = data["kpi"]
-    write_row([kpi["assigned"], kpi["completed"], kpi["pending"], str(kpi["responseRate"]) + "%"])
-    write_row([])
-    write_row(["Outlet Rankings"])
-    write_row(["Outlet", "Average", "Latest", "Audit Count", "Last Audit Date"])
-    for row in data["rankings"]:
-        write_row([row["outlet"], row["average"], row["latest"], row["audit_count"], row["audit_date"]])
-    write_row([])
-    write_row(["Critical Issues"])
-    write_row(["ID", "Reference", "Outlet", "Zone", "Category", "Priority", "Title", "Assignee", "Status"])
-    for row in data["criticalIssues"]:
-        write_row([row["id"], row.get("work_order_ref", ""), row["outlet"], row["zone"], row.get("category", ""), row["priority"], row["title"], row["assignee"], row["status"]])
-    write_row([])
-    write_row(["Detailed Findings"])
-    write_row(["Reference", "Audit", "Outlet", "Location", "Category", "Priority", "Department", "PIC", "Status", "Comment"])
-    for row in finding_items(unit, filters)["items"]:
-        write_row([row.get("finding_ref", ""), row.get("audit_ref", ""), row.get("outlet", ""), row.get("location", ""), row.get("category", ""), row.get("priority", ""), row.get("assigned_department", ""), row.get("pic", ""), row.get("status", ""), row.get("comment", "")])
-    return out.getvalue().encode("utf-8")
+def report_pdf(unit, filters=None):
+    from backend.pdf_report import build_summary_report
+    filters = filters or {}
+    period = " to ".join(value for value in (filters.get("from"), filters.get("to")) if value) or "All dates"
+    scope = f"{filters.get('outlet') or 'All outlets'} | {period}"
+    with connect() as db:
+        settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
+    return build_summary_report(report(unit, filters), finding_items(unit, filters)["items"], scope, branding_settings(), settings)
 
 
 def report_xls(unit, filters=None):

@@ -278,10 +278,18 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(actions("reviewer"), [])
         # Nothing is assigned until the finding is requested and a work order is made from the request.
         self.assertEqual(actions("todo-pic"), [])
+        # The tabs count what waits: a sign-off, and an item still needing a work request.
+        counts = todo("super")["counts"]
+        self.assertGreaterEqual(counts["signoff"], 1)
+        findings_before = counts["findings"]
+        self.assertGreaterEqual(findings_before, 1)
         with app.connect() as db:
             finding_ids = [row[0] for row in db.execute("SELECT id FROM findings WHERE audit_id = (SELECT audit_id FROM inspection_sessions WHERE id = ?)", (session_id,))]
         request_id = json.loads(self.request("/api/work-requests", "POST", {"findingIds": finding_ids, "description": "Clean it"})[2])["id"]
         self.assertIn(("work_request", "Review work request"), actions("super"))
+        counts = todo("super")["counts"]
+        self.assertEqual(counts["findings"], findings_before - 1)
+        self.assertGreaterEqual(counts["requests"], 1)
         self.assertEqual(self.request("/api/work-orders", "POST", {"title": "Clean", "requestType": department, "pic": "Todo PIC", "workRequestId": request_id})[0], 200)
         self.assertNotIn(("work_request", "Review work request"), actions("super"))
         self.assertEqual(actions("todo-pic"), [("work_order", "Resolve work order")])
