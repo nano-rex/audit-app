@@ -321,7 +321,7 @@ function showUserSubtab(sectionId) {
     panel.hidden = !active;
     panel.classList.toggle("active", active);
   });
-  if (activeUserSection === "organization") renderOrgTree();
+  if (activeUserSection === "organization") renderOrganization();
 }
 
 document.querySelectorAll("[data-user-subtab]").forEach((button) => {

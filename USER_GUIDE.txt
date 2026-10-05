@@ -36,8 +36,12 @@ An administrator should configure these records before staff begin auditing:
    department.
    Each role can report to another role (Reports to, in the role editor);
    a role cannot report to itself or to a role below it. Users >
-   Organization draws these chains as a tree, with the people in each role
-   and their outlets; roles not in any chain are listed below it. Removing
+   Organization draws the chain of command. People (the default view) shows
+   each person as a card with their profile picture (or initials), name,
+   title, role, and outlets, under the person they report to: someone in the
+   role above who covers the same outlet. People whose roles are not in a
+   chain are listed below it. Roles shows the same chains by role, with the
+   people in each. A profile picture is added under Account. Removing
    a role moves the roles under it up to the role it reported to.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed. When editing a location, tick the

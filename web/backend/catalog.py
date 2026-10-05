@@ -69,7 +69,7 @@ def users(include_super=False):
         rows = db.execute(
             f"""
             SELECT id, name, username, role, email, department, active, reset_required,
-                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id, outlets_data_id,
+                   last_login_at, login_count, title, responsibilities, permission_overrides_data_id, outlets_data_id, profile_photo_data_id,
                    EXISTS(SELECT 1 FROM password_reset_requests WHERE user_id = users.id AND resolved_at IS NULL) AS reset_requested
             FROM users
             {role_filter}
@@ -82,6 +82,10 @@ def users(include_super=False):
         item["permissionOverrides"] = load_value(raw) if raw is not None else None
         outlets = item.pop("outlets_data_id")
         item["outlets"] = (load_value(outlets) or []) if outlets else []
+        # The picture is shown on the organization chart; only its address is sent.
+        photo = item.pop("profile_photo_data_id")
+        picture = (load_value(photo) or {}) if photo else {}
+        item["profilePhoto"] = {key: picture[key] for key in ("url", "name") if isinstance(picture, dict) and picture.get(key)}
     return {"items": items}
 
 

@@ -1778,3 +1778,103 @@ h4,
 .org-chip small {
   color: var(--muted);
 }
+
+/* Organization, people view: a card per person, with photo or initials. */
+.org-switch button.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.org-person {
+  display: inline-grid;
+  justify-items: center;
+  gap: 3px;
+  width: 168px;
+  padding: 14px 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, var(--radius));
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+  text-align: center;
+}
+
+.org-person b {
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.org-person > span:not(.org-avatar) {
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.org-person > small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.org-avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 4px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  outline: 2px solid var(--accent);
+  object-fit: cover;
+  background: var(--surface-sunken);
+}
+
+.org-initials {
+  background: hsl(var(--hue, 200) 55% 45%);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+.org-avatar.small {
+  width: 26px;
+  height: 26px;
+  margin: 0 6px 0 0;
+  border-width: 0;
+  outline-width: 1px;
+  font-size: 11px;
+}
+
+.org-outlets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.org-outlets span {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.org-outlets .all {
+  background: var(--surface-sunken);
+  color: var(--muted);
+}
+
+.org-outlets .none {
+  background: color-mix(in srgb, var(--red) 14%, var(--surface));
+  color: var(--red);
+}
+
+.org-person-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 4px;
+}
