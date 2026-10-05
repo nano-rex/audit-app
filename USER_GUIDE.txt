@@ -112,10 +112,11 @@ An administrator should configure these records before staff begin auditing:
 1. An audit started with Schedule and start now is already open. Otherwise
    open Inspections; Guided Inspection shows Scheduled Work.
 2. Select the scheduled work item here, or under Scheduled audits on the
-   Dashboard (it lists every visit not yet finished, with their number). The app creates or resumes the
-   inspection and displays its reference and details.
-   Scheduled Work lists unfinished audits too, including drafts started
-   without a schedule. Each audit is named the same way here and in History:
+   Dashboard (it lists every visit not yet finished, with their number).
+   The app creates or resumes the inspection and displays its reference and details.
+   Scheduled Work lists only unfinished audits, including drafts started
+   without a schedule; once an audit is completed it leaves Scheduled Work
+   and is found in History. Each audit is named the same way here and in History:
    its audit number and name (for example AUD-2026-0002 · AQP_2026-08-28_11),
    with the schedule it came from (Schedule SCH-00012, or No schedule) in
    the details line. A schedule nobody has started reads "Not started".
