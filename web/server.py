@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Application entry point; domain logic and HTTP routes live in focused modules."""
+import importlib.util
 import os
 from pathlib import Path
 import sys
@@ -42,6 +43,12 @@ if __name__ == "__main__":
     server = AuditHTTPServer(("127.0.0.1", port), Handler)
     print(f"Serving Audit App at http://127.0.0.1:{port}", flush=True)
     print(f"SQLite database: {config.DB_PATH}", flush=True)
+    # Exports and photo thumbnails need these; without them the rest of the app still runs.
+    missing = [name for module, name in (("reportlab", "reportlab (PDF export)"), ("openpyxl", "openpyxl (Excel export)"), ("PIL", "Pillow (photo thumbnails)"))
+               if importlib.util.find_spec(module) is None]
+    if missing:
+        print(f"WARNING: {sys.executable} is missing {', '.join(missing)}. Start the server with the project's "
+              "virtual environment (.venv/bin/python web/server.py) or install requirements.txt.", flush=True)
     stop = threading.Event()
     threading.Thread(target=reminder_loop, args=(stop,), daemon=True).start()
     try:

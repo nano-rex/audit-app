@@ -709,6 +709,7 @@ fieldset {
 .button-link.disabled {
   pointer-events: auto;
   opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .settings-grid {
@@ -1530,4 +1531,9 @@ h4,
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, #d9962b 12%, var(--surface));
   color: var(--text);
+}
+
+.location-export .muted {
+  max-width: 34ch;
+  font-size: 12px;
 }

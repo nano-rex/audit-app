@@ -466,7 +466,21 @@ async function loadInspectionHistory() {
   if (document.querySelector("[data-guided-schedules]")) renderGuidedSchedules();
 }
 
+// The location report uses the History filters: one outlet, one location, and the dates chosen.
+function updateLocationExport() {
+  const ready = Boolean(historyFilters.outlet && historyFilters.location);
+  const query = new URLSearchParams({ outlet: historyFilters.outlet, location: historyFilters.location, from: historyFilters.dateFrom || "", to: historyFilters.dateTo || "" });
+  document.querySelectorAll("[data-location-export]").forEach((link) => {
+    link.classList.toggle("disabled", !ready);
+    link.href = ready ? `/api/location-report.${link.dataset.locationExport}?${query}` : "#";
+  });
+  setText("[data-location-export-hint]", ready
+    ? `Every completed audit of ${historyFilters.location} at ${historyFilters.outlet}${historyFilters.dateFrom || historyFilters.dateTo ? " in the chosen dates" : ""}.`
+    : "Choose an outlet and a location to export every audit of that location.");
+}
+
 function renderInspectionHistory() {
+  updateLocationExport();
   const search = inspectionHistorySearch.toLowerCase();
   const rows = inspectionHistoryCache.filter((row) => {
     const savedAt = row.created_at ? new Date(row.created_at).toLocaleString() : "";
@@ -503,7 +517,8 @@ function inspectionHistoryRow(row) {
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
         ${(currentUser?.permissions || []).includes("inspections") ? `<button type="button" class="outline" data-open-inspection-session="${row.id}">Open</button>` : ""}
         ${row.audit_id ? `<button type="button" class="outline" data-view-inspection-findings="${row.audit_id}">Findings (${row.findings_count || 0})</button>` : ""}
-        ${row.status === "Completed" ? `<a class="button-link outline" href="/api/inspection-sessions/${row.id}/export.pdf">PDF</a>` : ""}
+        ${row.status === "Completed" ? `<a class="button-link outline" data-download href="/api/inspection-sessions/${row.id}/export.pdf">PDF</a>
+        <a class="button-link outline" data-download href="/api/inspection-sessions/${row.id}/export.xlsx">Excel</a>` : ""}
         ${row.status === "Completed" && !row.closed_at && (currentUser?.inspectionPermissions || []).includes("verifier") ? `<button type="button" class="outline" data-close-inspection-session="${row.id}">Close audit</button>` : ""}
         ${row.status !== "Completed" && (currentUser?.inspectionPermissions || []).includes("auditor") ? `<button type="button" class="danger" data-delete-inspection-session="${row.id}">Delete</button>` : ""}
       </span>
@@ -751,15 +766,10 @@ function updateInspectionActions(progress, payload) {
   // A completed or view-only checklist is shown as recorded.
   checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
   if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
-  const link = document.querySelector("[data-export-inspection-pdf]");
-  if (!link) return;
-  if (id) {
-    link.href = `/api/inspection-sessions/${id}/export.pdf`;
-    link.classList.remove("disabled");
-  } else {
-    link.href = "#";
-    link.classList.add("disabled");
-  }
+  document.querySelectorAll("[data-export-inspection]").forEach((link) => {
+    link.href = id ? `/api/inspection-sessions/${id}/export.${link.dataset.exportInspection}` : "#";
+    link.classList.toggle("disabled", !id);
+  });
 }
 
 function validateInspectionComplete(payload) {

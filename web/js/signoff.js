@@ -83,7 +83,8 @@ function renderSignoffDetail() {
   const allSigned = SIGNOFF_ROLES.every(([key]) => imageSource(session.signatures?.[key]));
   const verifier = (currentUser?.inspectionPermissions || []).includes("verifier");
   setHtml("[data-signoff-actions]", `
-    <a class="button-link outline" href="/api/inspection-sessions/${Number(session.id)}/export.pdf">Export PDF</a>
+    <a class="button-link outline" data-download href="/api/inspection-sessions/${Number(session.id)}/export.pdf">Export PDF</a>
+    <a class="button-link outline" data-download href="/api/inspection-sessions/${Number(session.id)}/export.xlsx">Export Excel</a>
     ${!session.closed_at && verifier ? `<button type="button" class="primary" data-close-inspection-session="${Number(session.id)}" ${allSigned ? "" : "disabled title=\"All three signatures are needed first\""}>Close audit</button>` : ""}`);
 }
 

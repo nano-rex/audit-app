@@ -62,10 +62,10 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const exportInspection = event.target.closest("[data-export-inspection-pdf]");
+  const exportInspection = event.target.closest("[data-export-inspection]");
   if (exportInspection?.classList.contains("disabled")) {
     event.preventDefault();
-    alert("Save this inspection before exporting a PDF.");
+    alert("Save this inspection before exporting it.");
     return;
   }
 
@@ -878,3 +878,37 @@ async function showLoginActivity(id, offset = 0) {
     </nav><form method="dialog"><button>Close</button></form>`;
   if (!dialog.open) dialog.showModal();
 }
+
+// Exports download through the page, so a refused or failed export says why instead of
+// replacing the page with the server's error.
+document.addEventListener("click", async (event) => {
+  const link = event.target.closest("a[data-download]");
+  if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey) return;
+  event.preventDefault();
+  if (link.classList.contains("disabled") || link.getAttribute("href") === "#" || link.dataset.busy) return;
+  link.dataset.busy = "true";
+  const label = link.textContent;
+  link.textContent = "Preparing…";
+  try {
+    const response = await fetch(link.href);
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || `Export failed (${response.status})`);
+    }
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const filename = (disposition.match(/filename="([^"]+)"/) || [])[1] || "export";
+    const url = URL.createObjectURL(await response.blob());
+    const save = document.createElement("a");
+    save.href = url;
+    save.download = filename;
+    document.body.appendChild(save);
+    save.click();
+    save.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    link.textContent = label;
+    delete link.dataset.busy;
+  }
+});
