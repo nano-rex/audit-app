@@ -1521,3 +1521,13 @@ h4,
   display: block;
   color: var(--muted);
 }
+
+/* What still stands between a checklist and completion. */
+.inspection-blockers {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, #d9962b 55%, var(--border));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, #d9962b 12%, var(--surface));
+  color: var(--text);
+}

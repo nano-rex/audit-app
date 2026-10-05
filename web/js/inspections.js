@@ -515,7 +515,7 @@ function inspectionHistoryProgressStatus(row) {
   const progress = Number(row.progress) || 0;
   if (row.closed_at) return { className: "status-complete", label: "Closed (100%)" };
   if (row.status === "Completed") return { className: "status-complete", label: `Completed (${progress}%)` };
-  if (progress >= 100) return { className: "status-complete", label: "Ready to Complete (100%)" };
+  if (progress >= 100) return { className: "status-progress", label: "Not completed (100%)" };
   if (progress > 0) return { className: "status-progress", label: `In Progress (${progress}%)` };
   return { className: "status-untouched", label: "Not Started (0%)" };
 }
@@ -715,6 +715,20 @@ function inspectionItemNeedsPhoto(item) {
   return !item.passed || setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
 }
 
+// What still stands between a checklist and completion, in the words shown beside the button.
+function inspectionBlockers(payload) {
+  if (!payload.items.length) return [];
+  const unchecked = payload.items.filter((item) => !isInspectionItemComplete(item));
+  const needPhoto = [...new Set(payload.items.filter((item) => inspectionItemNeedsPhoto(item) && !(item.images || []).length).map((item) => item.section || "an item"))];
+  const blockers = [];
+  if (unchecked.length) blockers.push(`${unchecked.length} check${unchecked.length === 1 ? "" : "s"} still to tick, or to give a remark if failed`);
+  if (needPhoto.length) {
+    const names = needPhoto.slice(0, 5).join(", ") + (needPhoto.length > 5 ? ` and ${needPhoto.length - 5} more` : "");
+    blockers.push(`a photo for ${names}${setupOptions.settings["system.requirePhotoEveryAsset"] !== false ? " (every inspected item needs one)" : ""}`);
+  }
+  return blockers;
+}
+
 function isInspectionReadyToComplete(payload) {
   return Boolean(payload.items.length && payload.items.every((item) => (!inspectionItemNeedsPhoto(item) || (item.images || []).length) && isInspectionItemComplete(item)));
 }
@@ -724,6 +738,13 @@ function updateInspectionActions(progress, payload) {
   const form = document.getElementById("inspection-form");
   const completed = form?.dataset.completed === "true";
   if (button) button.textContent = completed ? "Inspection Completed" : isInspectionReadyToComplete(payload) ? "Complete Inspection" : "Save Progress";
+  // Say what is missing, so a checklist at 100% is not mistaken for a completed one.
+  const blockers = completed ? [] : inspectionBlockers(payload);
+  const note = document.querySelector("[data-inspection-blockers]");
+  if (note) {
+    note.hidden = !blockers.length || progress === 0;
+    note.textContent = blockers.length ? `To complete this inspection, add ${blockers.join("; and ")}.` : "";
+  }
   const id = form ? formValue(form, "inspectionSessionId", "") : "";
   const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && !completed;
   if (button) button.disabled = !editable;
