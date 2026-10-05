@@ -307,6 +307,8 @@ let activeUserSection = "users";
 function showUserSubtab(sectionId) {
   const permissions = currentUser?.permissions || allTabs.map((tab) => tab.id);
   const allowed = ["users", "departments", "roles"].filter((id) => permissions.includes(id));
+  // The organization tree is for those who manage people or roles.
+  if (allowed.includes("users") || allowed.includes("roles")) allowed.push("organization");
   activeUserSection = allowed.includes(sectionId) ? sectionId : allowed[0];
   document.querySelectorAll("[data-user-subtab]").forEach((button) => {
     button.hidden = !allowed.includes(button.dataset.userSubtab);
@@ -319,6 +321,7 @@ function showUserSubtab(sectionId) {
     panel.hidden = !active;
     panel.classList.toggle("active", active);
   });
+  if (activeUserSection === "organization") renderOrgTree();
 }
 
 document.querySelectorAll("[data-user-subtab]").forEach((button) => {

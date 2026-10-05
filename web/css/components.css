@@ -1611,3 +1611,170 @@ h4,
   grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
   gap: 6px;
 }
+
+/* Organization tree: top-down chart with connecting lines; wide trees scroll sideways. */
+.org-tree {
+  display: grid;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+/* Each separate chain sits in its own band, so two chains do not read as one. */
+.org-chart {
+  min-width: max-content;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.org-chart ul {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0;
+  padding: 18px 0 0;
+  list-style: none;
+}
+
+.org-chart > ul {
+  padding-top: 0;
+}
+
+.org-chart li {
+  position: relative;
+  padding: 18px 8px 0;
+  text-align: center;
+}
+
+.org-chart > ul > li {
+  padding-top: 0;
+}
+
+/* The lines: across to siblings, and down from the parent. */
+.org-chart li::before,
+.org-chart li::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 50%;
+  width: 50%;
+  height: 18px;
+  border-top: 2px solid var(--border);
+}
+
+.org-chart li::after {
+  right: auto;
+  left: 50%;
+  border-left: 2px solid var(--border);
+}
+
+.org-chart li:only-child::before,
+.org-chart li:only-child::after,
+.org-chart > ul > li::before,
+.org-chart > ul > li::after {
+  display: none;
+}
+
+.org-chart li:only-child {
+  padding-top: 18px;
+}
+
+.org-chart li:only-child::after {
+  display: block;
+  left: 50%;
+  width: 0;
+  border-top: 0;
+}
+
+.org-chart > ul > li:only-child {
+  padding-top: 0;
+}
+
+.org-chart > ul > li:only-child::after {
+  display: none;
+}
+
+.org-chart li:first-child::before,
+.org-chart li:last-child::after {
+  border: 0;
+}
+
+.org-chart li:last-child::before {
+  border-right: 2px solid var(--border);
+  border-radius: 0 6px 0 0;
+}
+
+.org-chart li:first-child::after {
+  border-radius: 6px 0 0 0;
+}
+
+.org-chart ul ul::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 18px;
+  border-left: 2px solid var(--border);
+}
+
+.org-node {
+  display: inline-grid;
+  gap: 4px;
+  min-width: 150px;
+  max-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+}
+
+.org-node > small {
+  color: var(--muted);
+}
+
+.org-chart .org-people {
+  display: grid;
+  gap: 2px;
+  justify-content: stretch;
+  margin: 4px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.org-chart .org-people li {
+  padding: 0;
+  font-size: 13px;
+  text-align: left;
+}
+
+.org-chart .org-people li::before,
+.org-chart .org-people li::after,
+.org-chart .org-people::before {
+  display: none;
+}
+
+.org-people small {
+  color: var(--muted);
+}
+
+.org-unlinked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.org-chip {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 13px;
+}
+
+.org-chip small {
+  color: var(--muted);
+}

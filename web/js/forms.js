@@ -92,6 +92,11 @@ function openRoleEditor(row = null) {
   form.elements.department.value = row?.department || "";
   form.elements.outletScope.value = row?.outlet_scope || "all";
   form.dataset.roleName = row?.name || "";
+  // A role may report to any role except itself and those below it.
+  const below = new Set(row?.id ? roleDescendants(row.id) : []);
+  const choices = roleCache.filter((role) => role.id !== row?.id && !below.has(role.id));
+  form.elements.reportsTo.innerHTML = `<option value="">Nobody (top of a chain)</option>` + choices.map((role) => `<option value="${role.id}">${escapeHtml(role.name)}</option>`).join("");
+  form.elements.reportsTo.value = row?.reports_to_id ? String(row.reports_to_id) : "";
   renderRoleOutlets();
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
@@ -625,6 +630,7 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
     description: formValue(form, "description", ""),
     department: form.elements.department.value,
     outletScope: form.elements.outletScope.value,
+    reportsTo: Number(form.elements.reportsTo.value) || null,
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
   };

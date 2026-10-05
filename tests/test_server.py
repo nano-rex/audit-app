@@ -902,5 +902,24 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(self.request(path, token="no-reports")[0], 403, path)
         app.SESSION_TOKENS.pop("no-reports", None)
 
+    def test_roles_form_a_chain_of_command_without_loops(self):
+        roles = lambda: {row["name"]: row for row in json.loads(self.request("/api/roles")[2])["items"]}
+        for name in ("Chain Top", "Chain Middle", "Chain Bottom"):
+            self.assertEqual(self.request("/api/roles", "POST", {"name": name, "permissions": ["today"]})[0], 200)
+        ids = {name: row["id"] for name, row in roles().items() if name.startswith("Chain")}
+        body = lambda name, parent: {"name": name, "permissions": ["today"], "reportsTo": ids[parent] if parent else None}
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Middle']}", "PATCH", body("Chain Middle", "Chain Top"))[0], 200)
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Bottom']}", "PATCH", body("Chain Bottom", "Chain Middle"))[0], 200)
+        self.assertEqual(roles()["Chain Bottom"]["reports_to_id"], ids["Chain Middle"])
+        # A role cannot report to itself or to anyone below it.
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Top']}", "PATCH", body("Chain Top", "Chain Top"))[0], 400)
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Top']}", "PATCH", body("Chain Top", "Chain Bottom"))[0], 400)
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Top']}", "PATCH", {"name": "Chain Top", "permissions": ["today"], "reportsTo": 999999})[0], 400)
+        # Editing a role without naming its manager keeps it; removing a role keeps the chain whole.
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Bottom']}", "PATCH", {"name": "Chain Bottom", "permissions": ["today"]})[0], 200)
+        self.assertEqual(roles()["Chain Bottom"]["reports_to_id"], ids["Chain Middle"])
+        self.assertEqual(self.request(f"/api/roles/{ids['Chain Middle']}", "DELETE")[0], 200)
+        self.assertEqual(roles()["Chain Bottom"]["reports_to_id"], ids["Chain Top"])
+
 if __name__ == "__main__":
     unittest.main()
