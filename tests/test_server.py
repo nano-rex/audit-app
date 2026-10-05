@@ -967,5 +967,19 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn(("schedule", schedule_id), {(item["type"], item["id"]) for item in todo["items"]})
         app.SESSION_TOKENS.pop("staff-here", None)
 
+    def test_z_restart_keeps_edited_people_and_removed_roles(self):
+        # A starter account whose email was changed, and a default role that was removed,
+        # must neither stop the next start nor come back.
+        with app.connect() as db:
+            db.execute("UPDATE users SET email = 'gavin@company.example' WHERE username = 'gavin'")
+            db.execute("UPDATE users SET role = 'Auditor' WHERE role = 'Facilities Officer'")
+            db.execute("DELETE FROM roles WHERE name = 'Facilities Officer'")
+            users_before = db.execute("SELECT count(*) FROM users").fetchone()[0]
+        app.init_db()
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM users").fetchone()[0], users_before)
+            self.assertIsNone(db.execute("SELECT 1 FROM roles WHERE name = 'Facilities Officer'").fetchone())
+            self.assertIsNone(db.execute("SELECT 1 FROM users WHERE email = 'gavin@audit.local'").fetchone())
+
 if __name__ == "__main__":
     unittest.main()
