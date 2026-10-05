@@ -510,7 +510,10 @@ def init_db():
         db.execute("CREATE TABLE IF NOT EXISTS audit_reference_counters(year TEXT PRIMARY KEY, next_number INTEGER NOT NULL)")
         for session in db.execute("SELECT id, audit_id, audit_date FROM inspection_sessions WHERE audit_ref IS NULL OR audit_ref = ''").fetchall():
             audit = db.execute("SELECT audit_ref FROM audits WHERE id = ?", (session["audit_id"],)).fetchone()
-            reference = audit["audit_ref"] if audit else allocate_reference(db, session["audit_date"])
+            reference = audit["audit_ref"] if audit else None
+            # An audit number already on another inspection would stop the start; give a new one instead.
+            if not reference or db.execute("SELECT 1 FROM inspection_sessions WHERE audit_ref = ? AND id != ?", (reference, session["id"])).fetchone():
+                reference = allocate_reference(db, session["audit_date"])
             db.execute("UPDATE inspection_sessions SET audit_ref = ? WHERE id = ?", (reference, session["id"]))
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_session_audit_reference ON inspection_sessions(audit_ref) WHERE audit_ref IS NOT NULL AND audit_ref != ''")
         db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_schedule ON inspection_sessions(schedule_id) WHERE schedule_id IS NOT NULL")

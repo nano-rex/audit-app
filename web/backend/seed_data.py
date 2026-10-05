@@ -155,15 +155,16 @@ def seed_users(db):
         ("Fan", "fan", "Facilities Officer", "fan@audit.local", "AVC", "Facilities Officer", "Facilities officer", "123456"),
         ("Hui", "hui", "Facilities Executive", "hui@audit.local", "FMS", "Facilities Executive", "Facilities executive", "123456"),
     ]
+    # Only a database without people gets them. Once it has people, their accounts are theirs to
+    # change or remove; checking each starter account by email re-created one whose email had been
+    # changed, which then collided with its own username and stopped the server from starting.
+    if db.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+        return
     for row in rows:
-        # Checked by email (it used to compare the role, so every start re-hashed every password).
-        if db.execute("SELECT 1 FROM users WHERE lower(email) = ?", (row[3],)).fetchone():
-            continue
         db.execute(
             """
             INSERT INTO users (name, username, role, email, department, password_hash, active, reset_required, title, responsibilities, created_at)
             VALUES (?, ?, ?, ?, ?, ?, 1, 1, ?, ?, ?)
-            ON CONFLICT(email) DO UPDATE SET username = COALESCE(users.username, excluded.username)
             """,
             (row[0], row[1], row[2], row[3], row[4], hash_password(row[7]), row[5], row[6], now),
         )
@@ -182,14 +183,16 @@ def seed_roles(db):
         ("Facilities Officer", "Facilities officer access", ["today", "inspections", "equipment", "findings", "work-orders", "notifications"]),
         ("Facilities Executive", "Facilities executive access", ["today", "inspections", "equipment", "reports", "findings", "work-orders", "notifications"]),
     ]
-    for name, description, permissions in role_rows:
-        db.execute(
-            """
-            INSERT OR IGNORE INTO roles (name, description, permissions_data_id, protected, created_at)
-            VALUES (?, ?, ?, 0, ?)
-            """,
-            (name, description, save_value(db, permissions), now),
-        )
+    # Default roles are for a new database only; once roles exist, removing one keeps it removed.
+    if not db.execute("SELECT 1 FROM roles LIMIT 1").fetchone():
+        for name, description, permissions in role_rows:
+            db.execute(
+                """
+                INSERT OR IGNORE INTO roles (name, description, permissions_data_id, protected, created_at)
+                VALUES (?, ?, ?, 0, ?)
+                """,
+                (name, description, save_value(db, permissions), now),
+            )
     admin = db.execute("SELECT id, permissions_data_id FROM roles WHERE name = ?", (ADMIN_ROLE,)).fetchone()
     if admin:
         permissions = set(load_value(admin["permissions_data_id"] or "[]") or [])
