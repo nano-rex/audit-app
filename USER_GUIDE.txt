@@ -79,8 +79,8 @@ An administrator should configure these records before staff begin auditing:
 2. Select the outlet and date, and under Assigned to tick the person or
    people who should do it (for example a supervisor assigning staff). Only
    people who can audit and whose outlets include the visit's outlet are
-   listed. Each person assigned is notified, and the visit waits for them
-   under Waiting on you until it is started. Anyone with audit permission
+   listed. Each person assigned is notified, and the visit is counted on
+   their Inspections tab until it is started. Anyone with audit permission
    can still start it. Add any scheduling remarks. Under Locations, All locations is ticked: the audit covers the
    whole outlet. Tick one or more locations instead to audit only those; the
    inspection then shows only their tabs. Untick them all to return to All.
@@ -100,8 +100,8 @@ An administrator should configure these records before staff begin auditing:
 ----------------------------------------
 1. An audit started with Schedule and start now is already open. Otherwise
    open Inspections; Guided Inspection shows Scheduled Work.
-2. Select the scheduled work item, or choose Open beside "Continue inspection"
-   under Waiting on you on the Dashboard. The app creates or resumes the
+2. Select the scheduled work item here, or under Scheduled audits on the
+   Dashboard (it lists every visit not yet finished, with their number). The app creates or resumes the
    inspection and displays its reference and details.
    Scheduled Work lists unfinished audits too, including drafts started
    without a schedule. Each audit is named the same way here and in History:
@@ -175,14 +175,12 @@ An administrator should configure these records before staff begin auditing:
    request number (WR-...). Something that was not found in an audit can be
    requested with Add Work Request on Maintenance > Work Requests.
 3. Maintenance > Work Requests lists open requests (change Status for the
-   rest); they also appear under Waiting on you as "Review work request" for
-   whoever assigns work. Choose Create work order to turn a request into a
+   rest); for whoever assigns work they are counted on the Maintenance tab. Choose Create work order to turn a request into a
    work order, filled in from the request: set the PIC and due date and save.
    Or choose Decline with the reason when no work is needed; its findings
    close with that reason.
-4. Maintenance > Work Orders lists the work orders. The Dashboard lists those
-   assigned to you or your department under Waiting on you ("Resolve work
-   order"). A Department/PIC account sees only records assigned to that PIC or
+4. Maintenance > Work Orders lists the work orders; those assigned to you or
+   your department are counted on the Maintenance tab. A Department/PIC account sees only records assigned to that PIC or
    department, and cannot create or decline orders.
 5. Open a work order to review the issue, evidence, due date, priority, and
    assignment. Add comments to its timeline as work progresses.
@@ -205,8 +203,9 @@ An administrator should configure these records before staff begin auditing:
 1. A verifier can close a completed audit on Sign-off (or from its History
    record) after all
    required signatures are present and every finding is closed (its work
-   order closed or its request declined). It appears under Waiting on you as "Close audit" when it is ready,
-   and as "Sign as ..." while your signature is missing. A closed audit is
+   order closed or its request declined). Audits waiting for your signature,
+   or ready for you to close, are counted on the Inspections and Sign-off
+   tabs. A closed audit is
    read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
    and charts. Use the date and outlet filters to narrow the report. Reports

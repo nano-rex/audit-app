@@ -1,4 +1,4 @@
-// Tasks addressed to the signed-in user, and the unread notification count shown on the bar.
+// What waits for the signed-in user: the counts beside each tab, and the unread notifications.
 async function loadAttention() {
   const response = await authFetch("/api/todo");
   const data = await response.json();
@@ -7,26 +7,6 @@ async function loadAttention() {
   const outdated = document.querySelector("[data-server-outdated]");
   if (outdated) outdated.hidden = !data.serverOutdated;
   renderUnreadBadge();
-  const items = data.items || [];
-  const count = document.querySelector("[data-attention-count]");
-  if (count) {
-    count.textContent = String(data.total || items.length);
-    count.hidden = !items.length;
-  }
-  setHtml("[data-attention]", items.length
-    ? items.map((item) => `
-      <article>
-        <div>
-          <b>${escapeHtml(item.action)}</b>
-          <span>${escapeHtml(item.title)}</span>
-          <span>${escapeHtml(item.detail)}</span>
-        </div>
-        <span class="row-actions">
-          ${item.overdue ? '<span class="status-pill status-untouched">Overdue</span>' : ""}
-          <button type="button" class="primary" data-attention-type="${escapeAttr(item.type)}" data-attention-view="${escapeAttr(item.view || "")}" data-attention-id="${Number(item.id)}">Open</button>
-        </span>
-      </article>`).join("")
-    : `<article><div><b>Nothing is waiting on you</b><span>Inspections to continue or sign, and work orders assigned to you, appear here.</span></div></article>`);
 }
 
 async function openAttentionItem(type, id, view = "") {
@@ -63,9 +43,23 @@ async function loadDashboard() {
   const data = await response.json();
   renderMainDashboard(data);
 
-  setHtml("[data-today-schedules]", data.today.scheduled.length
-    ? data.today.scheduled.map(scheduleRow).join("")
-    : `<article><div><b>No scheduled audits</b><span>Use Schedule Visit to plan one.</span></div></article>`);
+  dashboardSchedules = data.today.scheduled || [];
+  renderDashboardSchedules();
+}
+
+// Every scheduled visit not yet finished, a page at a time, with their number beside the heading.
+let dashboardSchedules = [];
+
+function renderDashboardSchedules() {
+  const count = document.querySelector("[data-scheduled-count]");
+  if (count) {
+    count.textContent = String(dashboardSchedules.length);
+    count.hidden = !dashboardSchedules.length;
+  }
+  const page = paginateList("dashboard-schedules", dashboardSchedules, "", renderDashboardSchedules);
+  setHtml("[data-today-schedules]", (dashboardSchedules.length
+    ? page.items.map(scheduleRow).join("")
+    : `<article><div><b>No scheduled audits</b><span>Use Schedule Visit to plan one.</span></div></article>`) + (dashboardSchedules.length ? page.controls : ""));
 }
 
 async function loadSuperDashboard() {

@@ -906,17 +906,8 @@ dialog header h2 {
   vertical-align: middle;
 }
 
-.attention-grid {
+.scheduled-panel {
   margin-bottom: 24px;
-}
-
-.attention-grid .panel {
-  margin-bottom: 0;
-}
-
-.attention-grid .list {
-  max-height: 420px;
-  overflow-y: auto;
 }
 
 .inspection-item {
