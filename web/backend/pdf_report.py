@@ -252,6 +252,20 @@ def build_summary_report(data, findings, scope, brand, settings=None):
                          row["status"], row.get("due_date") or ""] for row in data["criticalIssues"]], [80, 55, 70, 155, 60, 60])
     else:
         writer.text("No open high-priority work orders.")
+    from backend.activity import duration_text
+    writer.add(Spacer(1, 12), writer.paragraph("Time to act", "Heading1"))
+    writer.table([["Step", "Average", "Longest", "Times"]]
+                 + [[row["label"], duration_text(row["averageSeconds"]), duration_text(row["longestSeconds"]), row["count"]] for row in data["timeToAct"]],
+                 [250, 80, 80, 70])
+    writer.add(Spacer(1, 12), writer.paragraph("People", "Heading1"))
+    if data["people"]:
+        writer.table([["Person", "Audits done", "Avg. audit", "Signed", "Closed audits", "Requests raised", "Requests acted", "Avg. to act", "Orders closed", "Avg. to close"]]
+                     + [[row["name"], row["audit_completed"], duration_text(row["auditSeconds"]), row["audit_signed"], row["audit_closed"],
+                         row["request_raised"], row["order_created"] + row["request_declined"], duration_text(row["requestSeconds"]),
+                         row["order_closed"], duration_text(row["orderSeconds"])] for row in data["people"]],
+                     [70, 38, 50, 36, 40, 44, 44, 50, 40, 52])
+    else:
+        writer.text("No activity in this period.")
     writer.add(Spacer(1, 12), writer.paragraph("Findings", "Heading1"))
     if findings:
         writer.table([["Finding", "Audit", "Outlet", "Location", "Item / check", "Priority", "Status"]]
@@ -260,4 +274,15 @@ def build_summary_report(data, findings, scope, brand, settings=None):
                          row.get("priority") or "", row.get("status") or ""] for row in findings], [65, 72, 45, 60, 130, 50, 58])
     else:
         writer.text("No findings in this period.")
+    writer.add(Spacer(1, 12), writer.paragraph("Activity log", "Heading1"))
+    if data["activity"]:
+        shown = data["activity"][:100]
+        writer.table([["When", "Person", "Action", "Record", "Outlet", "Took"]]
+                     + [[datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"],
+                         row["record_ref"] or "", row["outlet"] or "", duration_text(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else ""]
+                        for row in shown], [80, 80, 120, 85, 50, 65])
+        if data["activityTotal"] > len(shown):
+            writer.text(f"The latest {len(shown)} of {data['activityTotal']} entries; the Excel export lists them all.", "Caption")
+    else:
+        writer.text("No activity in this period.")
     return writer.build(scope, "Audit report")

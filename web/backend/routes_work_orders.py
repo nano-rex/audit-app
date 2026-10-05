@@ -1,6 +1,7 @@
 """Routes work orders for the audit application."""
 from backend.relational_values import data_value
 import time
+from backend import activity
 from backend.reminders import notify_work_order
 from backend.common import priority_due_date, sla_status, work_order_ref
 from backend.database import connect, first_category, first_department, first_outlet
@@ -63,6 +64,8 @@ def post_work_orders(self, parsed, payload=None):
         db.execute("UPDATE work_orders SET source_audit_id = ?, images_data_id = COALESCE(images_data_id, ?) WHERE id = ?",
                    (work_request["audit_id"], work_request["images_data_id"], cursor.lastrowid))
         link_work_order(db, request_id, cursor.lastrowid, status, payload.get("pic", ""))
+        activity.log(db, user, "order_created", "work_order", cursor.lastrowid, work_order_ref(cursor.lastrowid), payload.get("outlet") or default_outlet,
+                     started_at=work_request["created_at"], detail=work_request["request_ref"], business_unit=payload.get("businessUnit", "Ottotree"), at=now)
         notify_work_order(db, cursor.lastrowid, status)
     self.json({"ok": True, "id": cursor.lastrowid})
 
@@ -179,6 +182,9 @@ def patch_work_orders(self, parsed, payload=None):
         sync_finding_from_work_order(db, int(item_id))
         if status != existing["status"]:
             message = f"Status changed from {existing['status']} to {status}"
+            closing = status == "Closed"
+            activity.log(db, user, "order_closed" if closing else "order_status", "work_order", int(item_id), existing["work_order_ref"], existing["outlet"],
+                         started_at=existing["created_at"] if closing else None, detail=message, business_unit=existing["business_unit"])
             db.execute("INSERT INTO comments(record_type, record_id, comment, author, created_at, system_generated) VALUES ('work_order', ?, ?, ?, ?, 1)",
                        (int(item_id), message, user["name"], int(time.time() * 1000)))
             notify_work_order(db, int(item_id), status)

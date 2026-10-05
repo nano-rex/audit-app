@@ -6,6 +6,7 @@ and its findings close with it.
 """
 import time
 
+from backend import activity
 from backend.common import record_year, today_date
 from backend.database import connect, first_category, first_department, first_outlet, insert_record
 from backend.relational_values import hydrate_many, load_value, save_value
@@ -95,6 +96,8 @@ def create_work_request(user, payload):
         if finding_ids:
             db.executemany("UPDATE findings SET work_request_id = ?, status = 'Requested', updated_at = ? WHERE id = ?",
                            [(request_id, now, finding_id) for finding_id in finding_ids])
+        activity.log(db, user, "request_raised", "work_request", request_id, request_ref(request_id), values["outlet"],
+                     business_unit=values["business_unit"], at=now)
     return {"ok": True, "id": request_id, "requestRef": request_ref(request_id)}
 
 
@@ -107,7 +110,7 @@ def decline_work_request(user, request_id, remark):
     now = int(time.time() * 1000)
     with connect() as db:
         db.execute("BEGIN IMMEDIATE")
-        row = db.execute("SELECT status FROM work_requests WHERE id = ?", (request_id,)).fetchone()
+        row = db.execute("SELECT status, request_ref, outlet, business_unit, created_at FROM work_requests WHERE id = ?", (request_id,)).fetchone()
         if not row:
             raise WorkflowError("Work request not found", 404)
         if row["status"] != "Open":
@@ -117,6 +120,8 @@ def decline_work_request(user, request_id, remark):
         # No work is needed, so the findings it covered are settled.
         db.execute("UPDATE findings SET status = 'Closed', closed_at = ?, updated_at = ? WHERE work_request_id = ?",
                    (today_date(), now, request_id))
+        activity.log(db, user, "request_declined", "work_request", request_id, row["request_ref"], row["outlet"],
+                     started_at=row["created_at"], detail=remark, business_unit=row["business_unit"], at=now)
     return {"ok": True}
 
 

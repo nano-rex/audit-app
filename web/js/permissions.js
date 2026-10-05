@@ -72,3 +72,40 @@ function renderUserOutlets(selected = []) {
 function userOutletChoices(form) {
   return [...form.querySelectorAll('[name="userOutlet"]:checked')].map((input) => input.value);
 }
+
+// The role editor lists the people with the role, so their outlets can be chosen there too.
+function renderRoleOutlets() {
+  const form = document.getElementById("role-form");
+  const scope = form.elements.outletScope.value;
+  const box = form.querySelector("[data-role-outlets]");
+  box.hidden = scope === "all";
+  if (scope === "all") return;
+  const people = (userCache || []).filter((user) => user.role === form.dataset.roleName);
+  setText("[data-role-outlets-hint]", people.length
+    ? (scope === "one" ? "Choose the one outlet each person works at; they see only that outlet." : "Tick the outlets each person covers; they see only those.")
+    : "Nobody has this role yet. After giving it to someone in Users, choose their outlets here or in their user editor.");
+  const outlets = setupOptions.outlets || [];
+  form.querySelector("[data-role-outlet-people]").innerHTML = people.map((user) => {
+    const chosen = new Set(user.outlets || []);
+    const options = scope === "one"
+      ? `<select data-role-outlet-user="${user.id}"><option value="">Choose an outlet</option>${outlets.map((code) => `<option${chosen.has(code) ? " selected" : ""}>${escapeHtml(code)}</option>`).join("")}</select>`
+      : `<div class="role-outlet-ticks">${outlets.map((code) => `<label class="zone-location-option"><input type="checkbox" data-role-outlet-user="${user.id}" value="${escapeAttr(code)}"${chosen.has(code) ? " checked" : ""}><span>${escapeHtml(code)}</span></label>`).join("")}</div>`;
+    return `<div class="role-outlet-person" data-role-outlet-person="${user.id}"><b>${escapeHtml(user.name)}</b><small class="muted">${escapeHtml(user.email || "")}</small>${options}</div>`;
+  }).join("");
+}
+
+// [userId, outlets] for each person whose choice differs from what is saved.
+function roleOutletChoices(form) {
+  if (form.elements.outletScope.value === "all") return [];
+  const changes = [];
+  form.querySelectorAll("[data-role-outlet-person]").forEach((row) => {
+    const id = Number(row.dataset.roleOutletPerson);
+    const select = row.querySelector("select[data-role-outlet-user]");
+    const outlets = select ? (select.value ? [select.value] : []) : [...row.querySelectorAll("input[data-role-outlet-user]:checked")].map((input) => input.value);
+    const saved = (userCache.find((user) => user.id === id)?.outlets || []).slice().sort();
+    if (JSON.stringify(outlets.slice().sort()) !== JSON.stringify(saved)) changes.push([id, outlets]);
+  });
+  return changes;
+}
+
+document.querySelector('#role-form [name="outletScope"]')?.addEventListener("change", () => renderRoleOutlets());

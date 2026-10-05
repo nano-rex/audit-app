@@ -91,6 +91,8 @@ function openRoleEditor(row = null) {
   updateSelectOptions(form.elements.department, setupOptions.departments, true, "No department");
   form.elements.department.value = row?.department || "";
   form.elements.outletScope.value = row?.outlet_scope || "all";
+  form.dataset.roleName = row?.name || "";
+  renderRoleOutlets();
   form.elements.name.disabled = Boolean(row?.protected);
   renderRolePermissions(row?.permissions || [], Boolean(row?.protected));
   form.querySelector("[data-role-inspection-permissions]").innerHTML = permissionCheckboxes(inspectionPermissionOptions, row?.inspectionPermissions || [], "inspectionPermissions", Boolean(row?.protected));
@@ -626,7 +628,18 @@ document.getElementById("role-form")?.addEventListener("submit", async (event) =
     permissions: [...form.querySelectorAll('input[name="permissions"]:checked')].map((input) => input.value),
     inspectionPermissions: [...form.querySelectorAll('input[name="inspectionPermissions"]:checked')].map((input) => input.value),
   };
-  await requestJson(id ? `/api/roles/${id}` : "/api/roles", id ? "PATCH" : "POST", payload);
+  const message = form.querySelector("[data-role-outlets-hint]");
+  try {
+    await requestJson(id ? `/api/roles/${id}` : "/api/roles", id ? "PATCH" : "POST", payload);
+    // Then each person's outlets, as chosen in the list under Outlet access.
+    for (const [userId, outlets] of roleOutletChoices(form)) {
+      await requestJson(`/api/users/${userId}`, "PATCH", { outlets });
+    }
+  } catch (error) {
+    if (message) message.textContent = error.message;
+    form.querySelector("[data-role-outlets]").hidden = false;
+    return;
+  }
   form.closest("dialog").close();
   loadApp();
 });

@@ -1537,3 +1537,77 @@ h4,
   max-width: 34ch;
   font-size: 12px;
 }
+
+/* Reports: time to act, and the per-person table. */
+.kpi-panel {
+  margin-top: 18px;
+}
+
+.kpi-times {
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+}
+
+.kpi-times article span {
+  text-transform: none;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.kpi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.kpi-table th,
+.kpi-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.kpi-table thead th {
+  background: var(--table-head);
+  color: var(--table-head-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.kpi-table th:first-child,
+.kpi-table td:first-child {
+  text-align: left;
+}
+
+/* Role editor: each person with the role, and their outlets. */
+.role-outlets {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.role-outlets h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.role-outlet-person {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.role-outlet-person small {
+  margin-top: -4px;
+}
+
+.role-outlet-ticks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(110px, 100%), 1fr));
+  gap: 6px;
+}

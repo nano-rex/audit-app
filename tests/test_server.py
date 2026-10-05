@@ -519,6 +519,23 @@ class ServerTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT status FROM findings WHERE id = ?", (finding_id,)).fetchone()[0], "Closed")
             self.assertEqual(db.execute("SELECT status, work_order_id FROM work_requests WHERE id = ?", (request_id,)).fetchone()[:], ("Closed", order_id))
             self.assertEqual(db.execute("SELECT source_audit_id FROM work_orders WHERE id = ?", (order_id,)).fetchone()[0], session["audit_id"])
+            # Each step is logged with who took it, and how long the answering steps took.
+            steps = {row["action"]: row for row in db.execute(
+                "SELECT action, user_name, duration_ms FROM activity_log WHERE (record_type = 'inspection' AND record_id = ?) "
+                "OR (record_type = 'work_request' AND record_id = ?) OR (record_type = 'work_order' AND record_id = ?)", (session_id, request_id, order_id))}
+        self.assertEqual(set(steps), {"audit_started", "audit_completed", "request_raised", "order_created", "order_closed"})
+        self.assertTrue(all(row["user_name"] == "Super User" for row in steps.values()))
+        self.assertIsNotNone(steps["order_created"]["duration_ms"])
+        self.assertIsNotNone(steps["order_closed"]["duration_ms"])
+        data = json.loads(self.request("/api/reports")[2])
+        me = next(row for row in data["people"] if row["name"] == "Super User")
+        self.assertGreaterEqual((me["request_raised"], me["order_created"], me["order_closed"]), (1, 1, 1))
+        self.assertEqual([row["key"] for row in data["timeToAct"]], ["audit", "request", "order", "closure"])
+        self.assertTrue(any(row["action"] == "order_closed" for row in data["activity"]))
+        from io import BytesIO
+        from openpyxl import load_workbook
+        workbook = load_workbook(BytesIO(self.request("/api/reports/export.xlsx")[2]))
+        self.assertTrue({"People", "Time to act", "Activity"}.issubset(workbook.sheetnames))
 
     def test_z_declined_request_closes_its_findings(self):
         with app.connect() as db:
@@ -875,6 +892,15 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 503)
         self.assertIn("reportlab", json.loads(body)["error"])
 
+
+    def test_reports_need_the_reports_permission(self):
+        with app.connect() as db:
+            user_id = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('No Reports', 'PIC', 'no-reports@example.test', 1, 0)").lastrowid
+            db.execute("UPDATE users SET outlets_data_id = ? WHERE id = ?", (app_save_value(db, ["MST"]), user_id))
+        app.SESSION_TOKENS["no-reports"] = {"user_id": user_id, "expires_at": time.time() + 3600}
+        for path in ("/api/reports", "/api/reports/export.pdf", "/api/reports/export.xlsx", "/api/location-report.pdf?outlet=MST&location=Room"):
+            self.assertEqual(self.request(path, token="no-reports")[0], 403, path)
+        app.SESSION_TOKENS.pop("no-reports", None)
 
 if __name__ == "__main__":
     unittest.main()
