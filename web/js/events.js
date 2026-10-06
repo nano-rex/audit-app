@@ -20,6 +20,27 @@ document.addEventListener("click", async (event) => {
     showContextTab("findings");
     return;
   }
+  const reviewButton = event.target.closest("[data-review-inspection]");
+  if (reviewButton) {
+    const id = Number(reviewButton.dataset.reviewInspection);
+    await openInspectionSession(id, { signoffId: reviewButton.hasAttribute("data-review-from-detail") ? id : null });
+    return;
+  }
+
+  if (event.target.closest("[data-back-to-schedules]") && inspectionReturn) {
+    // Back from reviewing an audit to Sign-off, on the audit it was opened from.
+    const { signoffId } = inspectionReturn;
+    inspectionReturn = null;
+    showGuidedContent(false);
+    setText("[data-back-to-schedules]", "Back to Scheduled Work");
+    if (signoffId) await openSignoff(signoffId);
+    else {
+      signoffSession = null;
+      showContextTab("signoff");
+    }
+    return;
+  }
+
   if (event.target.closest("[data-back-to-schedules]")) {
     const readOnly = document.getElementById("inspection-form")?.dataset.completed === "true";
     if (!readOnly && !confirm("Return to scheduled work? Save your progress first to keep any changes.")) return;

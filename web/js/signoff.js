@@ -35,6 +35,7 @@ function signoffRow(row) {
         <span class="signoff-pills">${pills}</span>
       </div>
       <span class="row-actions">
+        <button type="button" class="outline" data-review-inspection="${Number(row.id)}">Review</button>
         <button type="button" class="primary" data-open-signoff="${Number(row.id)}">Open</button>
       </span>
     </article>`;
@@ -83,6 +84,7 @@ function renderSignoffDetail() {
   const allSigned = SIGNOFF_ROLES.every(([key]) => imageSource(session.signatures?.[key]));
   const verifier = (currentUser?.inspectionPermissions || []).includes("verifier");
   setHtml("[data-signoff-actions]", `
+    <button type="button" class="outline" data-review-inspection="${Number(session.id)}" data-review-from-detail>Review inspection</button>
     <a class="button-link outline" data-download href="/api/inspection-sessions/${Number(session.id)}/export.pdf">Export PDF</a>
     <a class="button-link outline" data-download href="/api/inspection-sessions/${Number(session.id)}/export.xlsx">Export Excel</a>
     ${!session.closed_at && verifier ? `<button type="button" class="primary" data-close-inspection-session="${Number(session.id)}" ${allSigned ? "" : "disabled title=\"All three signatures are needed first\""}>Close audit</button>` : ""}`);

@@ -820,8 +820,14 @@ function applyInspectionSessionItems() {
   });
 }
 
-async function openInspectionSession(id) {
+// Where the inspection's back button leads: Scheduled Work, or Sign-off when the audit was
+// opened there for review ({ signoffId } to return to that audit's sign-off page).
+let inspectionReturn = null;
+
+async function openInspectionSession(id, returnTo = null) {
   inspectionsInitialized = true;
+  inspectionReturn = returnTo;
+  setText("[data-back-to-schedules]", returnTo ? "Back to Sign-off" : "Back to Scheduled Work");
   const response = await authFetch(`/api/inspection-sessions/${id}`);
   if (!response.ok) throw new Error(`Inspection could not be loaded (${response.status})`);
   const session = await response.json();
