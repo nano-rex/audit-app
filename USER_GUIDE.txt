@@ -169,9 +169,15 @@ An administrator should configure these records before staff begin auditing:
 3. Open History or Findings (under Inspections) to browse inspections and
    their findings. Use search and filters to narrow the list.
 4. Use Export PDF or Export Excel on Sign-off, in History, or in an open
-   inspection to download it. The PDF includes the audit summary, location
-   grading, findings, and signatures; the Excel file has the audit, every
-   check with its result and remark, and the findings.
+   inspection to download it.
+   - Export PDF asks which report: Overall (the score, grading by location,
+     findings, and signatures) or Selected locations (tick All locations or
+     the ones you want; each comes in full: every check and remark, photos,
+     and findings, then the signatures).
+   - The Excel file's first sheet, Overall, has the audit details, a row per
+     location, and every finding. Each following sheet is one location in
+     full: the audit details, every check with its result and remark, and
+     the findings there.
 5. To report on one location over time, choose its Outlet and Location in the
    History filters (and From/To dates if wanted), then Location PDF or
    Location Excel. It covers every completed audit of that location: an

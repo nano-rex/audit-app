@@ -198,6 +198,29 @@ def build_report(session, brand, summary, media, settings=None):
     return writer.build(str(session.get("audit_ref") or "Draft audit"), f"Audit {session.get('audit_ref') or session.get('id')}")
 
 
+def build_locations_report(session, parts, brand, media, settings=None):
+    """One audit, limited to the chosen locations, each in full: its score, every check and
+    remark, photos, and findings."""
+    writer = ReportWriter(brand, media, settings)
+    writer.letterhead("Facilities Audit Report — Selected Locations")
+    writer.audit_details(session)
+    rows = [["Location", "Checks", "Failed", "Score", "Findings"]]
+    for part in parts:
+        summary = part["summary"]
+        rows.append([part["location"], summary["total"], summary["failed"], f"{summary['score']}/100 {summary['rating']}", len(part["findings"])])
+    writer.table(rows, [180, 55, 55, 120, 70])
+    for part in parts:
+        writer.add(PageBreak())
+        writer.text(f"Location: {part['location']}", "Heading1")
+        writer.scorecard(part["summary"], part["findings"])
+        writer.checklist(part["items"], with_photos=True)
+        writer.findings(part["findings"])
+    writer.add(PageBreak())
+    writer.signatures(session)
+    reference = session.get("audit_ref") or "Draft audit"
+    return writer.build(f"{reference} · {', '.join(part['location'] for part in parts)}"[:110], f"Audit {reference} locations")
+
+
 def build_location_report(outlet, location, period, audits, brand, media, settings=None):
     """Every audit of one location: an overview, then each audit's checks, photos, and findings there."""
     writer = ReportWriter(brand, media, settings)

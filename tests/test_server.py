@@ -863,9 +863,30 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.request(f"/api/inspection-sessions/{session_id}/export.xlsx")
         self.assertEqual(status, 200)
         workbook = load_workbook(BytesIO(body))
-        self.assertEqual(workbook.sheetnames, ["Audit", "Checklist", "Findings"])
-        self.assertEqual(workbook["Checklist"].max_row, 4)
-        self.assertEqual(workbook["Findings"]["J2"].value, "Dripping")
+        # The whole audit first, then each location in full.
+        self.assertEqual(workbook.sheetnames, ["Overall", "Export Room", "Elsewhere"])
+        overall = [row for row in workbook["Overall"].iter_rows(values_only=True)]
+        self.assertIn(("Export Room", 2, 1, 1, 0), [row[:5] for row in overall])
+        self.assertIn("Dripping", [row[9] for row in overall if len(row) > 9])
+        room = [row for row in workbook["Export Room"].iter_rows(values_only=True)]
+        self.assertIn(("Location", "Export Room"), [row[:2] for row in room])
+        self.assertEqual(sorted(row[1] for row in room if row[0] == "Export sink"), ["Clean", "No leaks"])
+        self.assertIn("Dripping", [row[9] for row in room if len(row) > 9])
+        self.assertNotIn("Other lamp", [row[0] for row in room])
+        self.assertEqual([row[0] for row in workbook["Elsewhere"].iter_rows(values_only=True)][-1], "No findings")
+        # The PDF: overall, or chosen locations in full.
+        status, headers, body = self.request(f"/api/inspection-sessions/{session_id}/export.pdf?location=Export%20Room")
+        self.assertEqual(status, 200, body[:200])
+        self.assertIn("Export Room.pdf", headers["Content-Disposition"])
+        text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(body)).pages)
+        self.assertIn("Selected Locations", text)
+        self.assertIn("No leaks", text)
+        self.assertNotIn("Other lamp", text)
+        status, _, body = self.request(f"/api/inspection-sessions/{session_id}/export.pdf?location=Export%20Room&location=Elsewhere")
+        self.assertIn("Other lamp", "\n".join(page.extract_text() for page in PdfReader(BytesIO(body)).pages))
+        self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}/export.pdf?location=Nowhere")[0], 400)
+        status, _, body = self.request(f"/api/inspection-sessions/{session_id}/export.pdf")
+        self.assertIn("Location grading", "\n".join(page.extract_text() for page in PdfReader(BytesIO(body)).pages))
         # The location report holds only that location's checks.
         status, _, body = self.request("/api/location-report.xlsx?outlet=MST&location=Export%20Room&from=2026-10-01&to=2026-10-31")
         self.assertEqual(status, 200)
