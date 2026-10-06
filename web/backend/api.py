@@ -23,7 +23,7 @@ from backend.work_orders import comments, finding_items, notifications, work_ord
 from backend.work_requests import work_request_items
 from backend import change_requests, outlet_access
 from backend.permissions import CHANGE_RECORDS
-from backend.audit_exports import inspection_xlsx, location_pdf, location_xlsx
+from backend.audit_exports import inspection_locations_pdf, inspection_xlsx, location_pdf, location_xlsx
 from backend.schedule_assignment import assignable_people
 from backend.routes import dispatch
 from backend import control
@@ -342,8 +342,14 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_error(404)
                     return
                 outlet_access.require(viewer, session["outlet"])
-                filename = f"{session.get('inspection_name') or inspection_name(session)}.pdf"
-                self.download(inspection_pdf(session), "application/pdf", filename)
+                # Overall, or the chosen locations (?location=A&location=B) in full.
+                chosen = parse_qs(parsed.query).get("location", [])
+                name = session.get('inspection_name') or inspection_name(session)
+                if chosen:
+                    suffix = chosen[0] if len(chosen) == 1 else f"{len(chosen)} locations"
+                    self.download(inspection_locations_pdf(session, chosen), "application/pdf", f"{name} - {suffix}.pdf")
+                else:
+                    self.download(inspection_pdf(session), "application/pdf", f"{name}.pdf")
                 return
             if not suffix.isdigit():
                 self.send_error(400)
