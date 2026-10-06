@@ -159,7 +159,9 @@ An administrator should configure these records before staff begin auditing:
 1. Completing an inspection opens it on Inspections > Sign-off. Sign-off
    lists every completed audit that is not yet closed, with the signatures it
    still needs. Open one to see a card each for Audited by, Verified by, and
-   Acknowledged by.
+   Acknowledged by. Review (on the list, or Review inspection on an open
+   audit) shows the completed inspection itself, read-only, so you can check
+   it before signing; Back to Sign-off returns you to where you were.
 2. On a card you may sign, choose Use my saved signature (the one under
    Account) or Draw signature to draw or upload one. Each signature is saved
    at once with your name and the time. The auditor's card is for whoever ran
