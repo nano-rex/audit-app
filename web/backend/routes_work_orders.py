@@ -7,7 +7,7 @@ from backend.common import priority_due_date, sla_status, work_order_ref
 from backend.database import connect, first_category, first_department, first_outlet
 from backend.work_orders import sync_finding_from_work_order
 from backend.workflow import WorkflowError, validate_update
-from backend.work_requests import claim_for_work_order, create_work_request, decline_work_request, link_work_order
+from backend.work_requests import claim_for_work_order, create_work_request, decline_work_request, edit_work_request, link_work_order
 
 
 def post_work_orders(self, parsed, payload=None):
@@ -79,7 +79,11 @@ def patch_work_requests(self, parsed, payload=None):
     if not record_id.isdigit():
         self.send_error(400)
         return
-    if (payload or {}).get("action") != "decline":
+    action = (payload or {}).get("action")
+    if action == "edit":
+        self.json(edit_work_request(self.current_user(), int(record_id), payload))
+        return
+    if action != "decline":
         raise WorkflowError("Unknown work request action", 400)
     self.json(decline_work_request(self.current_user(), int(record_id), payload.get("remark")))
 
