@@ -71,6 +71,9 @@ class ReportWriter:
                 self.story.append(KeepTogether([self.paragraph(label, "Caption"), image, Spacer(1, 8)]))
 
     def table(self, rows, widths, header=True, label_column=False):
+        self.story.append(self.table_flowable(rows, widths, header, label_column))
+
+    def table_flowable(self, rows, widths, header=True, label_column=False):
         styled = [[self.paragraph(cell, "TableHead" if header and index == 0 else "Caption" if header else "BodyText") for cell in values]
                   for index, values in enumerate(rows)]
         table = Table(styled, colWidths=widths, repeatRows=1 if header else 0)
@@ -80,7 +83,7 @@ class ReportWriter:
         if label_column:
             commands.append(("BACKGROUND", (0, 0), (0, -1), self.soft))
         table.setStyle(TableStyle(commands))
-        self.story.append(table)
+        return table
 
     def letterhead(self, title):
         self.text(self.brand.get("companyName") or self.brand.get("appTitle"), "Title")
@@ -132,20 +135,62 @@ class ReportWriter:
         self.add(Spacer(1, 14), self.paragraph("Location grading", "Heading1"))
         self.table(rows, [145, 48, 48, 48, 42, 55, 85])
 
-    def checklist(self, items, with_photos):
-        """Every check, with its result and remark; used where one location is reported in full."""
-        rows = [["Item", "Check", "Result", "Remark"]]
+    def image_grid(self, values, columns=3, width=150, height=130):
+        """Photos side by side, the marked copy beside its original; returns how many were placed."""
+        cells = []
+        for value in values or []:
+            if not isinstance(value, dict):
+                continue
+            for marked in (False, True):
+                content = self.media.image_bytes(value, marked)
+                if not content:
+                    continue
+                image = Image(BytesIO(content))
+                ratio = min(width / image.imageWidth, height / image.imageHeight, 1)
+                image.drawWidth, image.drawHeight = image.imageWidth * ratio, image.imageHeight * ratio
+                label = "Marked" if marked else (value.get("caption") or value.get("name") or "Photo")
+                cells.append([image, self.paragraph(label, "Caption")])
+        if not cells:
+            return 0
+        rows = [cells[index:index + columns] for index in range(0, len(cells), columns)]
+        rows[-1] += [""] * (columns - len(rows[-1]))
+        table = Table(rows, colWidths=[width + 10] * columns)
+        table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                                   ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]))
+        self.story.append(table)
+        return len(cells)
+
+    def checklist(self, items, with_photos, asset_photos=None):
+        """Every check, one asset at a time: the asset's own table of checks, then its photos (those
+        taken in the audit, or its registered photo when none was taken)."""
+        assets = {}
         for item in items:
-            result = "N/A" if item.get("notApplicable") else "Pass" if item.get("passed") else "Fail"
-            rows.append([item.get("section") or "Item", item.get("item") or "", result, item.get("notes") or ""])
+            key = item.get("equipmentId") or item.get("section") or "Item"
+            assets.setdefault(key, []).append(item)
         self.add(Spacer(1, 10), self.paragraph("Checklist", "Heading2"))
-        self.table(rows, [130, 170, 45, 135])
-        if with_photos:
-            seen = set()
-            for item in items:
-                fresh = [image for image in item.get("images") or [] if isinstance(image, dict) and image.get("url") not in seen]
-                seen.update(image.get("url") for image in fresh)
-                self.images(fresh, item.get("section") or "Photo", max_height=180)
+        for key, checks in assets.items():
+            first = checks[0]
+            failed = sum(not check.get("passed") and not check.get("notApplicable") for check in checks)
+            details = " | ".join(part for part in (first.get("category"), f"{len(checks)} check{'s' if len(checks) != 1 else ''}", f"{failed} failed" if failed else "all passed") if part)
+            rows = [["Check", "Result", "Remark"]]
+            for check in checks:
+                result = "N/A" if check.get("notApplicable") else "Pass" if check.get("passed") else "Fail"
+                rows.append([check.get("item") or "", result, check.get("notes") or ""])
+            heading = [self.paragraph(first.get("section") or "Item", "Heading3"), self.paragraph(details, "Caption"), Spacer(1, 4)]
+            self.story.append(KeepTogether(heading + [self.table_flowable(rows, [215, 50, 215])]))
+            if with_photos:
+                seen, photos = set(), []
+                for check in checks:
+                    for image in check.get("images") or []:
+                        if isinstance(image, dict) and image.get("url") not in seen:
+                            seen.add(image.get("url"))
+                            photos.append(image)
+                if not self.image_grid(photos):
+                    registered = [{**image, "caption": "Registered photo"} for image in (asset_photos or {}).get(first.get("equipmentId"), [])
+                                  if isinstance(image, dict)]
+                    if not self.image_grid(registered[:3]):
+                        self.text("No photo.", "Caption")
+            self.add(Spacer(1, 12))
 
     def findings(self, findings):
         self.text("Findings", "Heading1")
@@ -213,7 +258,7 @@ def build_locations_report(session, parts, brand, media, settings=None):
         writer.add(PageBreak())
         writer.text(f"Location: {part['location']}", "Heading1")
         writer.scorecard(part["summary"], part["findings"])
-        writer.checklist(part["items"], with_photos=True)
+        writer.checklist(part["items"], with_photos=True, asset_photos=part.get("asset_photos"))
         writer.findings(part["findings"])
     writer.add(PageBreak())
     writer.signatures(session)
@@ -241,7 +286,7 @@ def build_location_report(outlet, location, period, audits, brand, media, settin
         writer.add(PageBreak())
         writer.audit_details(audit["session"])
         writer.scorecard(audit["summary"], audit["findings"])
-        writer.checklist(audit["items"], with_photos=True)
+        writer.checklist(audit["items"], with_photos=True, asset_photos=audit.get("asset_photos"))
         writer.findings(audit["findings"])
         writer.signatures(audit["session"])
     return writer.build(f"{outlet} · {location}", f"Location report {outlet} {location}")

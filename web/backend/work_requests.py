@@ -101,6 +101,50 @@ def create_work_request(user, payload):
     return {"ok": True, "id": request_id, "requestRef": request_ref(request_id)}
 
 
+def edit_work_request(user, request_id, payload):
+    """An open request can be corrected by whoever raised it or whoever reviews requests. One raised
+    from findings keeps its item and place; one reported directly can change them too."""
+    now = int(time.time() * 1000)
+    with connect() as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM work_requests WHERE id = ?", (request_id,)).fetchone()
+        if not row:
+            raise WorkflowError("Work request not found", 404)
+        if row["status"] != "Open":
+            raise WorkflowError("Only an open request can be edited; edit its work order instead")
+        if row["requested_by_user_id"] != user.get("id") and not reviews_requests(user):
+            raise WorkflowError("Only whoever raised this request, or someone who assigns work orders, can edit it", 403)
+        description = str(payload.get("description", row["description"]) or "").strip()
+        if not description:
+            raise WorkflowError("Describe the work that is needed", 400)
+        values = {"description": description, "updated_at": now}
+        for key, column in (("department", "department"), ("category", "category"), ("priority", "priority")):
+            if payload.get(key):
+                values[column] = str(payload[key])
+        if "images" in payload:
+            values["images_data_id"] = save_value(db, payload.get("images") or [])
+        from_findings = db.execute("SELECT 1 FROM findings WHERE work_request_id = ?", (request_id,)).fetchone()
+        if not from_findings:
+            for key, column, label in (("outlet", "outlet", "Outlet"), ("location", "location", "Location"), ("itemName", "item_name", "Item")):
+                if key in payload:
+                    value = str(payload.get(key) or "").strip()
+                    if not value:
+                        raise WorkflowError(f"{label} is required", 400)
+                    values[column] = value
+            if "outlet" in values and not db.execute("SELECT 1 FROM outlets WHERE code = ?", (values["outlet"],)).fetchone():
+                raise WorkflowError("Select an existing outlet", 400)
+        db.execute(f"UPDATE work_requests SET {', '.join(f'{column} = ?' for column in values)} WHERE id = ?", (*values.values(), request_id))
+        if from_findings and any(column in values for column in ("department", "category", "priority")):
+            # The findings it covers follow the request.
+            db.execute("UPDATE findings SET assigned_department = COALESCE(?, assigned_department), category = COALESCE(?, category), "
+                       "priority = COALESCE(?, priority), updated_at = ? WHERE work_request_id = ?",
+                       (values.get("department"), values.get("category"), values.get("priority"), now, request_id))
+            level = db.execute("SELECT classification FROM priority_levels WHERE name = ?", (values.get("priority"),)).fetchone()
+            if level:
+                db.execute("UPDATE findings SET priority_classification = ? WHERE work_request_id = ?", (level[0], request_id))
+    return {"ok": True}
+
+
 def decline_work_request(user, request_id, remark):
     if not reviews_requests(user):
         raise WorkflowError("Only someone who assigns work orders can decline a request", 403)

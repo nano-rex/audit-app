@@ -1154,5 +1154,28 @@ class ServerTests(unittest.TestCase):
         for method in ("POST", "PATCH"):
             self.assertEqual(change_requests.record_for(method, "/api/equipment/bulk"), ("assets", None))
 
+    def test_z_work_request_edit(self):
+        status, _, body = self.request("/api/work-requests", "POST", {"outlet": "STP", "location": "Room", "itemName": "Door", "description": "Sticks"})
+        self.assertEqual(status, 200, body)
+        request_id = json.loads(body)["id"]
+        path = f"/api/work-requests/{request_id}"
+        status, _, body = self.request(path, "PATCH", {"action": "edit", "outlet": "MST", "location": "Hall", "itemName": "Front door",
+                                                       "priority": "High", "description": "Sticks when wet"})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            row = db.execute("SELECT outlet, location, item_name, priority, description FROM work_requests WHERE id = ?", (request_id,)).fetchone()
+        self.assertEqual(tuple(row), ("MST", "Hall", "Front door", "High", "Sticks when wet"))
+        self.assertEqual(self.request(path, "PATCH", {"action": "edit", "description": " "})[0], 400)
+        # Someone who neither raised it nor assigns work cannot change it.
+        self.outlet_role("Request Reader", ("today", "findings"))
+        with app.connect() as db:
+            reader = db.execute("INSERT INTO users(name, role, email, active, created_at) VALUES ('Request Reader', 'Request Reader', 'request-reader@example.test', 1, 0)").lastrowid
+        app.SESSION_TOKENS["reader"] = {"user_id": reader, "expires_at": time.time() + 3600}
+        self.assertEqual(self.request(path, "PATCH", {"action": "edit", "description": "Mine now"}, token="reader")[0], 403)
+        app.SESSION_TOKENS.pop("reader", None)
+        # Once a work order is made, the request is settled.
+        self.assertEqual(self.request(path, "PATCH", {"action": "decline", "remark": "Fixed already"})[0], 200)
+        self.assertEqual(self.request(path, "PATCH", {"action": "edit", "description": "Later"})[0], 409)
+
 if __name__ == "__main__":
     unittest.main()

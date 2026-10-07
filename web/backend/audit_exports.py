@@ -61,11 +61,24 @@ def session_locations(session):
     return list(dict.fromkeys(item_location(session, item) for item in session.get("items", [])))
 
 
+def registered_photos(items):
+    """The photos registered on each asset checked, for assets photographed in no audit."""
+    ids = sorted({int(item["equipmentId"]) for item in items if str(item.get("equipmentId") or "").isdigit()})
+    if not ids:
+        return {}
+    with connect() as db:
+        rows = db.execute(f"SELECT id, photos_data_id FROM equipment WHERE id IN ({','.join('?' for _ in ids)}) AND photos_data_id IS NOT NULL", ids).fetchall()
+        photos = {row["id"]: load_value(row["photos_data_id"]) or [] for row in rows}
+    # Items carry the id as the page sent it (text or number).
+    return {key: photos[int(key)] for key in {item.get("equipmentId") for item in items} if str(key or "").isdigit() and int(key) in photos}
+
+
 def location_part(session, location, settings):
     """One location of an audit: its checks, findings, and score."""
     items = [item for item in session.get("items", []) if item_location(session, item) == location]
     findings = [finding for finding in session.get("findings") or [] if (finding.get("location") or session.get("zone")) == location]
-    return {"location": location, "items": items, "findings": findings, "summary": summarize_score(items, settings)}
+    return {"location": location, "items": items, "findings": findings, "summary": summarize_score(items, settings),
+            "asset_photos": registered_photos(items)}
 
 
 def sheet_title(name, taken):
@@ -173,7 +186,8 @@ def location_audits(outlet, location, date_from="", date_to="", outlets=None):
         if not items:
             continue
         findings = [finding for finding in session.get("findings") or [] if finding.get("location") == location]
-        audits.append({"session": session, "items": items, "findings": findings, "summary": summarize_score(items, settings)})
+        audits.append({"session": session, "items": items, "findings": findings, "summary": summarize_score(items, settings),
+                       "asset_photos": registered_photos(items)})
     return audits
 
 

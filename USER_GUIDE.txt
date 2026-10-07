@@ -173,7 +173,9 @@ An administrator should configure these records before staff begin auditing:
    - Export PDF asks which report: Overall (the score, grading by location,
      findings, and signatures) or Selected locations (tick All locations or
      the ones you want; each comes in full: every check and remark, photos,
-     and findings, then the signatures).
+     and findings, then the signatures). In full reports each asset has its
+     own table of checks followed by its photos; an asset photographed in
+     no check shows its registered photo.
    - The Excel file's first sheet, Overall, has the audit details, a row per
      location, and every finding. Each following sheet is one location in
      full: the audit details, every check with its result and remark, and
@@ -198,8 +200,12 @@ An administrator should configure these records before staff begin auditing:
    rest); for whoever assigns work they are counted on the Maintenance tab. Choose Create work order to turn a request into a
    work order, filled in from the request: set the PIC and due date and save.
    Or choose Decline with the reason when no work is needed; its findings
-   close with that reason.
-4. Maintenance > Work Orders lists the work orders; those assigned to you or
+   close with that reason. While a request is open, whoever raised it (or
+   whoever assigns work) can Edit it: department, category, priority, the
+   work needed, and photos; for a request added directly, also its outlet,
+   location, and item. Once it has a work order, edit the work order.
+4. Maintenance > Work Orders lists the work orders; Edit changes any of them
+   until it is closed (a closed work order can only be viewed); those assigned to you or
    your department are counted on the Maintenance tab. A Department/PIC account sees only records assigned to that PIC or
    department, and cannot create or decline orders.
 5. Open a work order to review the issue, evidence, due date, priority, and

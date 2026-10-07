@@ -47,6 +47,7 @@ function workRequestRow(row) {
   const source = row.audit_ref ? `${row.audit_ref}${row.finding_refs ? ` (${row.finding_refs})` : ""}` : "Reported directly";
   const statusClass = { Open: "status-untouched", Ordered: "status-progress", Closed: "status-complete", Declined: "status-complete" }[row.status] || "";
   const review = row.status === "Open" && canReviewRequests();
+  const editable = row.status === "Open" && (review || row.requested_by_user_id === currentUser?.id);
   return `
     <article>
       <div>
@@ -58,17 +59,22 @@ function workRequestRow(row) {
       <span class="row-actions">
         <span class="status-pill ${statusClass}">${escapeHtml(row.status)}</span>
         ${photoSetButton(parseStoredImages(row.images_json || "[]"), "Photos")}
+        ${editable ? `<button type="button" class="outline" data-edit-work-request="${Number(row.id)}">Edit</button>` : ""}
         ${review ? `<button type="button" class="primary" data-order-from-request="${Number(row.id)}">Create work order</button>
         <button type="button" class="outline" data-decline-request="${Number(row.id)}">Decline</button>` : ""}
       </span>
     </article>`;
 }
 
-// The request dialog, either for a failed item (source) or for something reported directly.
-async function openWorkRequestEditor(source = null) {
+// The request dialog, either for a failed item (source) or for something reported directly, or
+// to edit an open request (existing).
+async function openWorkRequestEditor(source = null, existing = null) {
   const dialog = document.getElementById("work-request-dialog");
   const form = document.getElementById("work-request-form");
   form.reset();
+  form.dataset.requestId = existing ? String(existing.id) : "";
+  form.querySelector("h2").textContent = existing ? `Edit ${existing.request_ref || "Work Request"}` : "Work Request";
+  form.querySelector('button[type="submit"]').textContent = existing ? "Save Changes" : "Submit Request";
   setText("[data-work-request-message]", "");
   form.dataset.findingIds = JSON.stringify(source?.findingIds || []);
   form.querySelectorAll("[data-ad-hoc-only]").forEach((node) => { node.hidden = Boolean(source); });
@@ -89,8 +95,36 @@ async function openWorkRequestEditor(source = null) {
   } else {
     await updateWorkRequestLocations();
   }
-  setWorkRequestPhotos(source?.images || []);
+  if (existing) await fillWorkRequestEditor(form, existing);
+  setWorkRequestPhotos(existing ? parseStoredImages(existing.images_json || "[]") : source?.images || []);
   dialog.showModal();
+}
+
+// A request raised from findings keeps its item and place; one reported directly can change them.
+async function fillWorkRequestEditor(form, row) {
+  const fromFindings = Number(row.findings_count) > 0;
+  form.querySelectorAll("[data-ad-hoc-only]").forEach((node) => { node.hidden = fromFindings; });
+  form.elements.itemName.required = !fromFindings;
+  const sourceBox = form.querySelector("[data-work-request-source]");
+  sourceBox.hidden = !fromFindings;
+  if (fromFindings) {
+    sourceBox.innerHTML = `<b>${escapeHtml(row.item_name || "Item")}</b><span>${escapeHtml(row.audit_ref || "")} | ${escapeHtml(row.outlet)} | ${escapeHtml(row.location)}</span>`
+      + (row.finding_refs ? `<span>${escapeHtml(row.finding_refs)}</span>` : "");
+  } else {
+    form.elements.outlet.value = row.outlet || "";
+    await updateWorkRequestLocations();
+    if (![...form.elements.location.options].some((option) => option.value === row.location)) {
+      form.elements.location.add(new Option(row.location, row.location));
+    }
+    form.elements.location.value = row.location || "";
+    form.elements.itemName.value = row.item_name || "";
+  }
+  for (const [field, value] of [["department", row.department], ["category", row.category], ["priority", row.priority]]) {
+    const select = form.elements[field];
+    if (value && ![...select.options].some((option) => option.value === value)) select.add(new Option(value, value));
+    select.value = value || "";
+  }
+  form.elements.description.value = row.description || "";
 }
 
 async function updateWorkRequestLocations() {
@@ -138,12 +172,20 @@ document.getElementById("work-request-form")?.addEventListener("submit", async (
   const button = event.submitter;
   if (button) button.disabled = true;
   try {
-    const result = await requestJson("/api/work-requests", "POST", {
-      businessUnit: currentUnit, findingIds,
+    const fields = {
       outlet: form.elements.outlet.value, location: form.elements.location.value, itemName: form.elements.itemName.value,
       department: form.elements.department.value, category: form.elements.category.value, priority: form.elements.priority.value,
       description: form.elements.description.value, images: workRequestPhotos(),
-    });
+    };
+    if (form.dataset.requestId) {
+      // Item and place are sent only for a request reported directly.
+      if (form.querySelector("[data-ad-hoc-only]")?.hidden) ["outlet", "location", "itemName"].forEach((key) => delete fields[key]);
+      await requestJson(`/api/work-requests/${form.dataset.requestId}`, "PATCH", { action: "edit", ...fields });
+      form.closest("dialog").close();
+      await loadWorkRequests();
+      return;
+    }
+    const result = await requestJson("/api/work-requests", "POST", { businessUnit: currentUnit, findingIds, ...fields });
     form.closest("dialog").close();
     setText("[data-findings-message]", `${result.requestRef} raised. It is on Maintenance > Work Requests.`);
     await Promise.all([loadFindings().catch(() => {}), loadWorkRequests().catch(() => {})]);
@@ -185,6 +227,12 @@ document.addEventListener("click", async (event) => {
       title: `${request.request_ref} - ${request.item_name || "Work"}`, description: request.description,
       images_json: request.images_json || "[]",
     }, request.id);
+    return;
+  }
+  const editRequest = event.target.closest("[data-edit-work-request]");
+  if (editRequest) {
+    const request = workRequestCache.find((row) => row.id === Number(editRequest.dataset.editWorkRequest));
+    if (request) await openWorkRequestEditor(null, request);
     return;
   }
   const decline = event.target.closest("[data-decline-request]");
