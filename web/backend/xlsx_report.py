@@ -506,10 +506,11 @@ def plain_chart(chart, title=None):
     return chart
 
 
-def report_workbook(data, findings, activity, scope, brand, settings):
+def report_workbook(data, findings, scope, brand, settings):
     """The Reports page as a workbook laid out like the page (and its PDF): the four rings, audits and
     findings by month, outlets, breakdowns, time to act, and people on the first sheet; the People
-    table, Findings, and Activity log on their own sheets. Each chart reads the table beside it."""
+    table and Findings on their own sheets. Each chart reads the table beside it. The activity log is
+    its own page and is not part of the report."""
     from datetime import datetime
     from openpyxl import Workbook
     from backend import report_figures as figures
@@ -756,10 +757,6 @@ def report_workbook(data, findings, activity, scope, brand, settings):
     lists = new_sheet(workbook, "Findings", brand, None, settings)
     wide_list(lists, "Findings", printed, [label for _, label in columns], [[row.get(key) or "" for key, _ in columns] for row in findings],
               tones={(index, 12): "pass" if row.get("status") == "Closed" else "warn" for index, row in enumerate(findings)})
-    lists = new_sheet(workbook, "Activity", brand, None, settings)
-    wide_list(lists, "Activity log", printed, ["When", "Person", "Action", "Record", "Outlet", "Took", "Detail"],
-              [[datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"], row["record_ref"] or "",
-                row["outlet"] or "", duration_text(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else "", row["detail"] or ""] for row in activity])
     return save(workbook)
 
 

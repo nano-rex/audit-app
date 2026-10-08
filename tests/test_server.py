@@ -544,11 +544,15 @@ class ServerTests(unittest.TestCase):
         me = next(row for row in data["people"] if row["name"] == "Super User")
         self.assertGreaterEqual((me["request_raised"], me["order_created"], me["order_closed"]), (1, 1, 1))
         self.assertEqual([row["key"] for row in data["timeToAct"]], ["audit", "request", "order", "closure"])
-        self.assertTrue(any(row["action"] == "order_closed" for row in data["activity"]))
+        self.assertTrue(any(row["action"] == "order_closed" for row in json.loads(self.request("/api/activity")[2])["items"]))
         from io import BytesIO
         from openpyxl import load_workbook
         workbook = load_workbook(BytesIO(self.request("/api/reports/export.xlsx")[2]))
-        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings", "Activity"])
+        # The activity log is its own page and is not exported with the report.
+        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings"])
+        activity = json.loads(self.request("/api/activity")[2])
+        self.assertGreater(activity["total"], 0)
+        self.assertNotIn("activity", json.loads(self.request("/api/reports")[2]))
 
     def test_z_declined_request_closes_its_findings(self):
         with app.connect() as db:

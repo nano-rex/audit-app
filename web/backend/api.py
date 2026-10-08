@@ -17,7 +17,7 @@ from backend.config import ROOT, SESSION_TOKENS, STATIC_LOCK
 from backend.database import connect
 from backend.http_support import api_errors, static_content, static_fingerprint
 from backend.inspections import inspection_session, inspection_sessions, schedule_items
-from backend.reports import dashboard, inspection_pdf, report, report_pdf, report_xls
+from backend.reports import activity_items, dashboard, inspection_pdf, report, report_pdf, report_xls
 from backend.response_cache import PreparedJson, cached_response
 from backend.work_orders import comments, finding_items, notifications, work_order_items
 from backend.work_requests import work_request_items
@@ -189,6 +189,7 @@ class Handler(BaseHTTPRequestHandler):
         permissions = {
             "dashboard": {"today", "reports"},
             "reports": {"reports"},
+            "activity": {"reports"},
             "inspection-sessions": {"inspections"},
             "audits": {"inspections"},
             "equipment": {"equipment"},
@@ -386,11 +387,15 @@ class Handler(BaseHTTPRequestHandler):
                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", f"{name}.xlsx")
             return
         report_filters = {key: parse_qs(parsed.query).get(key, [""])[0] for key in ("outlet", "from", "to")}
-        if parsed.path.startswith("/api/reports"):
+        if parsed.path.startswith("/api/reports") or parsed.path == "/api/activity":
             if report_filters["outlet"]:
                 outlet_access.require(viewer, report_filters["outlet"])
             if scope is not None:
                 report_filters["outlets"] = sorted(scope)
+        if parsed.path == "/api/activity":
+            unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
+            self.json(activity_items(unit, report_filters))
+            return
         if parsed.path == "/api/reports":
             unit = parse_qs(parsed.query).get("unit", ["Ottotree"])[0]
             self.json(cached_response(("report", unit, report_filters["outlet"], report_filters["from"], report_filters["to"], *scope_key), lambda: report(unit, report_filters)))
