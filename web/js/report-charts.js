@@ -203,11 +203,11 @@ function renderReportBreakdowns(charts) {
   setHtml("[data-report-charts]", [
     chartCard("Findings by department", "Who the findings were assigned to", barList(counts(charts.findingsByDepartment, CHART.accent))),
     chartCard("Findings by location", "Where the findings were raised", barList(counts(charts.findingsByArea, CHART.accent))),
-    chartCard("Findings by category", "What kind of item failed", barList(counts(charts.findingsByCategory, CHART.accent))),
+    chartCard("Findings by asset type", "What kind of item failed", barList(counts(charts.findingsByCategory, CHART.accent))),
     chartCard("Findings by priority", "Priority levels given", barList(counts(charts.findingsByPriority, CHART.fail))),
     chartCard("Work closed by department", "Share of work orders closed", barList(percents(charts.departmentPerformance), { max: 100, suffix: "%" })),
     chartCard("Work closed by location", "Share of work orders closed", barList(percents(charts.locationPerformance), { max: 100, suffix: "%" })),
-    chartCard("Work closed by category", "Share of work orders closed", barList(percents(charts.categoryPerformance), { max: 100, suffix: "%" })),
+    chartCard("Work closed by asset type", "Share of work orders closed", barList(percents(charts.categoryPerformance), { max: 100, suffix: "%" })),
     chartCard("Location scores by month", "Average audit score of each location", barList((charts.roomAuditTrend || []).map((row) => ({
       label: row.label, value: Number(row.score) || 0, colour: scoreColour(Number(row.score) || 0) })), { max: 100, suffix: "/100", mark: reportScoring.passMark })),
   ].join(""));

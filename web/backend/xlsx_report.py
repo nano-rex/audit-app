@@ -287,8 +287,8 @@ class SheetWriter:
             self.put(self.row, 1, name, size=9.5, bold=True, background=SURFACE_ALT, span=6, wrap=False)
             self.put(self.row, 7, f"{len(checks)} check{'s' if len(checks) != 1 else ''}", size=8, colour=MUTED, background=SURFACE_ALT, align="right")
             self.pill(self.row, 8, f"{failed} failed" if failed else "All passed", "fail" if failed else "pass")
-            details = asset_details_line(asset, first.get("category")) if group == 1 else \
-                f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")}, first.get("category"))
+            details = asset_details_line(asset) if group == 1 else \
+                f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")})
             self.put(self.row + 1, 1, details, size=8, colour=MUTED, background=SURFACE_ALT, span=COLUMNS)
             self.height(self.row + 1, [(details, COLUMNS)], 8)
             self.box(self.row, 1, self.row + 1, COLUMNS)
@@ -372,7 +372,7 @@ class SheetWriter:
     # ---- Charts ----
 
     def charts(self, summary, parts, findings):
-        """The PDF's "At a glance": results of every check, findings by category, score by location.
+        """The PDF's "At a glance": results of every check, findings by asset type, score by location.
         Each chart reads a small table above it, so editing the numbers redraws it."""
         self.heading("At a glance")
         top = self.row
@@ -380,11 +380,11 @@ class SheetWriter:
                    tones={(0, 0): "pass", (1, 0): "fail", (2, 0): "neutral"})
         categories = {}
         for finding in findings:
-            categories[finding.get("category") or "No category"] = categories.get(finding.get("category") or "No category", 0) + 1
+            categories[finding.get("category") or "No asset type"] = categories.get(finding.get("category") or "No asset type", 0) + 1
         pairs = sorted(categories.items(), key=lambda pair: -pair[1])[:8]
         self.row = top
         if pairs:
-            for index, header in enumerate(("Findings by category", "Count")):
+            for index, header in enumerate(("Findings by asset type", "Count")):
                 self.put(self.row, 5 + index * 3, header, size=8, bold=True, colour=MUTED, background=self.accent_soft, span=3 if not index else 1, wrap=False)
             self.row += 1
             for category, count in pairs:
@@ -405,7 +405,7 @@ class SheetWriter:
         doughnut.height, doughnut.width = 6.2, 7.6
         self.sheet.add_chart(doughnut, f"A{self.row}")
         if pairs:
-            bars = self.bar_chart("Findings by category", Reference(self.sheet, min_col=8, min_row=top + 1, max_row=top + len(pairs)),
+            bars = self.bar_chart("Findings by asset type", Reference(self.sheet, min_col=8, min_row=top + 1, max_row=top + len(pairs)),
                                   Reference(self.sheet, min_col=5, min_row=top + 1, max_row=top + len(pairs)), [TONES["fail"][0]] * len(pairs))
             bars.height, bars.width = 6.2, 13.5
             self.sheet.add_chart(bars, f"D{self.row}")
@@ -762,7 +762,7 @@ def report_workbook(data, findings, scope, brand, settings):
     lists = new_sheet(workbook, "People", brand, None, settings)
     wide_list(lists, "People", printed, header, rows)
     columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit date"), ("auditor", "Auditor"), ("outlet", "Outlet"),
-               ("location", "Location"), ("item_name", "Item"), ("criterion", "Check"), ("category", "Category"), ("priority", "Priority"),
+               ("location", "Location"), ("item_name", "Item"), ("criterion", "Check"), ("category", "Asset type"), ("priority", "Priority"),
                ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Remark"), ("closed_at", "Closed")]
     lists = new_sheet(workbook, "Findings", brand, None, settings)
     wide_list(lists, "Findings", printed, [label for _, label in columns], [[row.get(key) or "" for key, _ in columns] for row in findings],

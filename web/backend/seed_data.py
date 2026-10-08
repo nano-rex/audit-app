@@ -2,7 +2,7 @@
 from backend.relational_values import load_value, save_value
 import time
 from backend.common import hash_password
-from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_CATEGORIES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, DEFAULT_THEME_SETTINGS, OTTOTREE_THEME
+from backend.config import ADMIN_ROLE, APP_TABS, DEFAULT_AUDIT_TYPES, DEFAULT_PASSWORD, DEFAULT_PRIORITY_LEVELS, DEFAULT_REPORT_SETTINGS, DEFAULT_SCORING_SETTINGS, DEFAULT_SYSTEM_SETTINGS, LOUDSPEAKER_OUTLETS, DEFAULT_THEME_SETTINGS, OTTOTREE_THEME
 
 
 def seed_schedules(db):
@@ -80,20 +80,6 @@ def seed_setup_records(db):
                 """,
                 (code, now),
             )
-
-
-def seed_categories(db):
-    now = int(time.time() * 1000)
-    if db.execute("SELECT COUNT(*) FROM categories").fetchone()[0] != 0:
-        return
-    for index, name in enumerate(DEFAULT_CATEGORIES, 1):
-        db.execute(
-            """
-            INSERT INTO categories (name, description, sequence, active, created_at)
-            VALUES (?, '', ?, 1, ?)
-            """,
-            (name, index, now),
-        )
 
 
 def seed_locations(db):
@@ -348,3 +334,51 @@ def split_history_from_findings(db):
             db.execute("UPDATE users SET permission_overrides_data_id = ? WHERE id = ?",
                        (save_value(db, {**overrides, "permissions": [*pages, "history"]}), row["id"]))
     db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.historySplit', ?)", (save_value(db, True),))
+
+
+VARIABLE_SAMPLES = {
+    "AV Equipment": ("Projector screen", "Wireless microphone"), "COM Equipment": ("Desk telephone", "PABX unit"),
+    "Facility": ("Door closer", "Signage board"), "F&B Equipment": ("Ice machine", "Bottle cooler"),
+    "Electrical": ("Power socket", "Distribution board"), "Plumbing": ("Wash basin tap", "Floor trap"),
+    "Air Conditioning": ("Wall-mounted air conditioner", "Exhaust fan"), "Lighting": ("LED panel light", "Emergency light"),
+    "Furniture": ("Sofa", "Coffee table"), "Building": ("Glass partition", "Ceiling board"),
+    "Safety": ("Fire extinguisher", "Smoke detector"), "Cleanliness": ("Waste bin", "Hand soap dispenser"),
+    "IT / Network": ("Wi-Fi access point", "Network switch"), "KTV Equipment": ("Song selection tablet", "Karaoke mixer"),
+    "Others": ("Umbrella stand", "Notice board"),
+}
+
+
+def adopt_variable_assets(db):
+    """Once: Fixtures & Finishes become Variable Assets and categories are retired. The category
+    names become the variable asset types, existing walls, floors, and ceilings are Building, scoring
+    no longer weights categories, and a few sample variable assets of each type are added to the
+    test outlet (or the first outlet with locations)."""
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.variableAssets'").fetchone():
+        return
+    from backend.config import DEFAULT_FIXTURE_CRITERIA, VARIABLE_ASSET_TYPES
+    names = [row[0] for row in db.execute("SELECT name FROM categories WHERE active = 1 ORDER BY sequence, name")] \
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'categories'").fetchone() else []
+    types = list(dict.fromkeys(names or VARIABLE_ASSET_TYPES))
+    db.execute("INSERT OR REPLACE INTO app_settings (key, value_data_id) VALUES ('assets.variableTypes', ?)", (save_value(db, types),))
+    db.execute("UPDATE equipment SET type = 'Building', equipment_type = 'Building' WHERE kind = 'fixture' AND COALESCE(type, '') IN ('', 'Fixture & Finish')")
+    db.execute("UPDATE equipment SET category = '' WHERE COALESCE(category, '') != ''")
+    db.execute("INSERT OR REPLACE INTO app_settings (key, value_data_id) VALUES ('scoring.weighting', ?)", (save_value(db, "Equal"),))
+    outlet = db.execute("SELECT outlet_code FROM locations WHERE outlet_code = 'TEST' LIMIT 1").fetchone() \
+        or db.execute("SELECT outlet_code FROM locations ORDER BY outlet_code LIMIT 1").fetchone()
+    if outlet:
+        locations = [row[0] for row in db.execute("SELECT name FROM locations WHERE outlet_code = ? ORDER BY name", (outlet[0],))]
+        now = int(time.time() * 1000)
+        index = 0
+        for item_type in types:
+            for name in VARIABLE_SAMPLES.get(item_type, (f"{item_type} item",)):
+                location = locations[index % len(locations)]
+                index += 1
+                record_id = db.execute(
+                    "INSERT INTO equipment (asset_id, qr_code, code, business_unit, outlet, zone, location, equipment_type, type, health_status, "
+                    "operational_status, last_checked, kind, name, category, description, created_at, inspection_criteria_data_id) "
+                    "VALUES ('pending', 'pending', ?, 'Ottotree', ?, ?, ?, ?, ?, 'Operational', 'Operational', 'Today', 'fixture', ?, '', ?, ?, ?)",
+                    (f"pending-{now}-{index}", outlet[0], location, location, item_type, item_type, name, f"Sample {item_type.lower()} item",
+                     now, save_value(db, DEFAULT_FIXTURE_CRITERIA))).lastrowid
+                code = f"VAR-{record_id:05d}"
+                db.execute("UPDATE equipment SET asset_id = ?, qr_code = ?, code = ? WHERE id = ?", (code, code, code, record_id))
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.variableAssets', ?)", (save_value(db, True),))

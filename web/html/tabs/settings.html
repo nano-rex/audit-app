@@ -57,11 +57,9 @@
           <h2>Scoring</h2>
           <form id="scoring-settings-form" class="inline-form">
             <label>Pass Mark<input name="passMark" type="number" min="0" max="100"></label>
-            <label>Weighting Mode<select name="weightingMode"><option>Equal</option><option>Weighted</option></select></label>
             <label>Excellent From<input name="excellentFrom" type="number" min="0" max="100"></label>
             <label>Good From<input name="goodFrom" type="number" min="0" max="100"></label>
             <label>Needs Improvement From<input name="needsImprovementFrom" type="number" min="0" max="100"></label>
-            <fieldset class="category-weights"><legend>Category Weights</legend><p class="muted">Used in Weighted mode; 1 gives the standard weight.</p><div data-category-weights></div></fieldset>
             <p data-scoring-message role="status"></p>
             <button class="primary" type="submit">Save Scoring</button>
           </form>

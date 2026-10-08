@@ -11,7 +11,6 @@ function showTabLoading(tabId) {
     findings: [["[data-inspection-history]", "Loading history…"], ["[data-findings]", "Loading findings…"]],
     "work-orders": [["[data-work-orders]", "Loading work orders…"], ["[data-work-requests]", "Loading work requests…"]],
     equipment: [["[data-equipment]", "Loading fixed assets…"]],
-    categories: [["[data-category-records]", "Loading categories…"]],
     // Departments and roles are loaded with the initial setup catalog. Keep
     // those cached lists visible while the user list refreshes.
     users: [["[data-users]", "Loading users…"]],
@@ -82,10 +81,8 @@ async function loadTabData(tabId) {
     findings: loadFindings,
     "work-orders": () => Promise.all([loadWorkOrders(), loadWorkRequests()]),
     equipment: loadEquipment,
-    categories: async () => {
-      if (!categoryCache.length) await loadSetup();
-      else renderCategories();
-    },
+    // Assets opens on its Fixed Assets tab; the register is the same for both kinds.
+    categories: loadEquipment,
     users: () => (currentUser?.permissions || ["users"]).includes("users") ? loadUsers() : Promise.resolve(),
     account: loadAccount,
     notifications: loadNotifications,

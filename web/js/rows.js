@@ -24,19 +24,6 @@ function outletRow(row) {
   `;
 }
 
-function categoryRow(row) {
-  return `
-    <li>
-      <b>${escapeHtml(row.sequence || 0)}. ${escapeHtml(row.name)}</b>
-      <span>${escapeHtml(row.description || "No description")} | ${row.department ? `Department: ${escapeHtml(row.department)}` : "No default department"} | ${row.active ? "Active" : "Inactive"}</span>
-      <span class="row-actions">
-        <button type="button" class="outline" data-edit-category='${escapeAttr(JSON.stringify(row))}'>Edit</button>
-        <button type="button" class="danger" data-delete-category="${row.id}">Delete</button>
-      </span>
-    </li>
-  `;
-}
-
 function roleRow(row) {
   return `
     <li>
@@ -171,23 +158,21 @@ function equipmentRow(row) {
   const name = row.name || row.asset_id || row.code || "Fixed Asset";
   const code = row.code || row.asset_id || "";
   const location = row.location || row.zone || "No location";
-  // Items sharing this name and category, edited together with Bulk Edit.
+  // Items sharing this name and asset type, edited together with Bulk Edit.
   const group = typeof equipmentGroup === "function" ? equipmentGroup(row).length : 0;
-  const detail = fixture
-    ? row.description || "No description"
-    : `${row.type || row.equipment_type || "Fixed Asset"} | ${row.brand || "No brand"} ${row.model || ""}`;
+  const detail = `${row.brand || "No brand"} ${row.model || ""}`.trim() + (row.serial_number ? ` | S/N ${row.serial_number}` : "");
   return `
     <article>
       <div>
-        <b>${escapeHtml(name)} <span class="kind-pill">${fixture ? "Fixture &amp; finish" : "Fixed asset"}</span></b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(row.category || "No category")} | Code: ${escapeHtml(code)}</span>
+        <b>${escapeHtml(name)} <span class="kind-pill">${fixture ? "Variable asset" : "Fixed asset"}</span></b>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(row.type || row.equipment_type || "No asset type")}${fixture ? "" : ` | Code: ${escapeHtml(code)}`}</span>
         <span>${escapeHtml(detail)}</span>
       </div>
       <span class="row-actions">
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>
         ${photoSetButton(parseStoredImages(row.photos || "[]"), "Photos")}
         <button type="button" class="outline" data-edit-equipment='${escapeAttr(JSON.stringify(row))}'>Edit</button>
-        ${group > 1 ? `<button type="button" class="outline" data-bulk-edit-equipment="${row.id}" title="Edit every ${escapeAttr(name)} in ${escapeAttr(row.category || "no category")}">Edit all ${group}</button>` : ""}
+        ${group > 1 ? `<button type="button" class="outline" data-bulk-edit-equipment="${row.id}" title="Edit every ${escapeAttr(name)} of type ${escapeAttr(row.type || row.equipment_type || "unset")}">Edit all ${group}</button>` : ""}
         <button type="button" class="danger" data-delete-equipment="${row.id}">Delete</button>
       </span>
     </article>
@@ -210,7 +195,7 @@ function workOrderRow(row) {
     <article>
       <div>
         <b>${escapeHtml(reference)} ${escapeHtml(row.title)}</b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No category")} | ${escapeHtml(row.assignee)}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No asset type")} | ${escapeHtml(row.assignee)}</span>
         <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(closed ? closedOn.replace(" | ", "") : sla)}</span>
       </div>
       <span class="row-actions">

@@ -43,11 +43,6 @@ def first_department(db):
     return row["code"] if row else ""
 
 
-def first_category(db):
-    row = db.execute("SELECT name FROM categories WHERE active = 1 ORDER BY sequence, name LIMIT 1").fetchone()
-    return row["name"] if row else "Others"
-
-
 def first_outlet(db):
     row = db.execute("SELECT code FROM outlets ORDER BY code LIMIT 1").fetchone()
     return row["code"] if row else ""

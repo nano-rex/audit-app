@@ -8,7 +8,7 @@ import time
 
 from backend import activity
 from backend.common import record_year, today_date
-from backend.database import connect, first_category, first_department, first_outlet, insert_record
+from backend.database import connect, first_department, first_outlet, insert_record
 from backend.relational_values import hydrate_many, load_value, save_value
 from backend.workflow import WorkflowError
 
@@ -84,7 +84,7 @@ def create_work_request(user, payload):
             values = {
                 "business_unit": payload.get("businessUnit", "Ottotree"), "outlet": payload.get("outlet") or first_outlet(db),
                 "location": payload["location"], "equipment_id": payload.get("equipmentId"), "item_name": payload["itemName"].strip(),
-                "category": payload.get("category") or first_category(db), "priority": payload.get("priority") or "Medium",
+                "category": payload.get("category") or "", "priority": payload.get("priority") or "Medium",
                 "department": payload.get("department") or first_department(db), "audit_id": None, "audit_ref": "",
                 "images_data_id": save_value(db, payload.get("images") or []),
             }

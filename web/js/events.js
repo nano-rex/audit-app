@@ -176,12 +176,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const editCategoryButton = event.target.closest("[data-edit-category]");
-  if (editCategoryButton) {
-    openCategoryEditor(JSON.parse(editCategoryButton.dataset.editCategory));
-    return;
-  }
-
   const editOutletButton = event.target.closest("[data-edit-outlet]");
   if (editOutletButton) {
     openOutletEditor(JSON.parse(editOutletButton.dataset.editOutlet));
@@ -207,12 +201,6 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const categoryButton = event.target.closest("[data-delete-category]");
-  if (categoryButton && confirm("Delete this category?")) {
-    await requestJson(`/api/setup/categories/${categoryButton.dataset.deleteCategory}`, "DELETE");
-    loadApp();
-    return;
-  }
 
   const outletButton = event.target.closest("[data-delete-outlet]");
   if (outletButton && confirm("Delete this outlet?")) {
@@ -365,10 +353,6 @@ document.querySelector("[data-open-zone]")?.addEventListener("click", () => {
 
 document.querySelector("[data-open-department]")?.addEventListener("click", () => {
   openDepartmentEditor();
-});
-
-document.querySelector("[data-open-category]")?.addEventListener("click", () => {
-  openCategoryEditor();
 });
 
 document.querySelector("[data-open-outlet]")?.addEventListener("click", () => {
@@ -587,11 +571,6 @@ checklistContainer?.addEventListener("change", async (event) => {
   await openFindingEditor(row);
 });
 
-// The department that normally handles a category, when one is set on it.
-function categoryDepartment(name) {
-  return categoryCache.find((row) => row.name === name)?.department || "";
-}
-
 document.querySelector("[data-inspection-filter-kind]")?.addEventListener("change", (event) => {
   inspectionFilter.kind = event.target.value;
   applyInspectionFilter();
@@ -602,12 +581,6 @@ document.querySelector("[data-inspection-filter-category]")?.addEventListener("c
   applyInspectionFilter();
 });
 
-// Choosing a category on a finding or work order brings its responsible department with it.
-document.querySelector('#work-order-form [name="category"]')?.addEventListener("change", (event) => {
-  const department = categoryDepartment(event.target.value);
-  if (department) event.target.form.elements.requestType.value = department;
-});
-
 // A failed criterion is recorded with the work-order form, limited to the fields a finding keeps.
 async function openFindingEditor(row) {
   const detail = JSON.parse(row.querySelector("[data-inspection-check]").dataset.inspectionCheck);
@@ -616,8 +589,8 @@ async function openFindingEditor(row) {
   await openWorkOrderEditor({
     outlet: detail.outlet,
     zone: detail.location,
-    request_type: saved.assignedDepartment || categoryDepartment(saved.category || detail.category) || setupOptions.departments[0] || "",
-    category: saved.category || detail.category || setupOptions.categories[0] || "",
+    request_type: saved.assignedDepartment || setupOptions.departments[0] || "",
+    category: saved.category || detail.category || "",
     priority: saved.priority || "High",
     status: "Assigned",
     assignee: "Technical Support",
@@ -772,19 +745,9 @@ document.getElementById("equipment-filter-brand")?.addEventListener("change", (e
   });
 });
 
-document.getElementById("equipment-filter-category")?.addEventListener("change", (event) => {
-  equipmentFilters.category = event.target.value;
-  renderEquipment();
-});
-
 document.getElementById("department-search")?.addEventListener("input", (event) => {
   departmentFilters.search = event.target.value;
   renderDepartments();
-});
-
-document.getElementById("category-search")?.addEventListener("input", (event) => {
-  categoryFilters.search = event.target.value;
-  renderCategories();
 });
 
 document.getElementById("outlet-search")?.addEventListener("input", (event) => {

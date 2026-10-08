@@ -1,4 +1,6 @@
-"""Inspectable items: fixed assets, and fixtures & finishes (parts of the building itself)."""
+"""Inspectable items: fixed assets, and variable assets (stored as kind "fixture"): the building and
+everything else without a code label of its own. Both have the same attributes; a variable asset's
+code is generated (VAR-00012) and not shown, since it carries no QR label."""
 import secrets
 import time
 
@@ -19,7 +21,7 @@ EDITABLE = {
 
 
 def item_values(db, payload, existing=None):
-    """Columns shared by create and edit. A fixture keeps only what describes a part of the building."""
+    """Columns shared by create and edit, the same for fixed and variable assets."""
     kind = payload.get("kind") or (existing["kind"] if existing else "asset")
     if kind not in ITEM_KINDS:
         raise ValueError("Choose Fixed Asset or Fixture & Finish")
@@ -27,21 +29,19 @@ def item_values(db, payload, existing=None):
     name = str(payload.get("name") or payload.get("assetId") or payload.get("code") or "").strip()
     if not name:
         raise ValueError("Enter a name")
-    category = str(payload.get("category") or "").strip()
-    if category and not db.execute("SELECT 1 FROM categories WHERE name = ?", (category,)).fetchone():
-        raise ValueError("Select an existing category")
-    item_type = str(payload.get("type") or payload.get("equipmentType") or ("Fixture & Finish" if fixture else "Fixed Asset"))
+    # Categories were retired: an item is described by its asset type.
+    item_type = str(payload.get("type") or payload.get("equipmentType") or ("Others" if fixture else "Fixed Asset")).strip()
     status = payload.get("operationalStatus") or payload.get("healthStatus") or "Operational"
     location = payload.get("location") or payload.get("zone") or ""
     installed = payload.get("installationDate") or payload.get("lastChecked") or ""
-    text = lambda key: "" if fixture else str(payload.get(key) or "")
+    text = lambda key: str(payload.get(key) or "")
     criteria = payload.get("inspectionCriteria") or (DEFAULT_FIXTURE_CRITERIA if fixture else DEFAULT_INSPECTION_CRITERIA)
     return {
-        "kind": kind, "category": category, "name": name,
+        "kind": kind, "category": "", "name": name,
         "business_unit": payload.get("businessUnit", "Ottotree"), "outlet": payload.get("outlet") or first_outlet(db),
         "zone": location or "Unassigned", "location": location,
         "equipment_type": item_type, "type": item_type, "health_status": status, "operational_status": status,
-        "last_checked": installed or "Today", "installation_date": "" if fixture else installed,
+        "last_checked": installed or "Today", "installation_date": installed,
         "replacement_flag": 1 if payload.get("replacementFlag") else 0,
         "notes": payload.get("description") or payload.get("notes", ""), "description": payload.get("description", ""),
         "model": text("model"), "serial_number": text("serialNumber"), "brand": text("brand"),
@@ -57,7 +57,7 @@ def item_values(db, payload, existing=None):
 def item_code(payload, kind, record_id):
     """The code a user typed, or a generated one: every item needs a unique code for its QR label."""
     code = str(payload.get("code") or payload.get("assetId") or "").strip()
-    return code or f"{'FXT' if kind == 'fixture' else 'AST'}-{record_id:05d}"
+    return code or f"{'VAR' if kind == 'fixture' else 'AST'}-{record_id:05d}"
 
 
 def post_equipment(self, parsed, payload=None):

@@ -1,10 +1,9 @@
-// Several fixed assets or fixtures at once: adding one at every chosen outlet and location, and
-// editing a group that shares a name and category. Code (also the QR label) and serial number
+// Several fixed or variable assets at once: adding one at every chosen outlet and location, and
+// editing a group that shares a name and asset type. Code (also the QR label) and serial number
 // belong to each item, so a bulk edit sets them per item.
 
 const bulkEquipmentFields = [
   ["name", "name", (row) => row.name || row.asset_id || ""],
-  ["itemCategory", "category", (row) => row.category || ""],
   ["type", "type", (row) => row.type || row.equipment_type || ""],
   ["operationalStatus", "operationalStatus", (row) => row.operational_status || row.health_status || "Operational"],
   ["brand", "brand", (row) => row.brand || ""],
@@ -21,7 +20,7 @@ const bulkEquipmentFields = [
 let equipmentBulkState = null;
 
 function equipmentGroupKey(row) {
-  return [row.kind === "fixture" ? "fixture" : "asset", row.name || row.asset_id || "", row.category || ""].join("\u0001");
+  return [row.kind === "fixture" ? "fixture" : "asset", row.name || row.asset_id || "", row.type || row.equipment_type || ""].join("\u0001");
 }
 
 function equipmentGroup(row) {
@@ -87,20 +86,20 @@ function bulkGroupOptions(kind) {
     groups.set(key, [...(groups.get(key) || []), row]);
   });
   return [...groups.entries()].filter(([, rows]) => rows.length > 1)
-    .sort(([, a], [, b]) => (a[0].name || "").localeCompare(b[0].name || "") || (a[0].category || "").localeCompare(b[0].category || ""));
+    .sort(([, a], [, b]) => (a[0].name || "").localeCompare(b[0].name || "") || (a[0].type || "").localeCompare(b[0].type || ""));
 }
 
 async function openEquipmentBulkEditor(kind, key = "") {
   const groups = bulkGroupOptions(kind);
   if (!groups.length) {
-    showNotice(`No ${itemKinds[kind].plural} share a name and category yet.`);
+    showNotice(`No ${itemKinds[kind].plural} share a name and asset type yet.`);
     return;
   }
   const chosen = groups.find(([groupKey]) => groupKey === key) || groups[0];
   const form = document.getElementById("equipment-form");
   resetEquipmentForm(kind, "bulk");
   form.querySelector("[data-bulk-group]").innerHTML = groups.map(([groupKey, rows]) =>
-    `<option value="${escapeAttr(groupKey)}">${escapeHtml(rows[0].name || rows[0].asset_id)} · ${escapeHtml(rows[0].category || "No category")} (${rows.length})</option>`).join("");
+    `<option value="${escapeAttr(groupKey)}">${escapeHtml(rows[0].name || rows[0].asset_id)} · ${escapeHtml(rows[0].type || rows[0].equipment_type || "No asset type")} (${rows.length})</option>`).join("");
   form.querySelector("[data-bulk-group]").value = chosen[0];
   fillEquipmentBulkEditor(form, chosen[1]);
   const dialog = document.getElementById("equipment-dialog");

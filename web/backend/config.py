@@ -42,25 +42,6 @@ def active_db_path():
 LOUDSPEAKER_OUTLETS = ("STP", "SBA", "TPG", "AQP", "CCS", "SPK", "BSP", "MYT", "DJM", "KPG", "TSU", "TMA", "PGA", "PSC", "PWS")
 
 
-DEFAULT_CATEGORIES = (
-    "AV Equipment",
-    "COM Equipment",
-    "Facility",
-    "F&B Equipment",
-    "Electrical",
-    "Plumbing",
-    "Air Conditioning",
-    "Lighting",
-    "Furniture",
-    "Building",
-    "Safety",
-    "Cleanliness",
-    "IT / Network",
-    "KTV Equipment",
-    "Others",
-)
-
-
 DEFAULT_INSPECTION_CRITERIA = [
     "Present and correctly placed",
     "Clean and free from visible damage",
@@ -69,7 +50,9 @@ DEFAULT_INSPECTION_CRITERIA = [
 ]
 
 
-# Fixtures & finishes are parts of the building itself (paint, tiles, pipes, sanitary ware).
+# Variable assets (stored as kind "fixture") are the building and everything without a code of its own:
+# walls, floors, furniture, fittings. Their asset type comes from VARIABLE_ASSET_TYPES (kept in the
+# setting assets.variableTypes); categories were retired in favour of asset types.
 DEFAULT_FIXTURE_CRITERIA = [
     "Clean and free from stains or marks",
     "Intact with no cracks, leaks, or loose parts",
@@ -79,6 +62,9 @@ DEFAULT_FIXTURE_CRITERIA = [
 
 
 ITEM_KINDS = ("asset", "fixture")
+
+VARIABLE_ASSET_TYPES = ["AV Equipment", "COM Equipment", "Facility", "F&B Equipment", "Electrical", "Plumbing", "Air Conditioning",
+                        "Lighting", "Furniture", "Building", "Safety", "Cleanliness", "IT / Network", "KTV Equipment", "Others"]
 
 
 DEFAULT_PRIORITY_LEVELS = [
@@ -165,7 +151,7 @@ APP_TABS = (
     ("work-orders", "Maintenance"),
     ("equipment", "Fixed Assets"),
     ("reports", "Reports"),
-    ("categories", "Categories"),
+    ("categories", "Assets"),
     ("departments", "Departments"),
     ("outlets", "Outlets"),
     ("users", "Users"),

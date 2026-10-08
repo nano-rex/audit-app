@@ -5,7 +5,7 @@ from backend.scoring import summarize as summarize_score
 from backend.audit_metadata import allocate_reference
 from backend.common import finding_ref, image_labels, normalize_audit_date, normalized_inspection_name, priority_due_date
 from backend.workflow import WorkflowError
-from backend.database import connect, first_category, first_department, first_outlet, insert_record
+from backend.database import connect, first_department, first_outlet, insert_record
 
 
 def asset_details(db, ids):
@@ -80,7 +80,6 @@ def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
     settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
     require_photo_evidence(items, settings)
-    category_departments = {row["name"]: row["department"] for row in db.execute("SELECT name, department FROM categories WHERE COALESCE(department, '') != ''")}
     summary = summarize_score(items, settings)
     audit_date = normalize_audit_date(payload.get("auditDate"))
     outlet = payload.get("outlet") or first_outlet(db)
@@ -105,9 +104,9 @@ def finalize_inspection(db, session_id, payload, now):
         priority_row = db.execute("SELECT classification FROM priority_levels WHERE name = ?", (priority,)).fetchone()
         if not priority_row:
             raise ValueError("Select a configured priority for every finding")
-        category = item.get("category") or first_category(db)
-        # Without an explicit choice, a finding goes to the department responsible for its category.
-        department = item.get("assignedDepartment") or item.get("department") or category_departments.get(category) or first_department(db)
+        # A finding is filed under its asset's type (kept in the category column).
+        category = item.get("category") or ""
+        department = item.get("assignedDepartment") or item.get("department") or first_department(db)
         pic = item.get("pic", "")
         location = item.get("location") or payload.get("zone", "Unassigned")
         comment = item.get("notes") or item.get("item", "Inspection finding")

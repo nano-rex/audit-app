@@ -61,9 +61,10 @@ def register_fonts():
     return "Helvetica", "Helvetica-Bold", None
 
 
-def asset_details_line(asset, category=""):
-    """Code · type · brand model · serial · installed · status, whichever the register has."""
-    parts = [asset.get("code"), category or asset.get("category"), asset.get("type"),
+def asset_details_line(asset):
+    """Code · type · brand model · serial · installed · status, whichever the register has. A variable
+    asset has no code label, so its generated code is left out."""
+    parts = [asset.get("code") if asset.get("kind") != "fixture" else "", asset.get("type"),
              " ".join(value for value in (asset.get("brand"), asset.get("model")) if value),
              asset.get("serial_number") and f"S/N {asset['serial_number']}",
              asset.get("installation_date") and f"Installed {asset['installation_date']}",
@@ -345,12 +346,12 @@ class ReportWriter:
             status = self.pill(f"{failed} failed" if failed else "All passed", "fail" if failed else "pass")
             name = first.get("section") or "Item"
             asset = (assets or {}).get(str(first.get("equipmentId") or ""), {})
-            details = asset_details_line(asset, first.get("category"))
+            details = asset_details_line(asset)
             group = int(first.get("groupCount") or 1)
             if group > 1:
                 # A casual audit graded these same-named assets together.
                 name = f"{name} ×{group}"
-                details = f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")}, first.get("category"))
+                details = f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")})
             bar = Table([[[self.rich(f"<b>{escape(name)}</b>", plain=name), self.paragraph(details, "Caption")] if details else self.rich(f"<b>{escape(name)}</b>", plain=name),
                           self.rich(f'<font size="7.5" color="{hex_of(MUTED)}">{count}</font> &nbsp;{status}', "Right")]],
                         colWidths=[WIDTH - 150, 150])
@@ -374,7 +375,7 @@ class ReportWriter:
             self.add(Spacer(1, 10))
 
     def charts(self, summary, parts, findings):
-        """The audit at a glance: results of every check, each location's score, and findings by category."""
+        """The audit at a glance: results of every check, each location's score, and findings by asset type."""
         self.heading("At a glance")
         mark = float(summary.get("passMark") or 70)
         results = Drawing(170, 118)
@@ -397,8 +398,8 @@ class ReportWriter:
         results.add(String(6, 4, "Checks", fontName=self.bold, fontSize=7.5, fillColor=MUTED))
         categories = {}
         for finding in findings:
-            categories[finding.get("category") or "No category"] = categories.get(finding.get("category") or "No category", 0) + 1
-        side = self.bar_chart(sorted(categories.items(), key=lambda pair: -pair[1])[:8], WIDTH - 180, "Findings by category",
+            categories[finding.get("category") or "No asset type"] = categories.get(finding.get("category") or "No asset type", 0) + 1
+        side = self.bar_chart(sorted(categories.items(), key=lambda pair: -pair[1])[:8], WIDTH - 180, "Findings by asset type",
                               lambda value: FAIL, maximum=None) if categories else self.paragraph("No findings in this audit.", "Caption")
         row = Table([[results, side]], colWidths=[180, WIDTH - 180])
         row.setStyle(TableStyle(self.panel_style(colors.white, 6) + [("LINEBEFORE", (1, 0), (1, 0), 0.4, BORDER)]))
@@ -452,7 +453,7 @@ class ReportWriter:
         return drawing
 
     def asset_attributes(self, items, assets):
-        """The audit's assets as charts of their register attributes (type, brand, category,
+        """The audit's assets as charts of their register attributes (type, brand,
         installation year, status, warranty, expiry), each split into those that passed every
         check and those with a failure."""
         from backend.report_figures import FAIL as FAIL_HEX, PASS as PASS_HEX, asset_attributes

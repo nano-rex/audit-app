@@ -327,58 +327,55 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request("/api/work-orders", token="legacy-override")[0], 200)
         self.assertEqual(self.request("/api/roles", "POST", {"name": "Uses retired page", "permissions": ["corrective-actions"]})[0], 400)
 
-    def test_fixtures_and_assets_share_one_register_with_generated_codes(self):
-        fixture = {"kind": "fixture", "name": "Floor tiles", "outlet": "STP", "location": "R-01", "category": "Building",
-                   "serialNumber": "ignored for a fixture", "brand": "ignored"}
-        status, _, body = self.request("/api/equipment", "POST", fixture)
+    def test_variable_and_fixed_assets_share_one_register_with_generated_codes(self):
+        # A variable asset has every detail of a fixed asset, but no code label of its own.
+        variable = {"kind": "fixture", "name": "Floor tiles", "outlet": "STP", "location": "R-01", "type": "Building",
+                    "serialNumber": "SN-TILES-1", "brand": "Tilecraft", "installationDate": "2024-01-02"}
+        status, _, body = self.request("/api/equipment", "POST", variable)
         self.assertEqual(status, 200, body)
         created = json.loads(body)
-        self.assertEqual(created["code"], f"FXT-{created['id']:05d}")
+        self.assertEqual(created["code"], f"VAR-{created['id']:05d}")
         status, _, body = self.request("/api/equipment", "POST", {"name": "Amplifier", "outlet": "STP", "location": "R-01"})
         asset = json.loads(body)
         self.assertEqual(asset["code"], f"AST-{asset['id']:05d}")
         rows = {row["id"]: row for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"]}
         stored = rows[created["id"]]
-        self.assertEqual((stored["kind"], stored["category"], stored["serial_number"], stored["brand"]), ("fixture", "Building", "", ""))
+        self.assertEqual((stored["kind"], stored["type"], stored["serial_number"], stored["brand"], stored["installation_date"]),
+                         ("fixture", "Building", "SN-TILES-1", "Tilecraft", "2024-01-02"))
         self.assertEqual(stored["inspection_criteria"], list(config.DEFAULT_FIXTURE_CRITERIA))
         self.assertEqual(rows[asset["id"]]["kind"], "asset")
-        compact = {row["id"]: row for row in json.loads(self.request("/api/equipment?outlet=STP&view=inspection")[2])["items"]}
-        self.assertEqual((compact[created["id"]]["kind"], compact[created["id"]]["category"]), ("fixture", "Building"))
+        # Without a type a variable asset is Others.
+        status, _, body = self.request("/api/equipment", "POST", {"kind": "fixture", "name": "Odd thing", "outlet": "STP", "location": "R-01"})
+        self.assertEqual(next(row for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"] if row["id"] == json.loads(body)["id"])["type"], "Others")
         # A code already in use is refused; it used to replace the other item.
         self.assertEqual(self.request("/api/equipment", "POST", {"name": "Clash", "code": created["code"]})[0], 409)
         self.assertEqual(self.request("/api/equipment", "POST", {"name": "Bad kind", "kind": "vehicle"})[0], 400)
-        self.assertEqual(self.request("/api/equipment", "POST", {"name": "Bad category", "category": "No such category"})[0], 400)
         self.assertEqual(self.request("/api/equipment", "POST", {"kind": "fixture"})[0], 400)
         # Editing keeps the kind and the code unless they are sent.
-        self.assertEqual(self.request(f"/api/equipment/{created['id']}", "PATCH", {"name": "Floor tiles (lobby)", "category": "Building"})[0], 200)
+        self.assertEqual(self.request(f"/api/equipment/{created['id']}", "PATCH", {"name": "Floor tiles (lobby)"})[0], 200)
         edited = next(row for row in json.loads(self.request("/api/equipment?outlet=STP")[2])["items"] if row["id"] == created["id"])
-        self.assertEqual((edited["kind"], edited["code"], edited["name"]), ("fixture", created["code"], "Floor tiles (lobby)"))
+        self.assertEqual((edited["kind"], edited["code"], edited["name"], edited["brand"]), ("fixture", created["code"], "Floor tiles (lobby)", "Tilecraft"))
+        # The asset types: the variable types, and every type in use.
+        setup = json.loads(self.request("/api/setup")[2])
+        self.assertNotIn("categories", setup)
+        self.assertIn("Building", setup["variableTypes"])
+        self.assertTrue({"Building", "Others"}.issubset(setup["assetTypes"]))
 
-    def test_findings_go_to_the_department_responsible_for_their_category(self):
+    def test_findings_are_filed_under_their_asset_type(self):
         from test_media_reports import photo_data_url
         _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": photo_data_url(), "name": "evidence.png"}})
         image = json.loads(body)["image"]
         with app.connect() as db:
             departments = [row[0] for row in db.execute("SELECT code FROM departments ORDER BY code")]
-        owner = departments[-1]
-        self.assertEqual(self.request("/api/setup/categories", "POST", {"name": "Routed category", "department": "No such department"})[0], 400)
-        self.assertEqual(self.request("/api/setup/categories", "POST", {"name": "Routed category", "department": owner, "sequence": 50})[0], 200)
-        category = next(row for row in json.loads(self.request("/api/setup")[2])["categories"] if row["name"] == "Routed category")
-        self.assertEqual(category["department"], owner)
-        self.assertEqual(self.request("/api/equipment", "POST", {"kind": "fixture", "name": "Routed sink", "category": "Routed category"})[0], 200)
-        base = {"section": "Routed sink", "notes": "Leaking", "priority": "High", "pic": "Routing Owner", "category": "Routed category", "images": [image]}
-        items = [base | {"item": "By category"}, base | {"item": "Chosen", "assignedDepartment": departments[0]}]
+        # Categories are retired.
+        self.assertEqual(self.request("/api/setup/categories", "POST", {"name": "Routed category"})[0], 404)
+        base = {"section": "Routed sink", "notes": "Leaking", "priority": "High", "pic": "Routing Owner", "category": "Plumbing", "images": [image]}
+        items = [base | {"item": "Default department"}, base | {"item": "Chosen", "assignedDepartment": departments[-1]}]
         status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items, "complete": True})
         self.assertEqual(status, 200, body)
         with app.connect() as db:
-            routed = dict(db.execute("SELECT criterion, assigned_department FROM findings WHERE category = 'Routed category'").fetchall())
-        self.assertEqual(routed, {"By category": owner, "Chosen": departments[0]})
-        # Renaming the category keeps its items attached; deleting it leaves them uncategorised.
-        self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "PATCH", {"name": "Routed renamed", "department": owner})[0], 200)
-        sink = lambda: next(row for row in json.loads(self.request("/api/equipment")[2])["items"] if row["name"] == "Routed sink")
-        self.assertEqual(sink()["category"], "Routed renamed")
-        self.assertEqual(self.request(f"/api/setup/categories/{category['id']}", "DELETE")[0], 200)
-        self.assertEqual(sink()["category"], "")
+            routed = dict(db.execute("SELECT criterion, assigned_department FROM findings WHERE category = 'Plumbing' AND item_name = 'Routed sink'").fetchall())
+        self.assertEqual(routed, {"Default department": departments[0], "Chosen": departments[-1]})
 
     def test_organization_theme_is_validated_saved_and_public(self):
         theme = lambda: json.loads(self.request("/api/branding", token=None)[2])["theme"]

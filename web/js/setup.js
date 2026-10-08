@@ -57,7 +57,7 @@ async function populateLocationEquipmentSelect(locationName = "") {
     const elsewhere = !here(item) && (item.location || item.zone) ? `Now in ${item.location || item.zone}` : "";
     return `<label class="zone-location-option"><input type="checkbox" name="equipmentIds" value="${item.id}"${here(item) && locationName ? " checked" : ""}>
       <span>${escapeHtml(label)}</span><small>${escapeHtml([item.code || item.asset_id || "", elsewhere].filter(Boolean).join(" · "))}</small></label>`;
-  }).join("") : `<p class="muted">No assets or fixtures are registered for this outlet.</p>`);
+  }).join("") : `<p class="muted">No assets are registered for this outlet.</p>`);
   updateLocationAssetCount();
 }
 
@@ -103,13 +103,15 @@ async function populateZoneLocationSelect(selectedLocations = []) {
     : `<p class="muted">No locations are set up for this outlet.</p>`;
 }
 async function loadSetup() {
-  ["[data-department-records]", "[data-category-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
+  ["[data-department-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
   document.querySelectorAll("[data-super-only-setting]").forEach((panel) => { panel.hidden = currentUser?.role !== "Super"; });
   document.querySelectorAll("[data-company-admin-setting]").forEach((panel) => { panel.hidden = !["Admin", "Super"].includes(currentUser?.role); });
   const response = await authFetch("/api/setup");
   const data = await response.json();
   setupOptions.departments = data.departments.map((row) => row.code);
-  setupOptions.categories = (data.categories || []).filter((row) => row.active).map((row) => row.name);
+  // Asset types took the place of categories: every type in use, and the variable asset types.
+  setupOptions.assetTypes = data.assetTypes || [];
+  setupOptions.variableTypes = data.variableTypes || [];
   setupOptions.outlets = data.outlets.map((row) => row.code);
   setupOptions.zones = data.zones || [];
   setupOptions.roles = (data.roles || []).map((row) => row.name);
@@ -118,7 +120,6 @@ async function loadSetup() {
   setupOptions.settings = data.settings || {};
   setupOptions.tabs = data.tabs || allTabs;
   departmentCache = data.departments;
-  categoryCache = data.categories || [];
   outletCache = data.outlets;
   zoneCache = data.zones || [];
   roleCache = data.roles || [];
@@ -129,7 +130,6 @@ async function loadSetup() {
   updateUserFilterSelects();
   updateUserRoleSelects();
   renderDepartments();
-  renderCategories();
   renderOutlets();
   renderRoles();
   renderPriorities();
@@ -175,9 +175,6 @@ function populateSettingsForms() {
   const scoringForm = document.getElementById("scoring-settings-form");
   if (scoringForm) {
     scoringForm.elements.passMark.value = scoring.passMark ?? 70;
-    const weights = getSetting("scoring.weights", {});
-    setHtml("[data-category-weights]", setupOptions.categories.map((category) => `<label>${escapeHtml(category)}<input type="number" min="0.1" max="100" step="0.1" required data-category-weight="${escapeAttr(category)}" value="${Number(weights[category] ?? 1)}"></label>`).join(""));
-    scoringForm.elements.weightingMode.value = scoring.weightingMode || "Equal";
     scoringForm.elements.excellentFrom.value = scoring.ratingBands?.excellent ?? 90;
     scoringForm.elements.goodFrom.value = scoring.ratingBands?.good ?? 75;
     scoringForm.elements.needsImprovementFrom.value = scoring.ratingBands?.needsImprovement ?? 60;
@@ -215,15 +212,6 @@ function renderDepartments() {
   setHtml("[data-department-records]", rows.length
     ? `<section class="department-grid" aria-label="Departments">${rows.map(departmentRow).join("")}</section>`
     : `<section class="admin-group"><ul><li><b>No departments found</b><span>Adjust search or add a department.</span></li></ul></section>`);
-}
-
-function renderCategories() {
-  const search = categoryFilters.search.toLowerCase();
-  const rows = categoryCache.filter((row) => [row.name, row.description, row.sequence, row.active ? "active" : "inactive"].join(" ").toLowerCase().includes(search));
-  const page = paginateList("categories", rows, categoryFilters, renderCategories);
-  setHtml("[data-category-records]", (rows.length
-    ? `<section class="admin-group"><ul>${page.items.map(categoryRow).join("")}</ul></section>`
-    : `<section class="admin-group"><ul><li><b>No categories found</b><span>Adjust search or add a category.</span></li></ul></section>`) + page.controls);
 }
 
 function renderOutlets() {
