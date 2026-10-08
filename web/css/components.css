@@ -2313,3 +2313,14 @@ people view: a card per person {
 [data-kpi-people-chart] {
   margin-bottom: 14px;
 }
+
+/* A visit's priority, beside its progress. */
+.priority-pill {
+  color: var(--text-soft);
+  background: var(--surface-sunken);
+}
+
+[data-schedule-id] .warn {
+  color: var(--red);
+  font-weight: 700;
+}

@@ -1254,5 +1254,21 @@ class ServerTests(unittest.TestCase):
         row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
         self.assertEqual((row["visit_scope"], row["visit_locations"], row["zone"]), ({"by": "locations"}, [], "All Locations"))
 
+    def test_z_visit_priority_and_due_date(self):
+        with app.connect() as db:
+            level = db.execute("SELECT name FROM priority_levels WHERE active = 1 ORDER BY id LIMIT 1").fetchone()[0]
+        visit = {"outlet": "STP", "scheduledDate": "2026-11-02"}
+        status, _, body = self.request("/api/schedules", "POST", visit | {"priority": level, "dueDate": "2026-11-05"})
+        self.assertEqual(status, 200, body)
+        schedule_id = json.loads(body)["id"]
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["priority"], row["due_date"]), (level, "2026-11-05"))
+        # Both are optional; an edit can clear them.
+        self.assertEqual(self.request(f"/api/schedules/{schedule_id}", "PATCH", visit)[0], 200)
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["priority"], row["due_date"]), ("", ""))
+        for wrong in ({"priority": "Not a level"}, {"dueDate": "2026-11-01"}, {"dueDate": "soon"}):
+            self.assertEqual(self.request("/api/schedules", "POST", visit | wrong)[0], 400, wrong)
+
 if __name__ == "__main__":
     unittest.main()

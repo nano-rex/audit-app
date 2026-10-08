@@ -8,6 +8,11 @@ async function resetScheduleForm() {
   setScheduleScope("locations");
   await updateScheduleScopeOptions();
   form.elements.scheduledDate.value = todayIsoDate();
+  // Priority comes from the priority levels; the due date is optional and not before the visit.
+  updateSelectOptions(form.elements.visitPriority, setupOptions.priorities || [], true, "No priority");
+  form.elements.visitPriority.value = "";
+  form.elements.dueDate.value = "";
+  form.elements.dueDate.min = form.elements.scheduledDate.value;
   await loadScheduleAssignees([]);
   form.querySelector("[data-delete-current-schedule]").hidden = true;
   setText("[data-schedule-message]", "");
@@ -25,6 +30,11 @@ async function openScheduleEditor(row) {
   await updateScheduleScopeOptions(scope, row.visit_locations || []);
   setScheduleScope(scope.by || "locations");
   form.elements.scheduledDate.value = row.scheduled_date;
+  const priority = form.elements.visitPriority;
+  if (row.priority && ![...priority.options].some((option) => option.value === row.priority)) priority.add(new Option(row.priority, row.priority));
+  priority.value = row.priority || "";
+  form.elements.dueDate.value = row.due_date || "";
+  form.elements.dueDate.min = row.scheduled_date || "";
   await loadScheduleAssignees(row.assignees || []);
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
@@ -454,6 +464,8 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
     outlet: formValue(form, "outlet", ""),
     ...scheduleScopePayload(form),
     scheduledDate: formValue(form, "scheduledDate", "Today"),
+    priority: form.elements.visitPriority.value,
+    dueDate: form.elements.dueDate.value,
     assignees: [...form.querySelectorAll('input[name="assignee"]:checked')].map((input) => Number(input.value)),
     remarks: formValue(form, "remarks", ""),
   };

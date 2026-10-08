@@ -515,6 +515,12 @@ document.querySelector("[data-assignee-search]")?.addEventListener("input", (eve
 
 document.querySelector("[data-only-mine]")?.addEventListener("change", () => renderGuidedSchedules());
 
+document.querySelector('#schedule-form input[name="scheduledDate"]')?.addEventListener("change", (event) => {
+  const due = event.target.form.elements.dueDate;
+  due.min = event.target.value;
+  if (due.value && due.value < event.target.value) due.value = event.target.value;
+});
+
 document.querySelectorAll("#schedule-form [data-scope-tab]").forEach((button) => {
   button.addEventListener("click", () => setScheduleScope(button.dataset.scopeTab));
 });

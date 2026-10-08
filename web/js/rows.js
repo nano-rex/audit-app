@@ -274,14 +274,19 @@ function scheduleRow(row) {
   const status = row.inspection_id || matchingSession
     ? inspectionHistoryProgressStatus(matchingSession || { status: row.inspection_status, progress: row.progress })
     : { className: "status-untouched", label: "Not Started (0%)" };
+  // A visit's priority, and its due date once it has passed without the audit being completed.
+  const done = (matchingSession?.status || row.inspection_status) === "Completed";
+  const overdue = row.due_date && !done && row.due_date < todayIsoDate();
+  const urgent = typeof priorityCache !== "undefined" && priorityCache.some((level) => level.name === row.priority && level.classification === "Priority");
   return `
     <article data-schedule-id="${row.id}">
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
         <b>${escapeHtml(auditTitle(session, `${row.outlet} · ${row.scheduled_date}`))}</b>
-        <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
+        <span>${escapeHtml(row.scheduled_date)}${row.due_date ? ` | <span class="${overdue ? "warn" : ""}">Due ${escapeHtml(row.due_date)}${overdue ? " (overdue)" : ""}</span>` : ""} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
         <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>
       <span class="row-actions">
+        ${row.priority ? `<span class="status-pill ${urgent ? "status-untouched" : "priority-pill"}">${escapeHtml(row.priority)}</span>` : ""}
         <span class="status-pill ${status.className}">${escapeHtml(status.label)}</span>
         <button type="button" class="primary" data-open-schedule='${escapeAttr(JSON.stringify(row))}'>Open</button>
         <button type="button" class="outline" data-edit-schedule='${escapeAttr(JSON.stringify(row))}'>Edit</button>
