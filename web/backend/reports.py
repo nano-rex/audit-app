@@ -272,42 +272,18 @@ def report_pdf(unit, filters=None):
 
 
 def report_xls(unit, filters=None):
-    """Native XLSX workbook; the old function name remains for API compatibility."""
-    from openpyxl import Workbook
-    from backend.audit_exports import finish_workbook
-    workbook = Workbook()
-    summary = workbook.active
-    summary.title = "Summary"
-    summary.append([branding_settings()["appTitle"], unit])
-    for key, value in report(unit, filters)["monthlySummary"].items():
-        summary.append([key, value])
-    findings = workbook.create_sheet("Findings")
-    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit Date"), ("audit_time", "Audit Time"), ("auditor", "Auditor"), ("outlet", "Outlet"), ("location", "Location"), ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Comment"), ("closed_at", "Closed")]
-    findings.append([label for _, label in columns])
-    for row in finding_items(unit, filters)["items"]:
-        findings.append([row.get(key) or "" for key, _ in columns])
-    # Who did what and how long it took: every entry in the period, unlike the page's latest 200.
+    """The Reports page as an editable workbook, laid out like the page and its PDF (xlsx_report);
+    the old function name remains for API compatibility."""
+    from backend.xlsx_report import report_workbook
+    filters = filters or {}
+    period = " to ".join(value for value in (filters.get("from"), filters.get("to")) if value) or "All dates"
     where, params = report_scope(unit, "activity_log", filters)
     with connect() as db:
-        performance = kpi_report(db, where, params, limit=None)
-    people = workbook.create_sheet("People")
-    people.append(["Person", "Audits started", "Audits completed", "Avg. audit (hours)", "Signed", "Audits closed", "Requests raised",
-                   "Requests acted on", "Avg. to act on request (hours)", "Orders created", "Orders closed", "Avg. to close order (hours)"])
-    hours = lambda seconds: round(seconds / 3600, 2) if seconds is not None else ""
-    for row in performance["people"]:
-        people.append([row["name"], row["audit_started"], row["audit_completed"], hours(row["auditSeconds"]), row["audit_signed"], row["audit_closed"],
-                       row["request_raised"], row["order_created"] + row["request_declined"], hours(row["requestSeconds"]), row["order_created"],
-                       row["order_closed"], hours(row["orderSeconds"])])
-    timing = workbook.create_sheet("Time to act")
-    timing.append(["Step", "Average (hours)", "Longest (hours)", "Times"])
-    for row in performance["timeToAct"]:
-        timing.append([row["label"], hours(row["averageSeconds"]), hours(row["longestSeconds"]), row["count"]])
-    log = workbook.create_sheet("Activity")
-    log.append(["When", "Person", "Action", "Record", "Outlet", "Took (hours)", "Detail"])
-    for row in performance["activity"]:
-        log.append([datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"],
-                    row["record_ref"] or "", row["outlet"] or "", hours(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else "", row["detail"] or ""])
-    return finish_workbook(workbook)
+        settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
+        # Every entry in the period, unlike the page's latest 200.
+        activity = kpi_report(db, where, params, limit=None)["activity"]
+    return report_workbook(report(unit, filters), finding_items(unit, filters)["items"], activity,
+                           f"{filters.get('outlet') or 'All outlets'} | {period}", branding_settings(), settings)
 
 
 def inspection_pdf(session):

@@ -7,7 +7,7 @@ keeps the sheets aligned like the PDF's page and prints on one A4 width.
 from io import BytesIO
 from math import ceil
 
-from openpyxl.chart import BarChart, DoughnutChart, Reference
+from openpyxl.chart import BarChart, DoughnutChart, LineChart, Reference
 from openpyxl.chart.label import DataLabelList
 from openpyxl.chart.series import DataPoint
 from openpyxl.drawing.image import Image as SheetImage
@@ -213,10 +213,11 @@ class SheetWriter:
         self.height(self.row + 2, [(note, 2) for *_, note in tiles], size=8)
         self.row += 4
 
-    def table(self, headers, rows, spans, result_column=None, tones=None, size=9):
+    def table(self, headers, rows, spans, result_column=None, tones=None, size=9, start=1):
         """A list like the app's: soft header, rules between rows, results coloured. spans gives each
-        column's width in sheet columns; tones colours chosen cells {(row index, column): tone}."""
-        starts = [1 + sum(spans[:index]) for index in range(len(spans))]
+        column's width in sheet columns, from column start; tones colours chosen cells {(row index,
+        column): tone, or a hex colour}."""
+        starts = [start + sum(spans[:index]) for index in range(len(spans))]
         top = self.row
         for index, header in enumerate(headers):
             self.put(self.row, starts[index], header, size=8, bold=True, colour=MUTED, background=self.accent_soft, span=spans[index], wrap=False)
@@ -224,13 +225,16 @@ class SheetWriter:
         for row_index, values in enumerate(rows):
             for index, value in enumerate(values):
                 tone = (tones or {}).get((row_index, index)) or (RESULT_TONES.get(str(value)) if index == result_column else None)
-                if tone:
+                if tone and tone not in TONES:
+                    # A colour of its own, such as a chart's series: the text in that colour.
+                    self.put(self.row, starts[index], value, size=size, bold=True, colour=tone, span=spans[index])
+                elif tone:
                     self.pill(self.row, starts[index], value, tone, span=spans[index], align="left")
                 else:
                     self.put(self.row, starts[index], value, size=size, span=spans[index])
             self.height(self.row, [(value, spans[index]) for index, value in enumerate(values)], size)
             self.row += 1
-        self.box(top, 1, self.row - 1, sum(spans), inner_rows=True)
+        self.box(top, start, self.row - 1, start + sum(spans) - 1, inner_rows=True)
         return top
 
     def photos(self, values, columns=4, label=None):
@@ -467,6 +471,310 @@ class SheetWriter:
                 tones[(index, 7)] = "fail" if failed else "pass"
             self.table(["Asset", "Code", "Type", "Brand / model", "Serial", "Installed", "Status", "Result"], rows, [1] * 8, tones=tones, size=8)
             self.row += 1
+
+
+# ---- The Reports page ----
+
+CM_PER_COLUMN = 2.9
+CM_PER_ROW = 0.53
+
+
+def series_colour(series, colour, line=False):
+    if line:
+        series.graphicalProperties.line.solidFill = colour
+        series.graphicalProperties.line.width = 22000
+        series.marker.symbol = "circle"
+        series.marker.size = 7
+        series.marker.graphicalProperties.solidFill = colour
+        series.marker.graphicalProperties.line.solidFill = "FFFFFF"
+    else:
+        series.graphicalProperties.solidFill = colour
+        series.graphicalProperties.line.noFill = True
+
+
+def place(sheet, chart, column, row, columns, rows):
+    chart.width, chart.height = columns * CM_PER_COLUMN, rows * CM_PER_ROW
+    sheet.sheet.add_chart(chart, f"{get_column_letter(column)}{row}")
+
+
+def plain_chart(chart, title=None):
+    chart.title = title
+    chart.style = 10
+    chart.y_axis.majorGridlines = None
+    chart.x_axis.delete = False
+    chart.y_axis.delete = False
+    return chart
+
+
+def report_workbook(data, findings, activity, scope, brand, settings):
+    """The Reports page as a workbook laid out like the page (and its PDF): the four rings, audits and
+    findings by month, outlets, breakdowns, time to act, and people on the first sheet; the People
+    table, Findings, and Activity log on their own sheets. Each chart reads the table beside it."""
+    from datetime import datetime
+    from openpyxl import Workbook
+    from backend import report_figures as figures
+    from backend.activity import duration_text
+    scoring = data.get("scoring") or {"passMark": 70, "goodBand": 70, "belowBand": 60}
+    charts = data.get("charts") or {}
+    printed = datetime.now().strftime("%Y-%m-%d %H:%M")
+    workbook = Workbook()
+    sheet = new_sheet(workbook, "Report", brand, None, settings, first=True)
+    accent = sheet.accent
+    colour = lambda code: code or accent
+    sheet.letterhead("Audit Report", printed)
+    sheet.put(sheet.row, 1, scope, size=11, bold=True, span=COLUMNS, wrap=False)
+    sheet.row += 2
+
+    # The four rings, two columns each.
+    top = sheet.row
+    rings = figures.overview(data)
+    deepest = top
+    for index, ring in enumerate(rings):
+        column = 1 + index * 2
+        sheet.row = top
+        sheet.put(sheet.row, column, ring["title"], size=10.5, bold=True, span=2, wrap=False)
+        sheet.put(sheet.row + 1, column, ring["note"], size=8, colour=MUTED, span=2, wrap=False)
+        chart_row = sheet.row + 2
+        sheet.row = chart_row + 10
+        total = sum(value for _, value, _ in ring["parts"])
+        first = sheet.row
+        for label, value, code in ring["parts"]:
+            sheet.put(sheet.row, column, f"{label} ({round(value * 100 / total) if total else 0}%)", size=8.5, bold=True, colour=colour(code))
+            sheet.put(sheet.row, column + 1, value, size=9, align="right")
+            sheet.row += 1
+        if ring["footer"]:
+            sheet.put(sheet.row, column, ring["footer"], size=8, colour=MUTED, span=2, wrap=False)
+            sheet.row += 1
+        doughnut = DoughnutChart(holeSize=60)
+        doughnut.add_data(Reference(sheet.sheet, min_col=column + 1, min_row=first, max_row=first + len(ring["parts"]) - 1), titles_from_data=False)
+        doughnut.set_categories(Reference(sheet.sheet, min_col=column, min_row=first, max_row=first + len(ring["parts"]) - 1))
+        for point_index, (_, _, code) in enumerate(ring["parts"]):
+            point = DataPoint(idx=point_index)
+            point.graphicalProperties.solidFill = colour(code)
+            point.graphicalProperties.line.solidFill = "FFFFFF"
+            doughnut.series[0].dPt.append(point)
+        doughnut.legend = None
+        doughnut.title = f"{ring['centre']} {ring['caption']}"
+        place(sheet, doughnut, column, chart_row, 2, 10)
+        sheet.box(top, column, sheet.row - 1, column + 1)
+        deepest = max(deepest, sheet.row)
+    sheet.row = deepest + 1
+
+    # Audits by month: columns for the count, a line for the score, and the pass mark.
+    sheet.heading("Audits by month")
+    monthly = figures.monthly_audits(charts)
+    if monthly:
+        top = sheet.table(["Month", "Audits", "Average score", "Pass mark"], [[month, count, score, scoring.get("passMark")] for month, count, score in monthly], [2, 2, 2, 2])
+        bars = plain_chart(BarChart())
+        bars.type = "col"
+        bars.add_data(Reference(sheet.sheet, min_col=3, min_row=top, max_row=top + len(monthly)), titles_from_data=True)
+        bars.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(monthly)))
+        series_colour(bars.series[0], accent)
+        lines = LineChart()
+        for column in (5, 7):
+            lines.add_data(Reference(sheet.sheet, min_col=column, min_row=top, max_row=top + len(monthly)), titles_from_data=True)
+        series_colour(lines.series[0], TEXT, line=True)
+        series_colour(lines.series[1], "B4BDB8", line=True)
+        lines.series[1].graphicalProperties.line.dashStyle = "dash"
+        lines.series[1].marker.symbol = "none"
+        lines.y_axis.axId = 200
+        lines.y_axis.title = "Score"
+        lines.y_axis.scaling.min, lines.y_axis.scaling.max = 0, 100
+        lines.y_axis.crosses = "max"
+        lines.y_axis.majorGridlines = None
+        lines.y_axis.delete = False
+        bars.y_axis.title = "Audits"
+        bars += lines
+        bars.legend.position = "b"
+        sheet.row += 1
+        place(sheet, bars, 1, sheet.row, COLUMNS, 14)
+        sheet.row += 15
+    else:
+        sheet.put(sheet.row, 1, "No data yet", size=8, colour=MUTED, span=COLUMNS)
+        sheet.row += 2
+
+    # Findings by month, stacked.
+    sheet.heading("Findings by month")
+    found = figures.monthly_findings(charts)
+    if found:
+        top = sheet.table(["Month", "Priority", "Non-priority"], [list(row) for row in found], [2, 3, 3],
+                          tones={(index, 1): figures.FAIL for index in range(len(found))} | {(index, 2): figures.INFO for index in range(len(found))})
+        stacked = plain_chart(BarChart())
+        stacked.type, stacked.grouping, stacked.overlap = "col", "stacked", 100
+        for column, code in ((3, figures.FAIL), (6, figures.INFO)):
+            stacked.add_data(Reference(sheet.sheet, min_col=column, min_row=top, max_row=top + len(found)), titles_from_data=True)
+            series_colour(stacked.series[-1], code)
+        stacked.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(found)))
+        stacked.legend.position = "b"
+        sheet.row += 1
+        place(sheet, stacked, 1, sheet.row, COLUMNS, 13)
+        sheet.row += 14
+    else:
+        sheet.put(sheet.row, 1, "No data yet", size=8, colour=MUTED, span=COLUMNS)
+        sheet.row += 2
+
+    def bar_beside(title, note, headers, rows, value_column, spans, colours, maximum=None, mark=None):
+        """A table on the left and its bars on the right, as each card of the page."""
+        sheet.heading(title)
+        if note:
+            sheet.put(sheet.row - 1, 1, note, size=8, colour=MUTED, span=COLUMNS, wrap=False)
+            sheet.row += 0
+        if not rows:
+            sheet.put(sheet.row, 1, "No data yet", size=8, colour=MUTED, span=COLUMNS)
+            sheet.row += 2
+            return
+        top = sheet.table(headers, rows, spans)
+        chart = plain_chart(BarChart())
+        chart.type = "bar"
+        chart.add_data(Reference(sheet.sheet, min_col=value_column, min_row=top + 1, max_row=top + len(rows)), titles_from_data=False)
+        chart.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(rows)))
+        chart.x_axis.scaling.orientation = "maxMin"
+        chart.legend = None
+        if maximum:
+            chart.y_axis.scaling.min, chart.y_axis.scaling.max = 0, maximum
+        series = chart.series[0]
+        series.graphicalProperties.line.noFill = True
+        for index, code in enumerate(colours):
+            point = DataPoint(idx=index)
+            point.graphicalProperties.solidFill = colour(code)
+            series.dPt.append(point)
+        series.dLbls = DataLabelList()
+        series.dLbls.showVal = True
+        rows_tall = max(6, len(rows) + 3)
+        place(sheet, chart, sum(spans) + 1, top, COLUMNS - sum(spans), rows_tall)
+        sheet.row = max(sheet.row, top + rows_tall) + 1
+
+    # Outlets.
+    outlets = figures.outlet_scores(data)
+    bar_beside("Latest Scores by Outlet", "Each outlet's latest audit score, coloured by grade",
+               ["Outlet", "Latest", "Average", "Audits"], [[name, score, average, count] for name, score, average, count, _ in outlets], 2, [1, 1, 1, 1],
+               [figures.score_colour(score, scoring) for _, score, *_ in outlets], maximum=100)
+    sheet.heading("Performance Distribution")
+    bands = figures.performance_bands(charts)
+    top = sheet.table(["Grade", "Audits"], [[label, count] for label, count, _ in bands], [2, 1],
+                      tones={(index, 0): code for index, (_, _, code) in enumerate(bands)})
+    if sum(count for _, count, _ in bands):
+        doughnut = DoughnutChart(holeSize=60)
+        doughnut.add_data(Reference(sheet.sheet, min_col=3, min_row=top + 1, max_row=top + len(bands)), titles_from_data=False)
+        doughnut.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(bands)))
+        for index, (_, _, code) in enumerate(bands):
+            point = DataPoint(idx=index)
+            point.graphicalProperties.solidFill = code
+            doughnut.series[0].dPt.append(point)
+        doughnut.legend.position = "r"
+        place(sheet, doughnut, 4, top, 5, 9)
+        sheet.row = max(sheet.row, top + 9) + 1
+    pairs = figures.comparison(charts)
+    sheet.heading("Previous vs Current Audit")
+    if pairs:
+        top = sheet.table(["Outlet", "Previous", "Current"], [[name, previous, current] for name, previous, current in pairs], [1, 1, 1])
+        grouped = plain_chart(BarChart())
+        grouped.type = "bar"
+        grouped.add_data(Reference(sheet.sheet, min_col=2, max_col=3, min_row=top, max_row=top + len(pairs)), titles_from_data=True)
+        grouped.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(pairs)))
+        series_colour(grouped.series[0], "B4BDB8")
+        series_colour(grouped.series[1], accent)
+        grouped.y_axis.scaling.min, grouped.y_axis.scaling.max = 0, 100
+        grouped.legend.position = "b"
+        rows_tall = max(7, 2 * len(pairs) + 4)
+        place(sheet, grouped, 4, top, 5, rows_tall)
+        sheet.row = max(sheet.row, top + rows_tall) + 1
+    else:
+        sheet.put(sheet.row, 1, "No outlet has two audits yet", size=8, colour=MUTED, span=COLUMNS)
+        sheet.row += 2
+    sheet.heading("Outlet Rankings")
+    if outlets:
+        sheet.table(["#", "Outlet", "Latest", "Average", "Audits", "Last audit"],
+                    [[index, name, score, average, count, date] for index, (name, score, average, count, date) in enumerate(outlets, 1)], [1, 2, 1, 1, 1, 2],
+                    tones={(index, 2): sheet.rating_tone(score) for index, (_, score, *_) in enumerate(outlets)})
+    else:
+        sheet.put(sheet.row, 1, "No completed audits", size=8, colour=MUTED, span=COLUMNS)
+        sheet.row += 1
+    sheet.heading("Critical issues")
+    if data.get("criticalIssues"):
+        sheet.table(["Work order", "Outlet", "Location", "Title", "Status", "Due"],
+                    [[row.get("work_order_ref") or row["id"], row["outlet"], row.get("zone") or "", row.get("title") or "", row["status"], row.get("due_date") or ""]
+                     for row in data["criticalIssues"]], [1, 1, 1, 3, 1, 1], size=8.5)
+    else:
+        sheet.put(sheet.row, 1, "No open high-priority work orders.", size=8, colour=MUTED, span=COLUMNS)
+        sheet.row += 1
+
+    # Breakdowns.
+    for title, note, rows, maximum, suffix in figures.breakdowns(charts, scoring):
+        value_header = "Closed %" if suffix == "%" else "Score" if suffix == "/100" else "Findings"
+        label_header = title.split(" by ")[-1].capitalize()
+        bar_beside(title, note, [label_header, value_header] if not any(extra for *_, extra in rows) else [label_header, value_header, "Closed"],
+                   [[label, value] + ([extra] if any(extra for *_, extra in rows) else []) for label, value, _, extra in rows], 3,
+                   [2, 1, 1] if any(extra for *_, extra in rows) else [2, 1], [code for _, _, code, _ in rows], maximum=maximum)
+
+    # Time to act: the average and the longest of each step, in minutes for the chart.
+    steps = figures.time_to_act(data)
+    sheet.heading("Time to act")
+    minutes = lambda seconds: round((seconds or 0) / 60, 1)
+    top = sheet.table(["Step", "Average", "Longest", "Times", "Avg. minutes", "Longest minutes"],
+                      [[label, duration_text(average), duration_text(longest), count, minutes(average), minutes(longest)] for label, average, longest, count in steps],
+                      [3, 1, 1, 1, 1, 1], size=8.5)
+    if any(count for *_, count in steps):
+        timing = plain_chart(BarChart())
+        timing.type = "bar"
+        timing.add_data(Reference(sheet.sheet, min_col=7, max_col=8, min_row=top, max_row=top + len(steps)), titles_from_data=True)
+        timing.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(steps)))
+        series_colour(timing.series[0], accent)
+        series_colour(timing.series[1], sheet.accent_soft)
+        timing.x_axis.scaling.orientation = "maxMin"
+        timing.legend.position = "b"
+        sheet.row += 1
+        place(sheet, timing, 1, sheet.row, COLUMNS, max(7, 2 * len(steps) + 4))
+        sheet.row += max(7, 2 * len(steps) + 4) + 1
+
+    # People: what each person did, stacked as on the page; the full table is on its own sheet.
+    workers = figures.people(data)
+    sheet.heading("People")
+    if workers:
+        top = sheet.table(["Person", "Audits completed", "Requests acted on", "Orders closed"], [list(row) for row in workers], [2, 2, 2, 2])
+        stacked = plain_chart(BarChart())
+        stacked.type, stacked.grouping, stacked.overlap = "bar", "stacked", 100
+        for index, (label, code) in enumerate(figures.PEOPLE_STACKS):
+            stacked.add_data(Reference(sheet.sheet, min_col=3 + index * 2, min_row=top, max_row=top + len(workers)), titles_from_data=True)
+            series_colour(stacked.series[-1], colour(code))
+        stacked.set_categories(Reference(sheet.sheet, min_col=1, min_row=top + 1, max_row=top + len(workers)))
+        stacked.x_axis.scaling.orientation = "maxMin"
+        stacked.legend.position = "b"
+        sheet.row += 1
+        place(sheet, stacked, 1, sheet.row, COLUMNS, max(7, len(workers) + 5))
+        sheet.row += max(7, len(workers) + 5) + 1
+    else:
+        sheet.put(sheet.row, 1, "No activity in this period.", size=8, colour=MUTED, span=COLUMNS)
+
+    # The lists, each on its own sheet in the same style.
+    header, rows = figures.people_table(data)
+    lists = new_sheet(workbook, "People", brand, None, settings)
+    wide_list(lists, "People", printed, header, rows)
+    columns = [("finding_ref", "Finding"), ("audit_ref", "Audit"), ("audit_date", "Audit date"), ("auditor", "Auditor"), ("outlet", "Outlet"),
+               ("location", "Location"), ("item_name", "Item"), ("criterion", "Check"), ("category", "Category"), ("priority", "Priority"),
+               ("assigned_department", "Department"), ("pic", "PIC"), ("status", "Status"), ("comment", "Remark"), ("closed_at", "Closed")]
+    lists = new_sheet(workbook, "Findings", brand, None, settings)
+    wide_list(lists, "Findings", printed, [label for _, label in columns], [[row.get(key) or "" for key, _ in columns] for row in findings],
+              tones={(index, 12): "pass" if row.get("status") == "Closed" else "warn" for index, row in enumerate(findings)})
+    lists = new_sheet(workbook, "Activity", brand, None, settings)
+    wide_list(lists, "Activity log", printed, ["When", "Person", "Action", "Record", "Outlet", "Took", "Detail"],
+              [[datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"], row["record_ref"] or "",
+                row["outlet"] or "", duration_text(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else "", row["detail"] or ""] for row in activity])
+    return save(workbook)
+
+
+def wide_list(sheet, title, printed, header, rows, tones=None):
+    """A long list on its own sheet: one sheet column per field, so it can be filtered and sorted."""
+    columns = len(header)
+    for column in range(1, max(columns, COLUMNS) + 1):
+        sheet.sheet.column_dimensions[get_column_letter(column)].width = 16 if column > COLUMNS else COLUMN_WIDTH
+    sheet.letterhead(title, printed)
+    if not rows:
+        sheet.put(sheet.row, 1, "Nothing in this period.", size=8, colour=MUTED, span=COLUMNS)
+        return
+    top = sheet.table(header, rows, [1] * columns, tones=tones, size=8.5)
+    sheet.sheet.auto_filter.ref = f"A{top}:{get_column_letter(columns)}{sheet.row - 1}"
+    sheet.sheet.freeze_panes = f"A{top + 1}"
 
 
 def new_sheet(workbook, title, brand, media, settings, first=False):

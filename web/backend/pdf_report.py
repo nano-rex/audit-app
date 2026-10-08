@@ -19,7 +19,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.graphics.charts.barcharts import HorizontalBarChart
 from reportlab.graphics.charts.piecharts import Pie
-from reportlab.graphics.shapes import Drawing, Line, Rect, String
+from reportlab.graphics.shapes import Circle, Drawing, Line, Rect, String
 from reportlab.platypus import CondPageBreak, Image, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from backend.config import THEME_PRESET_ACCENTS
 from backend.scoring import rating_for_score
@@ -141,7 +141,8 @@ class ReportWriter:
         bar.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, 0), self.accent), ("LEFTPADDING", (1, 0), (1, 0), 7),
                                  ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
                                  ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-        self.add(Spacer(1, 10), bar, Spacer(1, 6))
+        # A heading never ends a page on its own.
+        self.add(CondPageBreak(110), Spacer(1, 10), bar, Spacer(1, 6))
 
     def panel_style(self, background=None, padding=6):
         commands = [("BOX", (0, 0), (-1, -1), 0.6, BORDER), ("ROUNDEDCORNERS", [4, 4, 4, 4]), ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -196,11 +197,11 @@ class ReportWriter:
     def table(self, rows, widths, header=True, label_column=False, result_column=None, markup=None, style="BodyText"):
         self.story.append(self.table_flowable(rows, widths, header, label_column, result_column, markup, style))
 
-    def table_flowable(self, rows, widths, header=True, label_column=False, result_column=None, markup=None, style="BodyText"):
+    def table_flowable(self, rows, widths, header=True, label_column=False, result_column=None, markup=None, style="BodyText", width=WIDTH):
         """A table like the app's lists: soft header, light rules, results coloured. markup gives
         cells (row, column) their own formatted content, such as a coloured grade."""
-        scale = WIDTH / sum(widths)
-        widths = [width * scale for width in widths]
+        scale = width / sum(widths)
+        widths = [column * scale for column in widths]
         markup = dict(markup or {})
         commands = []
         if result_column is not None:
@@ -217,9 +218,10 @@ class ReportWriter:
                 line.append(self.rich(markup[(index, column)], name, str(cell)) if (index, column) in markup else self.paragraph(cell, name))
             styled.append(line)
         table = Table(styled, colWidths=widths, repeatRows=1 if header else 0)
+        padding = 3 if style == "Caption" else 5
         commands = commands + [("BOX", (0, 0), (-1, -1), 0.6, BORDER), ("LINEBELOW", (0, 0), (-1, -2), 0.4, BORDER),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"), ("ROUNDEDCORNERS", [4, 4, 4, 4]),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+                    ("LEFTPADDING", (0, 0), (-1, -1), padding), ("RIGHTPADDING", (0, 0), (-1, -1), padding),
                     ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]
         if header:
             commands.append(("BACKGROUND", (0, 0), (-1, 0), self.soft))
@@ -613,64 +615,297 @@ def build_location_report(outlet, location, period, audits, brand, media, settin
 
 
 def build_summary_report(data, findings, scope, brand, settings=None):
-    """The Reports page on paper: its figures, outlet rankings, critical issues, and findings."""
+    """The Reports page on paper, in its order and colours: the four rings, audits and findings by
+    month, outlets, breakdowns, time to act, people, then the findings and activity lists."""
+    from backend import report_figures as figures
+    from backend.activity import duration_text
     writer = ReportWriter(brand, None, settings)
+    scoring = data.get("scoring") or {"passMark": 70, "goodBand": 70, "belowBand": 60}
+    charts = data.get("charts") or {}
+    accent_hex = writer.accent.hexval()[2:].upper()
+    colour = lambda value: colors.HexColor(f"#{value or accent_hex}")
     writer.letterhead("Audit Report")
-    writer.text(scope, "Heading2")
-    summary, kpi = data["monthlySummary"], data["kpi"]
-    writer.table([
-        ["Audits", f"{summary['audits']} total / {summary['auditsCompleted']} completed / {summary['auditsPending']} pending"],
-        ["Average score", f"{summary['averageScore']}/100"],
-        ["Findings", f"{summary['totalFindings']} total / {summary['priorityFindings']} priority / {summary['nonPriorityFindings']} non-priority"],
-        ["Outstanding", f"{summary['outstandingFindings']} findings open / {summary['overdueFindings']} overdue"],
-        ["Work orders", f"{summary['openWorkOrders']} open / {summary['closedWorkOrders']} closed / {summary['completionRate']}% complete"],
-        ["Scheduled audits", f"{kpi['assigned']} assigned / {kpi['completed']} completed / {kpi['pending']} pending / {kpi['responseRate']}% response"],
-    ], [125, 355], header=False, label_column=True)
-    writer.add(Spacer(1, 12), writer.paragraph("Outlet rankings", "Heading1"))
-    if data["rankings"]:
-        writer.table([["#", "Outlet", "Latest", "Average", "Audits", "Last audit"]]
-                     + [[index, row["outlet"], row["latest"], row["average"], row["audit_count"], row["audit_date"]]
-                        for index, row in enumerate(data["rankings"], 1)], [30, 120, 70, 70, 70, 120])
-    else:
-        writer.text("No completed audits in this period.")
-    writer.add(Spacer(1, 12), writer.paragraph("Critical issues", "Heading1"))
-    if data["criticalIssues"]:
+    writer.add(writer.paragraph(scope, "Heading2"), Spacer(1, 4))
+
+    # The four rings.
+    cells = []
+    for ring in figures.overview(data):
+        total = sum(value for _, value, _ in ring["parts"])
+        ring_width = (WIDTH - 24) / 4 - 14
+        legend = Table([[writer.rich(f'<font color="{hex_of(colour(code))}">●</font> {escape(label)}', "Caption", label), writer.paragraph(value, "Right"),
+                         writer.paragraph(f"{round(value * 100 / total) if total else 0}%", "RightCaption")] for label, value, code in ring["parts"]],
+                       colWidths=[ring_width - 52, 22, 30])
+        legend.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                    ("TOPPADDING", (0, 0), (-1, -1), 1), ("BOTTOMPADDING", (0, 0), (-1, -1), 1)]))
+        cell = [writer.paragraph(ring["title"], "Heading3"), writer.paragraph(ring["note"], "Caption"), Spacer(1, 4),
+                ring_drawing(writer, [(value, colour(code)) for _, value, code in ring["parts"]], ring["centre"], ring["caption"]), Spacer(1, 4), legend]
+        if ring["footer"]:
+            cell.append(writer.paragraph(ring["footer"], "Caption"))
+        cells.append(cell)
+    writer.add(card_grid(writer, cells, 4))
+
+    # Trends.
+    monthly = figures.monthly_audits(charts)
+    writer.heading("Audits by month")
+    writer.text("Completed audits each month, and their average score against the pass mark.", "Caption")
+    writer.add(Spacer(1, 4), column_drawing(writer, [(month, [count]) for month, count, _ in monthly], [writer.accent], ["Audits"],
+                                           line=[score for *_, score in monthly], mark=scoring.get("passMark")) if monthly else writer.paragraph("No data yet", "Caption"))
+    found = figures.monthly_findings(charts)
+    writer.heading("Findings by month")
+    writer.text("Priority and non-priority findings raised each month.", "Caption")
+    writer.add(Spacer(1, 4), column_drawing(writer, [(month, [priority, other]) for month, priority, other in found], [colour(figures.FAIL), colour(figures.INFO)],
+                                           ["Priority", "Non-priority"]) if found else writer.paragraph("No data yet", "Caption"))
+
+    # Outlets.
+    outlets = figures.outlet_scores(data)
+    bands = figures.performance_bands(charts)
+    total_bands = sum(count for _, count, _ in bands)
+    pairs = figures.comparison(charts)
+    half = (WIDTH - 8) / 2
+    latest = hbar_drawing(writer, [name for name, *_ in outlets], [("Latest", [score for _, score, *_ in outlets], [colour(figures.score_colour(score, scoring)) for _, score, *_ in outlets])],
+                          half - 14, maximum=100, mark=scoring.get("passMark")) if outlets else writer.paragraph("No completed audits", "Caption")
+    distribution = [ring_drawing(writer, [(count, colour(code)) for _, count, code in bands], total_bands, "audits"),
+                    writer.paragraph(" · ".join(f"{label} {count}" for label, count, _ in bands), "Caption")] if total_bands else writer.paragraph("No completed audits", "Caption")
+    compared = hbar_drawing(writer, [name for name, *_ in pairs], [("Previous", [value or 0 for _, value, _ in pairs], colour(figures.MUTED)),
+                                                                   ("Current", [value or 0 for *_, value in pairs], writer.accent)],
+                            half - 14, maximum=100, legend=True) if pairs else writer.paragraph("No outlet has two audits yet", "Caption")
+    writer.heading("Outlets")
+    writer.add(card_grid(writer, [
+        [writer.paragraph("Latest Scores by Outlet", "Heading3"), writer.paragraph("Each outlet's latest audit score, coloured by grade", "Caption"), Spacer(1, 4), latest],
+        [writer.paragraph("Performance Distribution", "Heading3"), writer.paragraph(f"{total_bands} completed audits", "Caption"), Spacer(1, 4),
+         *(distribution if isinstance(distribution, list) else [distribution])],
+        [writer.paragraph("Previous vs Current Audit", "Heading3"), writer.paragraph("Each outlet's last two audit scores", "Caption"), Spacer(1, 4), compared],
+        [writer.paragraph("Outlet Rankings", "Heading3"), Spacer(1, 4),
+         writer.table_flowable([["#", "Outlet", "Latest", "Average", "Audits"]] + [[index, name, score, average, count] for index, (name, score, average, count, _) in enumerate(outlets, 1)],
+                               [20, 70, 45, 45, 40], markup={(index, 2): writer.pill(score, writer.rating_tone(score)) for index, (_, score, *_) in enumerate(outlets, 1)},
+                               style="Caption", width=half - 14)
+         if outlets else writer.paragraph("No completed audits", "Caption")],
+    ], 2))
+    writer.heading("Critical issues")
+    if data.get("criticalIssues"):
         writer.table([["Work order", "Outlet", "Location", "Title", "Status", "Due"]]
                      + [[row.get("work_order_ref") or row["id"], row["outlet"], row.get("zone") or "", row.get("title") or "",
-                         row["status"], row.get("due_date") or ""] for row in data["criticalIssues"]], [80, 55, 70, 155, 60, 60])
+                         row["status"], row.get("due_date") or ""] for row in data["criticalIssues"]], [80, 55, 70, 155, 60, 60], style="Caption")
     else:
-        writer.text("No open high-priority work orders.")
-    from backend.activity import duration_text
-    writer.add(Spacer(1, 12), writer.paragraph("Time to act", "Heading1"))
-    writer.table([["Step", "Average", "Longest", "Times"]]
-                 + [[row["label"], duration_text(row["averageSeconds"]), duration_text(row["longestSeconds"]), row["count"]] for row in data["timeToAct"]],
-                 [250, 80, 80, 70])
-    writer.add(Spacer(1, 12), writer.paragraph("People", "Heading1"))
-    if data["people"]:
-        writer.table([["Person", "Audits done", "Avg. audit", "Signed", "Closed audits", "Requests raised", "Requests acted", "Avg. to act", "Orders closed", "Avg. to close"]]
-                     + [[row["name"], row["audit_completed"], duration_text(row["auditSeconds"]), row["audit_signed"], row["audit_closed"],
-                         row["request_raised"], row["order_created"] + row["request_declined"], duration_text(row["requestSeconds"]),
-                         row["order_closed"], duration_text(row["orderSeconds"])] for row in data["people"]],
-                     [70, 38, 50, 36, 40, 44, 44, 50, 40, 52])
+        writer.text("No open high-priority work orders.", "Caption")
+
+    # Breakdowns, two to a row.
+    writer.heading("Breakdowns")
+    cells = []
+    for title, note, rows, maximum, suffix in figures.breakdowns(charts, scoring):
+        chart = hbar_drawing(writer, [label for label, *_ in rows[:12]], [("", [value for _, value, *_ in rows[:12]], [colour(code) for _, _, code, _ in rows[:12]])],
+                             half - 14, maximum=maximum, suffix=suffix,
+                             mark=scoring.get("passMark") if suffix == "/100" else None) if rows else writer.paragraph("No data yet", "Caption")
+        cells.append([writer.paragraph(title, "Heading3"), writer.paragraph(note + (" (the first 12)" if len(rows) > 12 else ""), "Caption"), Spacer(1, 4), chart])
+    writer.add(card_grid(writer, cells, 2))
+
+    # Time to act and people.
+    writer.heading("Time to act")
+    writer.text("Average time each step took in this period; the faint bar behind is the longest.", "Caption")
+    steps = [row for row in figures.time_to_act(data) if row[3]]
+    writer.add(Spacer(1, 4))
+    if steps:
+        writer.add(hbar_drawing(writer, [label for label, *_ in steps], [("Longest", [longest for _, _, longest, _ in steps], writer.soft),
+                                                                         ("Average", [average for _, average, _, _ in steps], writer.accent)],
+                                WIDTH, overlap=True, label_format=duration_text))
+    writer.table([["Step", "Average", "Longest", "Times"]] + [[label, duration_text(average), duration_text(longest), count]
+                                                             for label, average, longest, count in figures.time_to_act(data)], [260, 90, 90, 50], style="Caption")
+    writer.heading("People")
+    writer.text("Who completed audits, acted on work requests, and closed work orders.", "Caption")
+    workers = figures.people(data)
+    stack_colours = [writer.accent, colour(figures.INFO), colour(figures.PASS)]
+    if workers:
+        writer.add(Spacer(1, 4), hbar_drawing(writer, [name for name, *_ in workers],
+                                              [(label, [row[index + 1] for row in workers], stack_colours[index]) for index, (label, _) in enumerate(figures.PEOPLE_STACKS)],
+                                              WIDTH, stacked=True, legend=True))
+    header, rows = figures.people_table(data)
+    if rows:
+        writer.add(Spacer(1, 6))
+        writer.table([header] + rows, [58, 40, 46, 44, 34, 40, 42, 44, 44, 42, 40, 49], style="Caption")
     else:
-        writer.text("No activity in this period.")
-    writer.add(Spacer(1, 12), writer.paragraph("Findings", "Heading1"))
+        writer.text("No activity in this period.", "Caption")
+
+    # The lists.
+    writer.heading("Findings")
     if findings:
         writer.table([["Finding", "Audit", "Outlet", "Location", "Item / check", "Priority", "Status"]]
                      + [[row.get("finding_ref") or "", row.get("audit_ref") or "", row.get("outlet") or "", row.get("location") or "",
                          " · ".join(value for value in (row.get("item_name"), row.get("criterion")) if value) or row.get("comment") or "",
-                         row.get("priority") or "", row.get("status") or ""] for row in findings], [65, 72, 45, 60, 130, 50, 58])
+                         row.get("priority") or "", row.get("status") or ""] for row in findings], [58, 118, 36, 50, 121, 40, 50], style="Caption",
+                     markup={(index, 6): writer.pill(row.get("status") or "", "pass" if row.get("status") == "Closed" else "warn") for index, row in enumerate(findings, 1)})
     else:
-        writer.text("No findings in this period.")
-    writer.add(Spacer(1, 12), writer.paragraph("Activity log", "Heading1"))
+        writer.text("No findings in this period.", "Caption")
+    writer.heading("Activity log")
     if data["activity"]:
         shown = data["activity"][:100]
         writer.table([["When", "Person", "Action", "Record", "Outlet", "Took"]]
                      + [[datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"],
                          row["record_ref"] or "", row["outlet"] or "", duration_text(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else ""]
-                        for row in shown], [80, 80, 120, 85, 50, 65])
+                        for row in shown], [72, 70, 120, 110, 40, 60], style="Caption")
         if data["activityTotal"] > len(shown):
             writer.text(f"The latest {len(shown)} of {data['activityTotal']} entries; the Excel export lists them all.", "Caption")
     else:
-        writer.text("No activity in this period.")
+        writer.text("No activity in this period.", "Caption")
     return writer.build(scope, "Audit report")
+
+
+def card_grid(writer, cells, columns):
+    """Cards side by side, as the page's chart grid; each card is a list of flowables."""
+    gap = 8
+    width = (WIDTH - gap * (columns - 1)) / columns
+    rows = [cells[index:index + columns] for index in range(0, len(cells), columns)]
+    rows[-1] += [""] * (columns - len(rows[-1]))
+    table = Table([sum(([cell, ""] for cell in row), [])[:-1] for row in rows], colWidths=([width, gap] * columns)[:-1])
+    commands = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 8)]
+    for row_index, row in enumerate(rows):
+        for index, cell in enumerate(row):
+            if cell != "":
+                commands.append(("BOX", (index * 2, row_index), (index * 2, row_index), 0.6, BORDER))
+        if row_index:
+            commands.append(("TOPPADDING", (0, row_index), (-1, row_index), 9))
+    table.setStyle(TableStyle(commands))
+    return table
+
+
+def ring_drawing(writer, parts, centre, caption, size=96):
+    """A ring of parts (value, colour) with a figure in its middle, as the page draws them."""
+    drawing = Drawing(size, size)
+    pie = Pie()
+    pie.x = pie.y = 2
+    pie.width = pie.height = size - 4
+    values = [value for value, _ in parts]
+    pie.data = values if any(values) else [1]
+    pie.innerRadiusFraction = 0.66
+    pie.slices.strokeColor = colors.white
+    pie.slices.strokeWidth = 1
+    for index, (_, colour) in enumerate(parts if any(values) else [(1, NEUTRAL_SOFT)]):
+        pie.slices[index].fillColor = colour
+    drawing.add(pie)
+    drawing.add(String(size / 2, size / 2 - 1, str(centre), fontName=writer.bold, fontSize=15, fillColor=TEXT, textAnchor="middle"))
+    drawing.add(String(size / 2, size / 2 - 12, caption, fontName=writer.font, fontSize=7, fillColor=MUTED, textAnchor="middle"))
+    holder = Table([[drawing]], colWidths=[None])
+    holder.setStyle(TableStyle([("ALIGN", (0, 0), (-1, -1), "CENTER"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+    return holder
+
+
+def column_drawing(writer, points, colours, names, line=None, mark=None, width=WIDTH, height=170):
+    """Columns per label (stacked when several), with an optional 0-100 line such as the score."""
+    drawing = Drawing(width, height)
+    left, right, top, bottom = 26, 30 if line else 8, 16, 34
+    plot_width, plot_height = width - left - right, height - top - bottom
+    totals = [sum(values) for _, values in points]
+    maximum = max([1] + totals)
+    step = plot_width / max(1, len(points))
+    bar = min(40, step * 0.6)
+    y_of = lambda value: bottom + value * plot_height / maximum
+    for tick in sorted({0, (maximum + 1) // 2, maximum}):
+        drawing.add(Line(left, y_of(tick), width - right, y_of(tick), strokeColor=NEUTRAL_SOFT, strokeWidth=0.6))
+        drawing.add(String(left - 4, y_of(tick) - 2.5, str(tick), fontName=writer.font, fontSize=6.5, fillColor=MUTED, textAnchor="end"))
+    for index, (label, values) in enumerate(points):
+        x = left + step * index + (step - bar) / 2
+        base = bottom
+        for value, colour in zip(values, colours):
+            if value:
+                drawing.add(Rect(x, base, bar, value * plot_height / maximum, fillColor=colour, strokeColor=None))
+                base += value * plot_height / maximum
+        drawing.add(String(x + bar / 2, base + 3, str(totals[index]), fontName=writer.bold, fontSize=7, fillColor=TEXT, textAnchor="middle"))
+        drawing.add(String(x + bar / 2, bottom - 10, str(label), fontName=writer.font, fontSize=6.5, fillColor=MUTED, textAnchor="middle"))
+    if line:
+        line_y = lambda value: bottom + value * plot_height / 100
+        coords = [(left + step * index + step / 2, line_y(value)) for index, value in enumerate(line)]
+        if mark is not None:
+            drawing.add(Line(left, line_y(mark), width - right, line_y(mark), strokeColor=MUTED, strokeDashArray=[3, 3], strokeWidth=0.6))
+        for (x1, y1), (x2, y2) in zip(coords, coords[1:]):
+            drawing.add(Line(x1, y1, x2, y2, strokeColor=TEXT, strokeWidth=1.4))
+        for (x, y), value in zip(coords, line):
+            tone = PASS if value >= 70 else WARN if value >= 55 else FAIL
+            if mark is not None:
+                tone = PASS if value >= mark else WARN if value >= mark - 15 else FAIL
+            drawing.add(Circle(x, y, 3, fillColor=tone, strokeColor=colors.white, strokeWidth=1))
+            drawing.add(String(x, y + 5, str(value), fontName=writer.bold, fontSize=6.5, fillColor=TEXT, textAnchor="middle"))
+        for tick in (0, 50, 100):
+            drawing.add(String(width - right + 4, line_y(tick) - 2.5, str(tick), fontName=writer.font, fontSize=6.5, fillColor=MUTED))
+    # The legend, under the chart.
+    x = left
+    entries = list(zip(names, colours)) + ([("Average score (0–100)", TEXT)] if line else []) + ([(f"Pass mark {mark:g}", MUTED)] if line and mark is not None else [])
+    for name, colour in entries:
+        drawing.add(Rect(x, 4, 7, 7, fillColor=colour, strokeColor=None))
+        drawing.add(String(x + 10, 4.5, name, fontName=writer.font, fontSize=7, fillColor=TEXT))
+        x += 16 + 4.1 * len(name)
+    return drawing
+
+
+def hbar_drawing(writer, labels, series, width, maximum=None, mark=None, stacked=False, overlap=False, legend=False, suffix="", label_format=None):
+    """Horizontal bars per label: one series (each bar its own colour), several side by side,
+    stacked, or overlapping (the longest behind the average)."""
+    count = len(labels)
+    per = 12 if (stacked or overlap or len(series) == 1) else 7 * len(series) + 4
+    height = 18 + per * count + (14 if legend else 0)
+    drawing = Drawing(width, height)
+    chart = HorizontalBarChart()
+    label_width = min(width * 0.42, max(50, 4.1 * max([len(str(label)) for label in labels] + [4])))
+    chart.x, chart.y = label_width + 4, 12 + (14 if legend else 0)
+    chart.width, chart.height = width - label_width - 34, per * count
+    chart.data = [list(reversed(values)) for _, values, _ in series]
+    chart.categoryAxis.categoryNames = [str(label)[:int(label_width / 3.6)] for label in reversed(labels)]
+    chart.categoryAxis.labels.fontName, chart.categoryAxis.labels.fontSize = writer.font, 7
+    chart.categoryAxis.labels.fillColor = TEXT
+    chart.categoryAxis.strokeColor = BORDER
+    if stacked:
+        chart.categoryAxis.style = "stacked"
+    peak = max([1] + ([sum(values) for values in zip(*[values for _, values, _ in series])] if stacked else [value for _, values, _ in series for value in values]))
+    chart.valueAxis.valueMin = 0
+    chart.valueAxis.valueMax = maximum or peak
+    chart.valueAxis.valueStep = 25 if maximum == 100 else max(1, round(chart.valueAxis.valueMax / 4))
+    chart.valueAxis.visible = not label_format
+    chart.valueAxis.labels.fontName, chart.valueAxis.labels.fontSize = writer.font, 6.5
+    chart.valueAxis.labels.fillColor = MUTED
+    chart.valueAxis.strokeColor = BORDER
+    chart.valueAxis.visibleGrid = True
+    chart.valueAxis.gridStrokeColor = NEUTRAL_SOFT
+    chart.bars.strokeColor = None
+    chart.groupSpacing = 3
+    chart.barWidth = 8
+    if overlap:
+        # The average as the bar; the longest is drawn faint behind it below.
+        chart.data = [list(reversed(series[1][1]))]
+        chart.valueAxis.valueMax = maximum or max([1] + list(series[0][1]) + list(series[1][1]))
+    for index, (_, values, colour) in enumerate(series if not overlap else series[1:]):
+        target = index
+        if isinstance(colour, list):
+            for bar_index, bar_colour in enumerate(reversed(colour)):
+                chart.bars[(target, bar_index)].fillColor = bar_colour
+        else:
+            chart.bars[target].fillColor = colour
+    chart.barLabelFormat = (lambda value: label_format(value)) if label_format else (lambda value: f"{value:g}{suffix}")
+    chart.barLabels.fontName, chart.barLabels.fontSize = writer.font, 6.5
+    chart.barLabels.fillColor = TEXT
+    chart.barLabels.boxAnchor = "w"
+    chart.barLabels.dx = 3
+    if stacked:
+        chart.barLabelFormat = None
+    if overlap:
+        # The longest, faint, under the average.
+        longest = series[0][1]
+        scale = chart.width / chart.valueAxis.valueMax
+        for index, value in enumerate(reversed(longest)):
+            y = chart.y + per * index + (per - 8) / 2
+            drawing.add(Rect(chart.x, y, value * scale, 8, fillColor=series[0][2], strokeColor=None))
+    drawing.add(chart)
+    if mark is not None:
+        x = chart.x + chart.width * mark / chart.valueAxis.valueMax
+        drawing.add(Line(x, chart.y - 2, x, chart.y + chart.height + 2, strokeColor=MUTED, strokeDashArray=[2, 2], strokeWidth=0.6))
+        drawing.add(String(x, chart.y + chart.height + 4, f"pass mark {mark:g}", fontName=writer.font, fontSize=6.5, fillColor=MUTED, textAnchor="middle"))
+    if stacked:
+        totals = [sum(values) for values in zip(*[values for _, values, _ in series])]
+        scale = chart.width / chart.valueAxis.valueMax
+        for index, total in enumerate(reversed(totals)):
+            drawing.add(String(chart.x + total * scale + 3, chart.y + per * index + per / 2 - 2.5, str(total), fontName=writer.bold, fontSize=6.5, fillColor=TEXT))
+    if legend:
+        x = chart.x
+        for name, _, colour in series:
+            drawing.add(Rect(x, 2, 7, 7, fillColor=colour if not isinstance(colour, list) else colour[0], strokeColor=None))
+            drawing.add(String(x + 10, 2.5, name, fontName=writer.font, fontSize=7, fillColor=TEXT))
+            x += 18 + 4.1 * len(name)
+    return drawing

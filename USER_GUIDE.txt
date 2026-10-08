@@ -249,7 +249,13 @@ An administrator should configure these records before staff begin auditing:
    average score against the pass mark, findings by month (priority and
    non-priority), each outlet's latest score coloured by grade, previous vs
    current audits, breakdowns by department, location, and category, time to
-   act, and each person's work. Reports
+   act, and each person's work. The Activity Log has its own tab next to
+   Report; the date and outlet filters apply to both.
+   Export PDF and Export Excel follow the page: the same sections, charts,
+   and colours in the same order. The Excel file's Report sheet holds each
+   chart beside the table it reads (edit a number and the chart follows);
+   People, Findings, and Activity (every entry in the period) are on their
+   own sheets, ready to filter. Reports
    (and the Location PDF and Excel in History) need the Reports permission on
    the person's role; without it the Reports button is not shown.
    Reports also shows how people act:

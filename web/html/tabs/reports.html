@@ -18,6 +18,11 @@
         <button type="reset" class="outline">Clear Filters</button>
         <p data-report-filter-message role="status"></p>
       </form>
+      <nav class="sub-tabs" aria-label="Report sections">
+        <button class="active" type="button" data-report-subtab="overview" aria-pressed="true">Report</button>
+        <button type="button" data-report-subtab="activity" aria-pressed="false">Activity Log</button>
+      </nav>
+      <div data-report-panel="overview">
       <section class="report-overview" data-report-overview></section>
       <section class="chart-grid report-trends" data-report-trends></section>
       <section class="chart-grid report-outlets">
@@ -59,11 +64,15 @@
         <div data-kpi-people-chart></div>
         <div class="table-scroll"><table class="kpi-table" data-kpi-people></table></div>
       </section>
+      </div>
+      <div data-report-panel="activity" hidden>
       <section class="panel kpi-panel">
         <header class="panel-head">
           <h2>Activity Log</h2>
           <div class="panel-actions"><label>Person<select data-activity-person><option value="">Everyone</option></select></label></div>
         </header>
+        <p class="muted">Every audit, sign-off, work request, work order, and change in this report's period, newest first.</p>
         <div class="list compact-list" data-activity-log></div>
       </section>
+      </div>
     </section>
