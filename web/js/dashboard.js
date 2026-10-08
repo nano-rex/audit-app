@@ -407,24 +407,16 @@ async function loadReport() {
   const response = await authFetch(`/api/reports?${query}`);
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Report could not be loaded");
-  document.querySelector('[data-report="audits"]').textContent = data.monthlySummary.audits;
-  document.querySelector('[data-report="averageScore"]').textContent = `${data.monthlySummary.averageScore}/100`;
-  document.querySelector('[data-report="openWorkOrders"]').textContent = data.monthlySummary.openWorkOrders;
-  document.querySelector('[data-report="auditsPending"]').textContent = data.monthlySummary.auditsPending || 0;
-  document.querySelector('[data-report="totalFindings"]').textContent = data.monthlySummary.totalFindings || 0;
-  document.querySelector('[data-report="priorityFindings"]').textContent = data.monthlySummary.priorityFindings || 0;
-  document.querySelector('[data-report="nonPriorityFindings"]').textContent = data.monthlySummary.nonPriorityFindings || 0;
-  document.querySelector('[data-report="overdueFindings"]').textContent = data.monthlySummary.overdueFindings || 0;
-  document.querySelector('[data-report="completionRate"]').textContent = `${data.monthlySummary.completionRate || 0}%`;
   document.querySelector("[data-report-critical]").innerHTML = data.criticalIssues.length
     ? data.criticalIssues.map(workOrderRow).join("")
     : `<article><div><b>No critical issues</b><span>High priority work orders will appear here.</span></div></article>`;
   document.querySelector("[data-export-pdf]").href = `/api/reports/export.pdf?${query}`;
   document.querySelector("[data-export-xls]").href = `/api/reports/export.xlsx?${query}`;
-  setHtml("[data-rankings]", data.rankings.map((row, index) => rankingRow(row, index + 1)).join(""));
-  for (const key of ["assigned", "completed", "pending", "responseRate"]) setText(`[data-kpi="${key}"]`, `${data.kpi[key]}${key === "responseRate" ? "%" : ""}`);
-  setHtml("[data-bars]", data.rankings.map((row) => `<label>${escapeHtml(row.outlet)}<span style="--value:${row.latest}">${row.latest}</span></label>`).join(""));
-  renderReportCharts(data.charts || {});
+  setHtml("[data-rankings]", data.rankings.length ? data.rankings.map((row, index) => rankingRow(row, index + 1)).join("")
+    : `<article><div><b>No completed audits</b><span>Outlets are ranked once their audits are completed.</span></div></article>`);
+  // The figures as charts (report-charts.js); the performance donut is shared with the Dashboard.
+  renderPerformanceDistribution((data.charts || {}).performanceDistribution || []);
+  renderReportPage(data);
   renderPerformance(data);
 }
 
@@ -478,26 +470,6 @@ document.querySelector("[data-activity-person]")?.addEventListener("change", (ev
   activityPerson = event.target.value;
   renderActivityLog();
 });
-
-function renderReportCharts(charts) {
-  renderPerformanceDistribution(charts.performanceDistribution || []);
-  const chartMap = [
-    ["priorityVsNonPriority", "Priority vs Non-Priority"],
-    ["findingsByDepartment", "Issues by Department"],
-    ["findingsByArea", "Issues by Area"],
-    ["findingsByCategory", "Issues by Category"],
-    ["monthlyAuditTrend", "Monthly Audit Count"],
-    ["monthlyAuditScores", "Monthly Audit Scores", true],
-    ["auditComparison", "Previous vs Current Audit", true],
-    ["priorityTrend", "Priority Trend"],
-    ["roomAuditTrend", "Room / Location Audit Trend", true],
-    ["findingsTrend", "Findings Trend"],
-    ["departmentPerformance", "Completion by Department", "percent"],
-    ["locationPerformance", "Completion by Location", "percent"],
-    ["categoryPerformance", "Completion by Category", "percent"],
-  ];
-  setHtml("[data-report-charts]", chartMap.map(([key, label, scale]) => auditChart(label, charts[key] || [], scale)).join(""));
-}
 
 function auditChart(title, source, score = false) {
   const entries = (Array.isArray(source) ? source : Object.entries(source).map(([label, count]) => ({ label, count })))

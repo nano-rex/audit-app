@@ -243,7 +243,13 @@ An administrator should configure these records before staff begin auditing:
    tabs. A closed audit is
    read-only.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
-   and charts. Use the date and outlet filters to narrow the report. Reports
+   and charts. Use the date and outlet filters to narrow the report. The page
+   opens with four rings (audits, findings, work orders, scheduled tasks)
+   showing each figure's parts and share; then audits by month with their
+   average score against the pass mark, findings by month (priority and
+   non-priority), each outlet's latest score coloured by grade, previous vs
+   current audits, breakdowns by department, location, and category, time to
+   act, and each person's work. Reports
    (and the Location PDF and Excel in History) need the Reports permission on
    the person's role; without it the Reports button is not shown.
    Reports also shows how people act:

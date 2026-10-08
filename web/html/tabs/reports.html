@@ -18,39 +18,30 @@
         <button type="reset" class="outline">Clear Filters</button>
         <p data-report-filter-message role="status"></p>
       </form>
-      <section class="stats">
-        <article><span>Audits</span><strong data-report="audits">0</strong></article>
-        <article><span>Average Score</span><strong data-report="averageScore">0/100</strong></article>
-        <article><span>Open Work Orders</span><strong class="warn" data-report="openWorkOrders">0</strong></article>
-        <article><span>Pending Audits</span><strong class="warn" data-report="auditsPending">0</strong></article>
-        <article><span>Total Findings</span><strong data-report="totalFindings">0</strong></article>
-        <article><span>Priority Findings</span><strong class="warn" data-report="priorityFindings">0</strong></article>
-        <article><span>Non-Priority Findings</span><strong data-report="nonPriorityFindings">0</strong></article>
-        <article><span>Overdue Findings</span><strong class="warn" data-report="overdueFindings">0</strong></article>
-        <article><span>Completion Rate</span><strong class="excellent" data-report="completionRate">0%</strong></article>
-        <article><span>Assigned Tasks</span><strong data-kpi="assigned">0</strong></article>
-        <article><span>Completed</span><strong class="excellent" data-kpi="completed">0</strong></article>
-        <article><span>Pending</span><strong class="warn" data-kpi="pending">0</strong></article>
-        <article><span>Response Rate</span><strong data-kpi="responseRate">0%</strong></article>
-      </section>
-      <section class="chart-grid">
-        <article class="panel">
-          <h2>Outlet Rankings</h2>
-          <div class="list rankings" data-rankings></div>
-        </article>
-        <article class="panel">
+      <section class="report-overview" data-report-overview></section>
+      <section class="chart-grid report-trends" data-report-trends></section>
+      <section class="chart-grid report-outlets">
+        <article class="panel chart-card">
           <h2>Latest Scores by Outlet</h2>
-          <div class="bars">
-            <div data-bars></div>
-          </div>
+          <p class="muted">Each outlet's latest audit score, coloured by grade</p>
+          <div data-bars></div>
         </article>
-        <article class="panel">
+        <article class="panel chart-card">
           <h2>Performance Distribution</h2>
           <p data-performance-summary>No completed audits</p>
           <div class="legend" data-performance-legend></div>
           <div class="donut" data-performance-chart role="img" aria-label="No completed audits" hidden></div>
         </article>
-        <article class="panel">
+        <article class="panel chart-card">
+          <h2>Previous vs Current Audit</h2>
+          <p class="muted">Each outlet's last two audit scores</p>
+          <div data-report-comparison></div>
+        </article>
+        <article class="panel chart-card">
+          <h2>Outlet Rankings</h2>
+          <div class="list rankings" data-rankings></div>
+        </article>
+        <article class="panel chart-card">
           <h2>Critical Issues</h2>
           <div class="list compact-list" data-report-critical></div>
         </article>
@@ -58,12 +49,14 @@
       <section class="chart-grid" data-report-charts></section>
       <section class="panel kpi-panel">
         <h2>Time to Act</h2>
-        <p class="muted">Average time each step took in this report's period; the longest is shown below it.</p>
+        <p class="muted">Average time each step took in this report's period; the faint bar behind is the longest.</p>
+        <div data-time-to-act-chart></div>
         <div class="stats kpi-times" data-time-to-act></div>
       </section>
       <section class="panel kpi-panel">
         <h2>People</h2>
         <p class="muted">Who started, completed, signed, and closed audits, raised and acted on work requests, and closed work orders.</p>
+        <div data-kpi-people-chart></div>
         <div class="table-scroll"><table class="kpi-table" data-kpi-people></table></div>
       </section>
       <section class="panel kpi-panel">
