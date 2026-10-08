@@ -1221,5 +1221,38 @@ class ServerTests(unittest.TestCase):
         with app.connect() as db:
             self.assertEqual(db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session,)).fetchone()[0], "AUDIT-STP-20261009-000942")
 
+    def test_z_visit_covers_zones_or_assets(self):
+        self.assertEqual(self.request("/api/setup/outlets", "POST", {"code": "SCOPE"})[0], 200)
+        for name in ("Hall", "Bar", "Store"):
+            self.assertEqual(self.request("/api/locations", "POST", {"outlet": "SCOPE", "name": name})[0], 200)
+        self.assertEqual(self.request("/api/zones", "POST", {"outlet": "SCOPE", "name": "Front", "locations": ["Hall", "Bar"]})[0], 200)
+        visit = {"outlet": "SCOPE", "scheduledDate": "2026-10-20"}
+        # Zones: their locations.
+        status, _, body = self.request("/api/schedules", "POST", visit | {"scope": "zones", "zones": ["Front"]})
+        self.assertEqual(status, 200, body)
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == json.loads(body)["id"])
+        self.assertEqual((row["visit_scope"], sorted(row["visit_locations"]), row["zone"]), ({"by": "zones", "zones": ["Front"]}, ["Bar", "Hall"], "Zone: Front"))
+        self.assertEqual(self.request("/api/schedules", "POST", visit | {"scope": "zones", "zones": []})[0], 400)
+        self.assertEqual(self.request("/api/schedules", "POST", visit | {"scope": "zones", "zones": ["Elsewhere"]})[0], 400)
+        # Assets: those assets, and their locations; the audit started from it keeps them.
+        ids = []
+        for name, location in (("Scope fridge", "Store"), ("Scope lamp", "Hall")):
+            status, _, body = self.request("/api/equipment", "POST", {"name": name, "outlet": "SCOPE", "location": location})
+            ids.append(json.loads(body)["id"])
+        status, _, body = self.request("/api/schedules", "POST", visit | {"scope": "assets", "assets": ids[:1]})
+        self.assertEqual(status, 200, body)
+        schedule_id = json.loads(body)["id"]
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["visit_scope"], row["visit_locations"]), ({"by": "assets", "assets": ids[:1]}, ["Store"]))
+        session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": schedule_id})[2])["id"]
+        session = json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])
+        self.assertEqual((session["visit_scope"], session["visit_locations"]), ({"by": "assets", "assets": ids[:1]}, ["Store"]))
+        self.assertEqual(self.request("/api/schedules", "POST", visit | {"scope": "assets", "assets": [999999]})[0], 400)
+        # Editing a visit back to locations clears the asset choice.
+        status, _, body = self.request(f"/api/schedules/{schedule_id}", "PATCH", visit | {"scope": "locations", "locations": []})
+        self.assertEqual(status, 200, body)
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == schedule_id)
+        self.assertEqual((row["visit_scope"], row["visit_locations"], row["zone"]), ({"by": "locations"}, [], "All Locations"))
+
 if __name__ == "__main__":
     unittest.main()

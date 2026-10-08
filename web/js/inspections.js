@@ -100,7 +100,10 @@ async function loadInspectionItems() {
   // A visit scheduled for particular locations shows only those; an empty list means all.
   const scope = new Set(visitLocations(form));
   const inScope = (name) => !scope.size || scope.has(name);
-  inspectionItems = equipmentData.items.filter((item) => inScope(item.location || item.zone || "Unassigned"));
+  // A visit for particular assets shows those assets only.
+  const assets = new Set(visitAssets(form).map(String));
+  inspectionItems = equipmentData.items.filter((item) => inScope(item.location || item.zone || "Unassigned")
+    && (!assets.size || assets.has(String(item.id))));
   inspectionPageDrafts = new Map();
   renderInspectionFilter();
   const locationNames = new Set(locationData.items.map((location) => location.name).filter(inScope));
@@ -121,6 +124,15 @@ async function loadInspectionItems() {
   applyInspectionSessionItems();
   openFirstInspectionLocation();
   updateInspectionProgress();
+}
+
+function visitAssets(form) {
+  try {
+    const value = JSON.parse(form.dataset.visitAssets || "[]");
+    return Array.isArray(value) ? value : [];
+  } catch (error) {
+    return [];
+  }
 }
 
 function visitLocations(form) {
@@ -851,6 +863,7 @@ async function openInspectionSession(id, returnTo = null) {
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
   form.dataset.visitLocations = JSON.stringify(session.visit_locations || []);
+  form.dataset.visitAssets = JSON.stringify(session.visit_scope?.by === "assets" ? session.visit_scope.assets || [] : []);
   form.dataset.zoneLabel = session.zone || "All Locations";
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";

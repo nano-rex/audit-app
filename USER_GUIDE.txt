@@ -92,9 +92,17 @@ An administrator should configure these records before staff begin auditing:
    people who can audit and whose outlets include the visit's outlet are
    listed. Each person assigned is notified, and the visit is counted on
    their Inspections tab until it is started. Anyone with audit permission
-   can still start it. Add any scheduling remarks. Under Locations, All locations is ticked: the audit covers the
-   whole outlet. Tick one or more locations instead to audit only those; the
-   inspection then shows only their tabs. Untick them all to return to All.
+   can still start it. Add any scheduling remarks.
+   Under Audit covers, choose what the audit covers on one of three tabs; the
+   tab showing when you save is the one used:
+   - Locations: All locations is ticked, so the audit covers the whole
+     outlet. Tick one or more locations instead to audit only those; untick
+     them all to return to All.
+   - Zones: tick one or more zones; the audit covers their locations.
+   - Assets: tick particular assets (search by name, code, or location; a
+     location's box ticks all its assets). The audit shows those assets
+     only, in their locations.
+   The inspection then shows only what the visit covers.
    Save the schedule. A new schedule is always Pending; it becomes In Progress
    when the audit starts and Completed when it is finished.
    Tick Only mine above Scheduled Work to see just the visits assigned to

@@ -5,7 +5,8 @@ async function resetScheduleForm() {
   form.querySelector("h2").textContent = "Schedule Audit Visit";
   form.querySelector('button[value="default"]').textContent = "Schedule";
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
-  await updateScheduleLocationSelect();
+  setScheduleScope("locations");
+  await updateScheduleScopeOptions();
   form.elements.scheduledDate.value = todayIsoDate();
   await loadScheduleAssignees([]);
   form.querySelector("[data-delete-current-schedule]").hidden = true;
@@ -20,7 +21,9 @@ async function openScheduleEditor(row) {
   await resetScheduleForm();
   form.elements.scheduleId.value = row.id;
   form.elements.outlet.value = row.outlet;
-  await updateScheduleLocationSelect(row.visit_locations || []);
+  const scope = row.visit_scope || { by: "locations" };
+  await updateScheduleScopeOptions(scope, row.visit_locations || []);
+  setScheduleScope(scope.by || "locations");
   form.elements.scheduledDate.value = row.scheduled_date;
   await loadScheduleAssignees(row.assignees || []);
   form.elements.remarks.value = row.remarks || "";
@@ -449,7 +452,7 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
   const payload = {
     businessUnit: currentUnit,
     outlet: formValue(form, "outlet", ""),
-    locations: chosenVisitLocations(form),
+    ...scheduleScopePayload(form),
     scheduledDate: formValue(form, "scheduledDate", "Today"),
     assignees: [...form.querySelectorAll('input[name="assignee"]:checked')].map((input) => Number(input.value)),
     remarks: formValue(form, "remarks", ""),
