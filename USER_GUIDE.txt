@@ -87,7 +87,10 @@ An administrator should configure these records before staff begin auditing:
 --------------------
 1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
    Dashboard.
-2. Select the outlet and date, and under Assigned to tick the person or
+2. Select the outlet and date. Optionally choose a Priority (one of the
+   priority levels) and a Due Date (not before the scheduled date); Scheduled
+   Work shows the priority beside the visit and marks it overdue in red once
+   the due date passes before the audit is completed. Under Assigned to tick the person or
    people who should do it (for example a supervisor assigning staff). Only
    people who can audit and whose outlets include the visit's outlet are
    listed. Each person assigned is notified, and the visit is counted on

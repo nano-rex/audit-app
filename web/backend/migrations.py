@@ -439,6 +439,8 @@ def init_db():
         ensure_column(db, "findings", "recommendation", "TEXT")
         ensure_column(db, "findings", "required_action", "TEXT")
         ensure_column(db, "schedules", "zone", "TEXT")
+        ensure_column(db, "schedules", "priority", "TEXT")
+        ensure_column(db, "schedules", "due_date", "TEXT")
         ensure_column(db, "equipment", "kind", "TEXT NOT NULL DEFAULT 'asset'")
         ensure_column(db, "equipment", "category", "TEXT")
         ensure_column(db, "categories", "department", "TEXT")

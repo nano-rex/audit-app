@@ -73,6 +73,28 @@ def locations_label(values):
     return ", ".join(values) if values else ALL_LOCATIONS
 
 
+def visit_terms(db, payload):
+    """A visit's priority (one of the priority levels, or none) and optional due date, which may
+    not come before the visit."""
+    from datetime import date
+    priority = str(payload.get("priority") or "").strip()
+    if priority and not db.execute("SELECT 1 FROM priority_levels WHERE name = ?", (priority,)).fetchone():
+        raise ValueError("Choose one of the priority levels")
+    due = str(payload.get("dueDate") or "").strip()
+    if due:
+        try:
+            due_day = date.fromisoformat(due)
+        except ValueError:
+            raise ValueError("Enter a valid due date") from None
+        try:
+            scheduled = date.fromisoformat(str(payload.get("scheduledDate") or ""))
+        except ValueError:
+            scheduled = None
+        if scheduled and due_day < scheduled:
+            raise ValueError("The due date cannot be before the scheduled date")
+    return priority, due
+
+
 def visit_scope(db, outlet, payload):
     """What a visit covers, chosen on one of three tabs: locations (none ticked means all), zones
     (their locations), or particular assets (and so their locations). Returns the locations, the

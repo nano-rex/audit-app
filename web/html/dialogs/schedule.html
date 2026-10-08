@@ -3,7 +3,11 @@
       <header><h2>Schedule Audit Visit</h2><button type="button" data-close-dialog>x</button></header>
       <input name="scheduleId" type="hidden">
       <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
-      <label>Scheduled Date<input name="scheduledDate" type="date" required></label>
+      <div class="form-grid schedule-terms">
+        <label>Scheduled Date<input name="scheduledDate" type="date" required></label>
+        <label>Due Date (optional)<input name="dueDate" type="date"></label>
+        <label>Priority<select name="visitPriority"></select></label>
+      </div>
       <fieldset class="assignee-picker">
         <legend>Assigned to</legend>
         <p class="muted" data-assignee-hint>Choose an outlet to see who can audit there.</p>
