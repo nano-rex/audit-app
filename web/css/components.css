@@ -2020,3 +2020,296 @@ people view: a card per person {
 .visit-asset-location small {
   margin-left: auto;
 }
+
+/* Reports: charts in the app's colours. */
+.report-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.report-trends,
+.report-outlets {
+  margin-bottom: 16px;
+}
+
+.chart-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chart-card h2 {
+  margin: 0;
+}
+
+.chart-card > .muted {
+  margin: -6px 0 0;
+  font-size: 13px;
+}
+
+@media (min-width: 900px) {
+  .chart-card.chart-wide {
+    grid-column: span 2;
+  }
+}
+
+.chart-empty {
+  margin: 8px 0;
+}
+
+/* The ring above its legend, so a narrow card has room for every label. */
+.donut-chart {
+  display: grid;
+  gap: 12px;
+}
+
+.donut-chart svg {
+  justify-self: center;
+  width: min(140px, 100%);
+  height: auto;
+}
+
+.donut-chart circle {
+  fill: none;
+  stroke-width: 14;
+}
+
+.donut-chart .donut-track {
+  stroke: var(--surface-sunken);
+}
+
+.donut-value {
+  fill: var(--text);
+  font-size: 22px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.donut-caption {
+  fill: var(--muted);
+  font-size: 10px;
+  text-anchor: middle;
+}
+
+.chart-legend {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.chart-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.chart-legend li > span {
+  min-width: 0;
+}
+
+.chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
+.chart-legend small {
+  min-width: 34px;
+  color: var(--muted);
+  text-align: right;
+}
+
+.chart-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+
+.chart-legend-row li {
+  display: flex;
+  gap: 6px;
+}
+
+.chart-legend .legend-line {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+.chart-legend .legend-mark,
+.bar-mark-key {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 2px dashed var(--muted);
+  border-radius: 0;
+  background: none;
+  vertical-align: middle;
+}
+
+.chart-footer {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.chart-footer .warn {
+  color: var(--orange);
+  font-weight: 700;
+}
+
+.chart-scroll {
+  overflow-x: auto;
+}
+
+.column-chart {
+  display: block;
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.chart-grid-line {
+  stroke: var(--surface-sunken);
+  stroke-width: 1;
+}
+
+.chart-axis {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-value,
+.chart-line-value {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.chart-dot {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.chart-mark {
+  stroke: var(--muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.bar-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bar-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+}
+
+.bar-list li > small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bar-list-label {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  font-size: 13px;
+}
+
+.bar-list-label span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-list-label strong {
+  flex-shrink: 0;
+}
+
+.bar-list-track {
+  position: relative;
+  display: flex;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--surface-sunken);
+}
+
+.bar-list-track span {
+  position: relative;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.bar-list-track.stacked span {
+  border-radius: 0;
+}
+
+.bar-ghost {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 5px;
+  background: var(--accent-soft);
+}
+
+.bar-mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-left: 2px dashed var(--text);
+  opacity: 0.55;
+}
+
+.paired-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 56px;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.paired-row small {
+  color: var(--muted);
+}
+
+.paired-row strong {
+  text-align: right;
+}
+
+/* The performance donut, kept the size of the other rings. */
+.chart-card .donut {
+  width: min(140px, 100%);
+}
+
+.chart-card .legend {
+  margin-bottom: 4px;
+}
+
+[data-time-to-act-chart],
+[data-kpi-people-chart] {
+  margin-bottom: 14px;
+}

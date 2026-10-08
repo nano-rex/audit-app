@@ -5,7 +5,7 @@ from backend.media_store import MediaStore
 from backend.scoring import summarize as summarize_score, rating_for_score
 from backend import config
 from backend.accounts import branding_settings
-from backend.common import rating, sla_status
+from backend.common import rating, read_setting, sla_status
 from backend.report_filters import report_scope
 from backend.activity import kpi_report
 from backend.inspections import visit_locations_of, visit_scope_of
@@ -232,9 +232,13 @@ def report(unit, filters=None):
     activity_where, activity_params = report_scope(unit, "activity_log", filters)
     with connect() as db:
         performance = kpi_report(db, activity_where, activity_params)
+        # The charts colour scores by these bands and mark the pass mark.
+        scoring = {key: float(read_setting(db, f"scoring.{key}", fallback) or fallback)
+                   for key, fallback in (("passMark", 70), ("excellentBand", 90), ("goodBand", 70), ("belowBand", 60))}
     return {
         **performance,
         "unit": unit,
+        "scoring": scoring,
         "monthlySummary": {
             "audits": data["stats"]["total"],
             "auditsCompleted": data["stats"]["auditsCompleted"],
