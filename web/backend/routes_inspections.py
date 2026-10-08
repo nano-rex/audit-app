@@ -8,7 +8,7 @@ from datetime import datetime
 from backend.audit_metadata import allocate_reference, validate_metadata
 from backend.common import inspection_name, inspection_progress, normalize_audit_date
 from backend.database import connect, first_outlet, insert_record
-from backend.inspections import finalize_inspection, visit_locations_of
+from backend.inspections import complete_item_details, finalize_inspection, visit_locations_of
 from backend.location_integrity import locations_label, visit_locations
 from backend.schedule_assignment import assignees_of, save_assignment, validate_assignees
 
@@ -49,7 +49,8 @@ def post_inspection_sessions(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
         default_outlet = first_outlet(db)
-        items = payload.get("items") or []
+        items, _ = complete_item_details(db, payload.get("items") or [])
+        payload["items"] = items
         progress = inspection_progress(items)
         if payload.get("complete") and progress < 100:
             self.json({"error": "Inspection is incomplete"}, 409)
@@ -77,14 +78,9 @@ def post_inspection_sessions(self, parsed, payload=None):
             ),
         )
         session_id = cursor.lastrowid
-        session_name = inspection_name({
-            "id": session_id,
-            "outlet": payload.get("outlet") or default_outlet,
-            "audit_date": normalize_audit_date(payload.get("auditDate")),
-        })
-        db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (session_name, session_id))
-        db.execute("UPDATE inspection_sessions SET owner_user_id = ? WHERE id = ?", (user["id"], session_id))
-        db.execute("UPDATE inspection_sessions SET audit_ref = ? WHERE id = ?", (allocate_reference(db, normalize_audit_date(payload.get("auditDate"))), session_id))
+        session_name = allocate_reference(db, normalize_audit_date(payload.get("auditDate")), payload.get("outlet") or default_outlet)
+        db.execute("UPDATE inspection_sessions SET inspection_name = ?, audit_ref = ?, owner_user_id = ? WHERE id = ?",
+                   (session_name, session_name, user["id"], session_id))
         save_session_metadata(db, session_id, payload)
         append_inspection_photos(db, items, now)
         audit_id = None
@@ -154,12 +150,11 @@ def start_schedule(self, parsed, payload=None):
                 "audit_date": normalize_audit_date(schedule["scheduled_date"]), "auditor": user["name"],
                 "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
                 "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
-                "audit_ref": allocate_reference(db, schedule["scheduled_date"]), "audit_time": datetime.now().strftime("%H:%M"),
+                "audit_ref": allocate_reference(db, schedule["scheduled_date"], schedule["outlet"]), "audit_time": datetime.now().strftime("%H:%M"),
                 "audit_type": (db.execute("SELECT name FROM audit_types WHERE active = 1 ORDER BY id LIMIT 1").fetchone() or [""])[0],
                 "remarks": schedule["remarks"] or "",
             })
-            name = inspection_name({"id": session_id, "outlet": schedule["outlet"], "audit_date": normalize_audit_date(schedule["scheduled_date"])})
-            db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (name, session_id))
+            db.execute("UPDATE inspection_sessions SET inspection_name = audit_ref WHERE id = ?", (session_id,))
             db.execute("UPDATE schedules SET status = 'In Progress' WHERE id = ?", (schedule_id,))
             started = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0]
             activity.log(db, user, "audit_started", "inspection", session_id, started, schedule["outlet"], business_unit=schedule["business_unit"], at=now)
@@ -182,7 +177,7 @@ def start_audit(self, parsed, payload=None):
             "zone": "All Locations", "scheduled_date": payload["auditDate"], "auditor": user["name"],
             "remarks": payload.get("remarks", ""), "status": "In Progress", "created_at": now,
         })
-        reference = allocate_reference(db, payload["auditDate"])
+        reference = allocate_reference(db, payload["auditDate"], payload["outlet"])
         session_id = insert_record(db, "inspection_sessions", {
             "business_unit": payload.get("businessUnit", "Ottotree"), "outlet": payload["outlet"],
             "zone": "All Locations", "audit_date": payload["auditDate"], "audit_time": payload["auditTime"],
@@ -190,8 +185,7 @@ def start_audit(self, parsed, payload=None):
             "audit_ref": reference, "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
             "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
         })
-        name = inspection_name({"id": session_id, "outlet": payload["outlet"], "audit_date": payload["auditDate"]})
-        db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (name, session_id))
+        db.execute("UPDATE inspection_sessions SET inspection_name = ? WHERE id = ?", (reference, session_id))
         activity.log(db, user, "audit_started", "inspection", session_id, reference, payload["outlet"],
                      business_unit=payload.get("businessUnit", "Ottotree"), at=now)
     self.json({"ok": True, "id": session_id, "auditRef": reference, "scheduleId": schedule_id})
@@ -241,25 +235,28 @@ def patch_inspection_sessions(self, parsed, payload=None):
             self.json({"error": "An inspection's outlet is set by its schedule and cannot be changed"}, 409)
             return
         payload["outlet"] = existing["outlet"]
-        items = payload.get("items") or []
+        items, _ = complete_item_details(db, payload.get("items") or [])
+        payload["items"] = items
         progress = inspection_progress(items)
         complete = bool(payload.get("complete"))
         if complete and progress < 100:
             self.json({"error": "Inspection is incomplete"}, 409)
             return
+        # The audit's code carries its date, so it follows a draft's date when that changes.
         session_name = inspection_name({
-            "id": int(session_id),
+            "audit_ref": existing["audit_ref"],
             "outlet": payload.get("outlet") or first_outlet(db),
             "audit_date": normalize_audit_date(payload.get("auditDate")),
         })
         cursor = db.execute(
             """
             UPDATE inspection_sessions
-            SET inspection_name = ?, business_unit = ?, outlet = ?, zone = ?, audit_date = ?, auditor = ?,
+            SET inspection_name = ?, audit_ref = ?, business_unit = ?, outlet = ?, zone = ?, audit_date = ?, auditor = ?,
                 items_data_id = ?, progress = ?, status = ?, signatures_data_id = ?, updated_at = ?
             WHERE id = ?
             """,
             (
+                session_name,
                 session_name,
                 payload.get("businessUnit", "Ottotree"),
                 payload.get("outlet") or first_outlet(db),
@@ -283,7 +280,7 @@ def patch_inspection_sessions(self, parsed, payload=None):
         audit_id = None
         if complete:
             audit_id = finalize_inspection(db, int(session_id), payload, now)
-            activity.log(db, user, "audit_completed", "inspection", int(session_id), existing["audit_ref"], existing["outlet"],
+            activity.log(db, user, "audit_completed", "inspection", int(session_id), session_name, existing["outlet"],
                          started_at=existing["created_at"], business_unit=existing["business_unit"], at=now)
         notify_inspection(db, int(session_id), user, payload, existing, changed)
     self.json({"ok": True, "id": int(session_id), "inspectionName": session_name, "progress": progress, "status": "Completed" if complete else "Draft", "auditId": audit_id})

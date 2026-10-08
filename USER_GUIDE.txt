@@ -116,9 +116,10 @@ An administrator should configure these records before staff begin auditing:
    The app creates or resumes the inspection and displays its reference and details.
    Scheduled Work lists only unfinished audits, including drafts started
    without a schedule; once an audit is completed it leaves Scheduled Work
-   and is found in History. Each audit is named the same way here and in History:
-   its audit number and name (for example AUD-2026-0002 · AQP_2026-08-28_11),
-   with the schedule it came from (Schedule SCH-00012, or No schedule) in
+   and is found in History. Each audit is named the same way everywhere by
+   its code: AUDIT-<outlet>-<date>-<number>, for example
+   AUDIT-STP-20261006-000004 (the number counts the year's audits; a draft's
+   code follows its date if the date is changed), with the schedule it came from (Schedule SCH-00012, or No schedule) in
    the details line. A schedule nobody has started reads "Not started".
 3. Work through each listed location and the criteria of each item in it.
 4. Use Show and Category above the checklist to work through one kind of item

@@ -309,5 +309,8 @@ def inspection_pdf(session):
     from backend.pdf_report import build_report
     with connect() as db:
         settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
+    from backend.audit_exports import asset_records, location_part, session_locations
     summary = session.get("scoring") or summarize_score(session.get("items", []), settings)
-    return build_report(session, branding_settings(), summary, MediaStore(config.DB_PATH), settings)
+    parts = [location_part(session, location, settings) for location in session_locations(session)]
+    return build_report(session, branding_settings(), summary, MediaStore(config.DB_PATH), settings,
+                        parts=parts, assets=asset_records(session.get("items", [])))

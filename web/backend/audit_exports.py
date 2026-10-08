@@ -17,21 +17,15 @@ def app_settings():
         return {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
 
 
-def result(item):
-    return "N/A" if item.get("notApplicable") else "Pass" if item.get("passed") else "Fail"
-
-
-def finish_workbook(workbook, report_sheets=()):
-    """Bold headings, filters, readable widths; text that looks like a formula stays text. A
-    report sheet holds several tables, so it gets no filter and keeps the headings set on it."""
+def finish_workbook(workbook):
+    """Bold headings, filters, readable widths; text that looks like a formula stays text."""
     from openpyxl.styles import Font
     for sheet in workbook:
-        if sheet.title not in report_sheets:
-            if sheet.max_row > 1:
-                sheet.freeze_panes = "A2"
-                sheet.auto_filter.ref = sheet.dimensions
-            for cell in sheet[1]:
-                cell.font = Font(bold=True)
+        if sheet.max_row > 1:
+            sheet.freeze_panes = "A2"
+            sheet.auto_filter.ref = sheet.dimensions
+        for cell in sheet[1]:
+            cell.font = Font(bold=True)
         for column in sheet.columns:
             sheet.column_dimensions[column[0].column_letter].width = min(60, max(14, max(len(str(cell.value or "")) for cell in column) + 2))
             for cell in column:
@@ -40,16 +34,6 @@ def finish_workbook(workbook, report_sheets=()):
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
-
-
-FINDING_COLUMNS = (("finding_ref", "Finding"), ("location", "Location"), ("item_name", "Item"), ("criterion", "Check"),
-                   ("category", "Category"), ("priority", "Priority"), ("assigned_department", "Department"), ("pic", "PIC"),
-                   ("status", "Status"), ("comment", "Remark"), ("due_date", "Due"), ("closed_at", "Closed"),
-                   ("cause", "Cause"), ("recommendation", "Recommendation"), ("required_action", "Required action"))
-
-
-def finding_rows(findings):
-    return [[finding.get(key) or "" for key, _ in FINDING_COLUMNS] for finding in findings]
 
 
 def item_location(session, item):
@@ -61,16 +45,25 @@ def session_locations(session):
     return list(dict.fromkeys(item_location(session, item) for item in session.get("items", [])))
 
 
-def registered_photos(items):
-    """The photos registered on each asset checked, for assets photographed in no audit."""
+def asset_records(items):
+    """The register details of each asset checked (code, type, brand, model, serial, dates,
+    status, photos), by its id as text: items carry the id as the page sent it."""
     ids = sorted({int(item["equipmentId"]) for item in items if str(item.get("equipmentId") or "").isdigit()})
-    if not ids:
-        return {}
+    records = {}
     with connect() as db:
-        rows = db.execute(f"SELECT id, photos_data_id FROM equipment WHERE id IN ({','.join('?' for _ in ids)}) AND photos_data_id IS NOT NULL", ids).fetchall()
-        photos = {row["id"]: load_value(row["photos_data_id"]) or [] for row in rows}
-    # Items carry the id as the page sent it (text or number).
-    return {key: photos[int(key)] for key in {item.get("equipmentId") for item in items} if str(key or "").isdigit() and int(key) in photos}
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            for row in db.execute(
+                    "SELECT id, name, asset_id, code, kind, category, type, equipment_type, brand, model, serial_number, installation_date, "
+                    "warranty_date, expiry_date, operational_status, health_status, location, zone, photos_data_id "
+                    f"FROM equipment WHERE id IN ({','.join('?' for _ in chunk)})", chunk):
+                record = dict(row)
+                reference = record.pop("photos_data_id")
+                record["photos"] = (load_value(reference) or []) if reference is not None else []
+                record["type"] = record["type"] or record["equipment_type"] or ""
+                record["status"] = record["operational_status"] or record["health_status"] or ""
+                records[str(row["id"])] = record
+    return records
 
 
 def location_part(session, location, settings):
@@ -78,7 +71,7 @@ def location_part(session, location, settings):
     items = [item for item in session.get("items", []) if item_location(session, item) == location]
     findings = [finding for finding in session.get("findings") or [] if (finding.get("location") or session.get("zone")) == location]
     return {"location": location, "items": items, "findings": findings, "summary": summarize_score(items, settings),
-            "asset_photos": registered_photos(items)}
+            "assets": asset_records(items)}
 
 
 def sheet_title(name, taken):
@@ -92,65 +85,38 @@ def sheet_title(name, taken):
     return title
 
 
-def append_bold(sheet, values):
-    from openpyxl.styles import Font
-    sheet.append(values)
-    for cell in sheet[sheet.max_row]:
-        cell.font = Font(bold=True)
-
-
-def audit_fields(session, summary, location=None):
-    signatures = session.get("signatures") or {}
-    return (("Audit", session.get("audit_ref") or "Draft"), ("Name", session.get("inspection_name") or ""),
-            ("Outlet", session.get("outlet")), ("Location" if location else "Locations", location or session.get("zone")),
-            ("Date", session.get("audit_date")), ("Time", session.get("audit_time") or ""), ("Type", session.get("audit_type") or ""),
-            ("Auditor", session.get("auditor")), ("Status", "Closed" if session.get("closed_at") else session.get("status")),
-            ("Score", summary["score"]), ("Rating", summary["rating"]), ("Checks", summary["total"]), ("Passed", summary["passed"]),
-            ("Failed", summary["failed"]), ("N/A", summary["notApplicable"]), ("Remarks", session.get("remarks") or ""),
-            ("Audited by", (signatures.get("auditedBy") or {}).get("name", "")),
-            ("Verified by", (signatures.get("verifiedBy") or {}).get("name", "")),
-            ("Acknowledged by", (signatures.get("acknowledgedBy") or {}).get("name", "")))
-
-
 def inspection_xlsx(session):
-    """The first sheet is the whole audit; each following sheet is one location in full: the audit's
-    details, every check with its result and remark, and the findings there."""
+    """The audit as an editable workbook laid out like its PDFs: Overall first (details, score,
+    charts, grading, every asset with its register details, findings, signatures), then one
+    sheet per location in full (each asset's checks and photos, and the findings there)."""
+    from datetime import datetime
     from openpyxl import Workbook
+    from backend.xlsx_report import new_sheet, save
     settings = app_settings()
     summary = session.get("scoring") or summarize_score(session.get("items", []), settings)
     parts = [location_part(session, location, settings) for location in session_locations(session)]
+    findings = session.get("findings") or []
+    brand, media, printed = branding_settings(), MediaStore(config.DB_PATH), datetime.now().strftime("%Y-%m-%d %H:%M")
     workbook = Workbook()
-    overall = workbook.active
-    overall.title = "Overall"
-    append_bold(overall, ["Field", "Value"])
-    for label, value in audit_fields(session, summary):
-        overall.append([label, value])
-    overall.append([])
-    append_bold(overall, ["Location", "Checks", "Passed", "Failed", "N/A", "Score", "Rating", "Findings"])
-    for part in parts:
-        score = part["summary"]
-        overall.append([part["location"], score["total"], score["passed"], score["failed"], score["notApplicable"],
-                        score["score"], score["rating"], len(part["findings"])])
-    overall.append([])
-    append_bold(overall, [label for _, label in FINDING_COLUMNS])
-    for row in finding_rows(session.get("findings") or []):
-        overall.append(row)
+    sheet = new_sheet(workbook, "Overall", brand, media, settings, first=True)
+    sheet.letterhead("Facilities Audit Report", printed)
+    sheet.audit_details(session)
+    sheet.scorecard(summary, findings)
+    sheet.charts(summary, parts, findings)
+    sheet.location_grading(parts)
+    sheet.asset_register(parts, asset_records(session.get("items", [])))
+    sheet.findings(findings)
+    sheet.signatures(session)
     taken = {"overall"}
     for part in parts:
-        sheet = workbook.create_sheet(sheet_title(part["location"], taken))
-        append_bold(sheet, ["Field", "Value"])
-        for label, value in audit_fields(session, part["summary"], part["location"]):
-            sheet.append([label, value])
-        sheet.append([])
-        append_bold(sheet, ["Item", "Check", "Result", "Remark", "Category", "Photos"])
-        for item in part["items"]:
-            sheet.append([item.get("section") or "", item.get("item") or "", result(item), item.get("notes") or "",
-                          item.get("category") or "", len(item.get("images") or [])])
-        sheet.append([])
-        append_bold(sheet, [label for _, label in FINDING_COLUMNS])
-        for row in finding_rows(part["findings"]) or [["No findings"]]:
-            sheet.append(row)
-    return finish_workbook(workbook, report_sheets=set(workbook.sheetnames))
+        sheet = new_sheet(workbook, sheet_title(part["location"], taken), brand, media, settings)
+        sheet.letterhead("Audit Report — Location", printed)
+        sheet.banner(f"Location: {part['location']}")
+        sheet.audit_details(session, part["location"])
+        sheet.scorecard(part["summary"], part["findings"])
+        sheet.checklist(part["items"], part["assets"])
+        sheet.findings(part["findings"])
+    return save(workbook)
 
 
 def inspection_locations_pdf(session, locations):
@@ -187,7 +153,7 @@ def location_audits(outlet, location, date_from="", date_to="", outlets=None):
             continue
         findings = [finding for finding in session.get("findings") or [] if finding.get("location") == location]
         audits.append({"session": session, "items": items, "findings": findings, "summary": summarize_score(items, settings),
-                       "asset_photos": registered_photos(items)})
+                       "assets": asset_records(items)})
     return audits
 
 
@@ -209,29 +175,40 @@ def location_pdf(outlet, location, date_from="", date_to="", outlets=None):
 
 
 def location_xlsx(outlet, location, date_from="", date_to="", outlets=None):
+    """Every audit of one location, laid out like the location PDF: an overview of the audits,
+    then a sheet per audit with its checks, photos, findings, and signatures there."""
+    from datetime import datetime
     from openpyxl import Workbook
+    from backend.xlsx_report import new_sheet, save
     audits = location_audits(outlet, location, date_from, date_to, outlets)
+    settings = app_settings()
+    brand, media, printed = branding_settings(), MediaStore(config.DB_PATH), datetime.now().strftime("%Y-%m-%d %H:%M")
     workbook = Workbook()
-    overview = workbook.active
-    overview.title = "Audits"
-    overview.append(["Date", "Audit", "Name", "Auditor", "Checks", "Passed", "Failed", "N/A", "Score", "Rating", "Findings", "Status"])
-    checklist = workbook.create_sheet("Checklist")
-    checklist.append(["Date", "Audit", "Item", "Check", "Result", "Remark", "Category", "Photos"])
-    findings = workbook.create_sheet("Findings")
-    findings.append(["Date", "Audit", *[label for _, label in FINDING_COLUMNS]])
-    for audit in audits:
+    sheet = new_sheet(workbook, "Overview", brand, media, settings, first=True)
+    sheet.letterhead("Location Audit Report", printed)
+    sheet.put(sheet.row, 1, f"{outlet} · {location}", size=11, bold=True, span=8, wrap=False)
+    sheet.put(sheet.row + 1, 1, f"Period: {period_label(date_from, date_to)}", size=8, colour="5F6C66", span=8, wrap=False)
+    sheet.row += 2
+    sheet.heading("Audits of this location")
+    rows, tones = [], {}
+    for index, audit in enumerate(audits):
         session, summary = audit["session"], audit["summary"]
-        date, reference = session.get("audit_date"), session.get("audit_ref") or ""
-        overview.append([date, reference, session.get("inspection_name") or "", session.get("auditor") or "", summary["total"],
-                         summary["passed"], summary["failed"], summary["notApplicable"], summary["score"], summary["rating"],
-                         len(audit["findings"]), "Closed" if session.get("closed_at") else session.get("status")])
-        for item in audit["items"]:
-            checklist.append([date, reference, item.get("section") or "", item.get("item") or "", result(item), item.get("notes") or "",
-                              item.get("category") or "", len(item.get("images") or [])])
-        for row in finding_rows(audit["findings"]):
-            findings.append([date, reference, *row])
-    info = workbook.create_sheet("Report", 0)
-    for label, value in (("Field", "Value"), ("Outlet", outlet), ("Location", location), ("Period", period_label(date_from, date_to)),
-                         ("Audits", len(audits))):
-        info.append([label, value])
-    return finish_workbook(workbook)
+        rows.append([session.get("audit_date"), session.get("audit_ref") or "", session.get("auditor") or "", summary["total"],
+                     summary["failed"], summary["score"], summary["rating"], len(audit["findings"])])
+        tones[(index, 6)] = sheet.rating_tone(summary["score"])
+    if rows:
+        sheet.table(["Date", "Audit", "Auditor", "Checks", "Failed", "Score", "Rating", "Findings"], rows, [1] * 8, tones=tones)
+    else:
+        sheet.put(sheet.row, 1, "No completed audit covered this location in this period.", size=8, colour="5F6C66", span=8)
+    taken = {"overview"}
+    for audit in audits:
+        session = audit["session"]
+        sheet = new_sheet(workbook, sheet_title(session.get("audit_ref") or f"Audit {session.get('id')}", taken), brand, media, settings)
+        sheet.letterhead("Location Audit Report", printed)
+        sheet.banner(f"{session.get('audit_ref') or 'Audit'} · {session.get('audit_date') or ''} · {location}")
+        sheet.audit_details(session, location)
+        sheet.scorecard(audit["summary"], audit["findings"])
+        sheet.checklist(audit["items"], audit["assets"])
+        sheet.findings(audit["findings"])
+        sheet.signatures(session)
+    return save(workbook)

@@ -86,16 +86,19 @@ class EvidenceReportTests(unittest.TestCase):
             text = "\n".join(page.extract_text() for page in reader.pages)
             self.assertIn("Location grading", text)
             self.assertNotIn("FINAL-CHECKLIST-ENTRY", text)
-            self.assertIn("Audited by: Auditor", text)
+            # Each signature card: its role, then who signed.
+            self.assertIn("AUDITED BY\nAuditor", text)
             self.assertIn("Test Company", text)
             self.assertIn("Facilities Department", text)
             self.assertIn("AUD-TEST", text)
             self.assertIn("MST", text)
             self.assertIn("2026-09-20", text)
             self.assertIn("Auditor One", text)
-            self.assertIn("2 total / 1 priority / 1 non-priority", text)
-            self.assertIn("1 closed / 1 open", text)
-            self.assertIn("Closed: 2026-09-20", text)
+            # The score tiles: findings split by priority, and follow-up open and closed.
+            self.assertIn("1 priority · 1 non-priority", text)
+            self.assertIn("1 open", text)
+            self.assertIn("1 closed", text)
+            self.assertIn("Closed\n2026-09-20", text)
             self.assertNotIn("Action taken", text)
             self.assertGreaterEqual(sum(len(page.images) for page in reader.pages), 2)
 

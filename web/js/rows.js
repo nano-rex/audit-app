@@ -249,9 +249,10 @@ function findingItemRow(group) {
 
 // Scheduled Work and History name an audit the same way: its audit number and inspection name
 // first, then the schedule it came from, so one audit reads identically in both lists.
+// An audit is named by its code (AUDIT-STP-20261006-000004).
 function auditTitle(session, fallbackName) {
-  if (!session?.audit_ref) return `Not started · ${fallbackName}`;
-  return `${session.audit_ref} · ${session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`}`;
+  if (!session?.audit_ref) return fallbackName ? `Not started · ${fallbackName}` : "Not started";
+  return session.audit_ref;
 }
 
 function lastSaved(row) {
@@ -276,7 +277,7 @@ function scheduleRow(row) {
   return `
     <article data-schedule-id="${row.id}">
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
-        <b>${escapeHtml(auditTitle(session, `${row.outlet}_${row.scheduled_date}`))}</b>
+        <b>${escapeHtml(auditTitle(session, `${row.outlet} · ${row.scheduled_date}`))}</b>
         <span>${escapeHtml(row.scheduled_date)} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
         <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>

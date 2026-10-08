@@ -102,7 +102,7 @@ def items_needing_request(db, user):
 
 def inspection_item(row, action, detail, view="checklist"):
     return {"type": "inspection", "id": row["id"], "action": action, "view": view, "outlet": row["outlet"],
-            "title": f"{row['audit_ref'] or ''} {row['inspection_name'] or row['outlet']}".strip(),
+            "title": row["audit_ref"] or row["inspection_name"] or row["outlet"],
             "detail": f"{row['outlet']} | {row['audit_date']} | {detail}"}
 
 

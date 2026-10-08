@@ -139,14 +139,30 @@ def inspection_progress(items):
     return complete * 100 // len(items)
 
 
+# An audit's code: AUDIT-<outlet>-<date>-<number>, e.g. AUDIT-STP-20261006-000004. The number
+# counts the year's audits; the code also names the audit (it replaced AUD-2026-0004 plus a
+# separate name such as STP_2026-10-06_13).
+AUDIT_CODE = re.compile(r"AUDIT-.+-\d{8}-(\d{6,})")
+OLD_AUDIT_CODE = re.compile(r"AUD-\d{4}-(\d+)")
+
+
+def audit_code(outlet, audit_date, number):
+    return f"AUDIT-{outlet or 'OUTLET'}-{normalize_audit_date(audit_date).replace('-', '')}-{int(number):06d}"
+
+
+def audit_number(reference):
+    """The number in an audit code, new or old style, or None."""
+    match = AUDIT_CODE.fullmatch(reference or "") or OLD_AUDIT_CODE.fullmatch(reference or "")
+    return int(match[1]) if match else None
+
+
 def inspection_name(session):
-    outlet = session.get("outlet") or "Outlet"
-    date = normalize_audit_date(session.get("audit_date"))
-    return f"{outlet}_{date}_{session.get('id')}"
+    """The audit's code, kept in step with its outlet and date (a draft's date can change)."""
+    number = audit_number(session.get("audit_ref"))
+    if number is None:
+        return session.get("audit_ref") or f"AUDIT-{session.get('outlet') or 'OUTLET'}-{normalize_audit_date(session.get('audit_date')).replace('-', '')}"
+    return audit_code(session.get("outlet"), session.get("audit_date"), number)
 
 
 def normalized_inspection_name(session):
-    name = session.get("inspection_name") or inspection_name(session)
-    if "_Today_" in name:
-        return inspection_name(session)
-    return name
+    return session.get("audit_ref") or session.get("inspection_name") or inspection_name(session)

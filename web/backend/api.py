@@ -329,7 +329,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.send_error(404)
                     return
                 outlet_access.require(viewer, session["outlet"])
-                filename = f"{session.get('inspection_name') or inspection_name(session)}.xlsx"
+                filename = f"{session.get('audit_ref') or inspection_name(session)}.xlsx"
                 self.download(inspection_xlsx(session), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename)
                 return
             if suffix == "export.pdf":
@@ -344,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
                 outlet_access.require(viewer, session["outlet"])
                 # Overall, or the chosen locations (?location=A&location=B) in full.
                 chosen = parse_qs(parsed.query).get("location", [])
-                name = session.get('inspection_name') or inspection_name(session)
+                name = session.get('audit_ref') or inspection_name(session)
                 if chosen:
                     suffix = chosen[0] if len(chosen) == 1 else f"{len(chosen)} locations"
                     self.download(inspection_locations_pdf(session, chosen), "application/pdf", f"{name} - {suffix}.pdf")

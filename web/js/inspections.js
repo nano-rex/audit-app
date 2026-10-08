@@ -578,7 +578,17 @@ function collectInspectionPayload(complete = false) {
     const drafted = parseInspectionCriteria(equipment.inspection_criteria).map((criterion) => inspectionPageDrafts.get(`${equipment.id}:${criterion}`)).filter(Boolean);
     const saved = drafted.length ? drafted : inspectionSessionItems.filter((item) => String(item.equipmentId) === String(equipment.id));
     if (saved.length) {
-      items.push(...saved);
+      // Checks kept from a location page left earlier carry the asset's name, location, and category.
+      items.push(...saved.map((entry) => ({
+        location: equipment.location || equipment.zone || "",
+        section: equipment.name || equipment.asset_id || "Fixed Asset",
+        category: equipment.category || "",
+        notApplicable: false,
+        score: entry.passed ? 100 : 0,
+        evidenceStatus: (entry.images || []).length ? entry.images.map(imageLabel).join(", ") : "Missing image",
+        ...entry,
+        category: entry.category || equipment.category || "",
+      })));
       return;
     }
     parseInspectionCriteria(equipment.inspection_criteria).forEach((criterion) => items.push({
@@ -837,7 +847,7 @@ async function openInspectionSession(id, returnTo = null) {
   form.dataset.closed = String(Boolean(session.closed_at));
   form.dataset.ownerId = session.owner_user_id ? String(session.owner_user_id) : "";
   setText("[data-current-schedule]", session.schedule_id ? `Schedule SCH-${String(session.schedule_id).padStart(5, "0")}` : "Saved inspection");
-  setCurrentInspectionName(session.inspection_name || `${session.outlet}_${session.audit_date}_${session.id}`, session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
+  setCurrentInspectionName(session.audit_ref || session.inspection_name || "", session.closed_at ? "Closed" : session.status === "Completed" ? "Completed" : "Editing");
   document.querySelector("[data-save-inspection-progress]").disabled = session.status === "Completed";
   form.elements.outlet.value = session.outlet || "";
   form.dataset.visitLocations = JSON.stringify(session.visit_locations || []);
@@ -854,7 +864,6 @@ async function openInspectionSession(id, returnTo = null) {
   const readOnly = session.status === "Completed" || !(currentUser?.inspectionPermissions || []).includes("auditor");
   ["auditDate", "auditTime", "auditType", "remarks"].forEach((name) => { form.elements[name].disabled = readOnly; });
   form.elements.outlet.disabled = true;
-  setText("[data-current-audit-reference]", session.audit_ref || "");
   setInspectionSignatures(session.signatures || {});
   await updateInspectionLocationSelect();
   showTab("inspections");

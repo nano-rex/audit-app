@@ -414,7 +414,7 @@ async function saveInspectionSession(complete = false) {
     const result = await requestJson(id ? `/api/inspection-sessions/${id}` : "/api/inspection-sessions", id ? "PATCH" : "POST", payload);
     form.elements.inspectionSessionId.value = result.id;
     if (complete) form.dataset.completed = "true";
-    setCurrentInspectionName(result.inspectionName || `${payload.outlet}_${payload.auditDate}_${result.id}`, "Editing");
+    setCurrentInspectionName(result.inspectionName || "", "Editing");
     updateInspectionProgress();
     loadInspectionHistory();
     if (complete) {
