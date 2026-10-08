@@ -1952,3 +1952,71 @@ people view: a card per person {
   gap: 8px;
   margin-block: 8px 14px;
 }
+
+/* Schedule: the audit covers locations, zones, or particular assets, chosen on sub-tabs. */
+.visit-scope .scope-tabs {
+  margin-bottom: 6px;
+}
+
+.visit-scope .scope-hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.visit-scope [data-visit-zone-options] {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: min(420px, 52vh);
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.scope-asset-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.scope-asset-tools input {
+  flex: 1 1 240px;
+}
+
+.visit-asset-options {
+  display: grid;
+  gap: 10px;
+  max-height: min(440px, 55vh);
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-alt);
+}
+
+.visit-asset-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px 8px;
+}
+
+.visit-asset-group[hidden] {
+  display: none;
+}
+
+.visit-asset-location {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.visit-asset-location small {
+  margin-left: auto;
+}

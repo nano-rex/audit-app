@@ -11,8 +11,9 @@ ACTIVE_CONNECTION = ContextVar("audit_active_connection", default=None)
 
 FIELDS = {
     "audits": {"scoring_json": "scoring_data_id"},
-    "inspection_sessions": {"items_json": "items_data_id", "signatures_json": "signatures_data_id", "locations_json": "locations_data_id"},
-    "schedules": {"locations_json": "locations_data_id", "assignees_json": "assignees_data_id"},
+    "inspection_sessions": {"items_json": "items_data_id", "signatures_json": "signatures_data_id", "locations_json": "locations_data_id",
+                            "scope_json": "scope_data_id"},
+    "schedules": {"locations_json": "locations_data_id", "assignees_json": "assignees_data_id", "scope_json": "scope_data_id"},
     "findings": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
     "work_orders": {"images_json": "images_data_id", "completion_photo": "completion_photo_data_id"},
     "work_requests": {"images_json": "images_data_id"},

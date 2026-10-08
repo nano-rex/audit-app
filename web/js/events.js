@@ -503,7 +503,7 @@ document.getElementById("photo-mark-form")?.addEventListener("submit", async (ev
 });
 
 document.querySelector('#schedule-form select[name="outlet"]')?.addEventListener("change", () => {
-  updateScheduleLocationSelect();
+  updateScheduleScopeOptions().catch(showLoadError);
   // Assignees must cover the outlet, so the choice starts again for a new outlet.
   loadScheduleAssignees([]).catch(showLoadError);
 });
@@ -514,6 +514,33 @@ document.querySelector("[data-assignee-search]")?.addEventListener("input", (eve
 });
 
 document.querySelector("[data-only-mine]")?.addEventListener("change", () => renderGuidedSchedules());
+
+document.querySelectorAll("#schedule-form [data-scope-tab]").forEach((button) => {
+  button.addEventListener("click", () => setScheduleScope(button.dataset.scopeTab));
+});
+
+document.querySelector("#schedule-form [data-visit-asset-options]")?.addEventListener("change", (event) => {
+  const location = event.target.closest("[data-asset-location]");
+  if (location) {
+    // Ticking a location ticks its assets that the search shows.
+    location.closest("[data-asset-group]").querySelectorAll('input[name="visitAsset"]').forEach((input) => {
+      if (!input.closest("label").hidden) input.checked = location.checked;
+    });
+  }
+  syncScheduleAssetGroups();
+});
+
+document.querySelector("#schedule-form [data-visit-asset-search]")?.addEventListener("input", (event) => {
+  const query = event.target.value.trim().toLowerCase();
+  document.querySelectorAll("#schedule-form [data-asset-group]").forEach((group) => {
+    let shown = 0;
+    group.querySelectorAll("[data-asset-text]").forEach((label) => {
+      label.hidden = Boolean(query) && !label.dataset.assetText.includes(query);
+      shown += label.hidden ? 0 : 1;
+    });
+    group.hidden = shown === 0;
+  });
+});
 
 document.querySelector("#schedule-form [data-visit-location-options]")?.addEventListener("change", (event) => {
   const container = event.currentTarget;

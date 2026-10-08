@@ -333,6 +333,107 @@ async function updateScheduleLocationSelect(selected = []) {
     + names.map((name) => `<label class="zone-location-option"><input type="checkbox" name="visitLocation" value="${escapeAttr(name)}"${chosen.has(name) ? " checked" : ""}><span>${escapeHtml(name)}</span></label>`).join("");
 }
 
+// A visit can instead cover zones (their locations) or particular assets. The tab shown when the
+// visit is saved is what it covers.
+const scheduleScopeHints = {
+  locations: "Every location, or only the ones ticked.",
+  zones: "Every location in the ticked zones.",
+  assets: "Only the ticked assets; the audit shows nothing else.",
+};
+
+function setScheduleScope(name) {
+  const form = document.getElementById("schedule-form");
+  form.dataset.scope = name;
+  form.querySelectorAll("[data-scope-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.scopeTab === name);
+    button.setAttribute("aria-pressed", String(button.dataset.scopeTab === name));
+  });
+  form.querySelectorAll("[data-scope-panel]").forEach((panel) => { panel.hidden = panel.dataset.scopePanel !== name; });
+  setText("[data-scope-hint]", scheduleScopeHints[name] || "");
+}
+
+async function updateScheduleZoneSelect(selected = []) {
+  const form = document.getElementById("schedule-form");
+  const container = form?.querySelector("[data-visit-zone-options]");
+  if (!container) return;
+  const outlet = formValue(form, "outlet", "");
+  if (!outlet) {
+    container.innerHTML = `<p class="muted">Select an outlet to choose zones.</p>`;
+    return;
+  }
+  const zones = ((await (await authFetch(`/api/zones?outlet=${encodeURIComponent(outlet)}`)).json()).items || []);
+  const chosen = new Set(selected);
+  container.innerHTML = zones.length
+    ? zones.map((zone) => `<label class="zone-location-option"><input type="checkbox" name="visitZone" value="${escapeAttr(zone.name)}"${chosen.has(zone.name) ? " checked" : ""}>
+        <span>${escapeHtml(zone.name)}<small class="muted"> · ${escapeHtml((zone.locations || []).join(", ") || "no locations")}</small></span></label>`).join("")
+    : `<p class="muted">${escapeHtml(outlet)} has no zones yet. Add them under Outlets.</p>`;
+}
+
+// The outlet's assets by location; a location's box ticks or clears all of its assets.
+async function updateScheduleAssetSelect(selected = []) {
+  const form = document.getElementById("schedule-form");
+  const container = form?.querySelector("[data-visit-asset-options]");
+  if (!container) return;
+  const outlet = formValue(form, "outlet", "");
+  form.querySelector("[data-visit-asset-search]").value = "";
+  if (!outlet) {
+    container.innerHTML = `<p class="muted">Select an outlet to choose assets.</p>`;
+    updateScheduleAssetCount();
+    return;
+  }
+  const items = ((await (await authFetch(`/api/equipment?outlet=${encodeURIComponent(outlet)}&view=inspection`)).json()).items || []);
+  const chosen = new Set(selected.map(Number));
+  const byLocation = new Map();
+  items.forEach((item) => {
+    const location = item.location || item.zone || "Unassigned";
+    byLocation.set(location, [...(byLocation.get(location) || []), item]);
+  });
+  container.innerHTML = byLocation.size
+    ? [...byLocation.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([location, assets]) => `
+      <section class="visit-asset-group" data-asset-group>
+        <label class="visit-asset-location"><input type="checkbox" data-asset-location><b>${escapeHtml(location)}</b><small class="muted">${assets.length}</small></label>
+        ${assets.map((item) => `<label class="zone-location-option" data-asset-text="${escapeAttr(`${item.name || ""} ${item.code || item.asset_id || ""} ${location} ${item.category || ""}`.toLowerCase())}">
+          <input type="checkbox" name="visitAsset" value="${Number(item.id)}"${chosen.has(Number(item.id)) ? " checked" : ""}>
+          <span>${escapeHtml(item.name || item.asset_id || "Asset")}<small class="muted"> · ${escapeHtml(item.code || item.asset_id || "")}</small></span></label>`).join("")}
+      </section>`).join("")
+    : `<p class="muted">${escapeHtml(outlet)} has no assets yet.</p>`;
+  syncScheduleAssetGroups();
+}
+
+function syncScheduleAssetGroups() {
+  document.querySelectorAll("#schedule-form [data-asset-group]").forEach((group) => {
+    const boxes = [...group.querySelectorAll('input[name="visitAsset"]')];
+    const box = group.querySelector("[data-asset-location]");
+    const ticked = boxes.filter((input) => input.checked).length;
+    box.checked = ticked > 0 && ticked === boxes.length;
+    box.indeterminate = ticked > 0 && ticked < boxes.length;
+  });
+  updateScheduleAssetCount();
+}
+
+function updateScheduleAssetCount() {
+  const count = document.querySelectorAll('#schedule-form input[name="visitAsset"]:checked').length;
+  setText("[data-visit-asset-count]", count ? `${count} selected` : "None selected");
+}
+
+async function updateScheduleScopeOptions(scope = {}, locations = []) {
+  await Promise.all([
+    updateScheduleLocationSelect(scope.by === "locations" || !scope.by ? locations : []),
+    updateScheduleZoneSelect(scope.zones || []),
+    updateScheduleAssetSelect(scope.assets || []),
+  ]);
+}
+
+function scheduleScopePayload(form) {
+  const scope = form.dataset.scope || "locations";
+  return {
+    scope,
+    locations: scope === "locations" ? chosenVisitLocations(form) : [],
+    zones: [...form.querySelectorAll('input[name="visitZone"]:checked')].map((input) => input.value),
+    assets: [...form.querySelectorAll('input[name="visitAsset"]:checked')].map((input) => Number(input.value)),
+  };
+}
+
 // People who can audit at the chosen outlet, ticked when already assigned.
 async function loadScheduleAssignees(selected = null) {
   const form = document.getElementById("schedule-form");

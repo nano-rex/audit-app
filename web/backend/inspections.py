@@ -135,6 +135,11 @@ def visit_locations_of(reference):
     return (load_value(reference) or []) if reference else []
 
 
+def visit_scope_of(reference):
+    """How a visit's scope was chosen: by locations (the default), zones, or particular assets."""
+    return (load_value(reference) or {"by": "locations"}) if reference else {"by": "locations"}
+
+
 def inspection_sessions():
     with connect() as db:
         rows = db.execute(
@@ -190,6 +195,7 @@ def inspection_session(session_id):
         data["items"], _ = complete_item_details(db, load_value(data.pop("items_data_id") or "[]") or [])
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
     data["visit_locations"] = visit_locations_of(data.pop("locations_data_id", None))
+    data["visit_scope"] = visit_scope_of(data.pop("scope_data_id", None))
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None
@@ -201,4 +207,5 @@ def schedule_items():
     with connect() as db:
         rows = db.execute("SELECT schedules.*, inspection_sessions.id AS inspection_id, inspection_sessions.audit_ref, inspection_sessions.inspection_name, inspection_sessions.progress AS progress, inspection_sessions.status AS inspection_status FROM schedules LEFT JOIN inspection_sessions ON inspection_sessions.schedule_id = schedules.id ORDER BY schedules.status IN ('Completed', 'Cancelled'), schedules.scheduled_date, schedules.id DESC").fetchall()
     return {"items": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"]),
+                                    "visit_scope": visit_scope_of(row["scope_data_id"]),
                                     "assignees": visit_locations_of(row["assignees_data_id"])} for row in rows]}

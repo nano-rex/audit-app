@@ -8,7 +8,7 @@ from backend.accounts import branding_settings
 from backend.common import rating, sla_status
 from backend.report_filters import report_scope
 from backend.activity import kpi_report
-from backend.inspections import visit_locations_of
+from backend.inspections import visit_locations_of, visit_scope_of
 from backend.database import connect
 from backend.work_orders import finding_items, with_current_sla
 
@@ -188,6 +188,7 @@ def dashboard(unit, filters=None, include_room_trends=False):
         },
         "today": {
             "scheduled": [dict(row) | {"schedule_ref": f"SCH-{row['id']:05d}", "visit_locations": visit_locations_of(row["locations_data_id"]),
+                                    "visit_scope": visit_scope_of(row["scope_data_id"]),
                                     "assignees": visit_locations_of(row["assignees_data_id"])} for row in schedules],
             "followUps": len(open_work_orders),
             "dueSoon": len(due_soon_orders),

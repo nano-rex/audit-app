@@ -8,8 +8,8 @@ from datetime import datetime
 from backend.audit_metadata import allocate_reference, validate_metadata
 from backend.common import inspection_name, inspection_progress, normalize_audit_date
 from backend.database import connect, first_outlet, insert_record
-from backend.inspections import complete_item_details, finalize_inspection, visit_locations_of
-from backend.location_integrity import locations_label, visit_locations
+from backend.inspections import complete_item_details, finalize_inspection, visit_locations_of, visit_scope_of
+from backend.location_integrity import visit_scope
 from backend.schedule_assignment import assignees_of, save_assignment, validate_assignees
 
 
@@ -101,19 +101,20 @@ def post_schedules(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
         outlet = payload.get("outlet") or first_outlet(db)
-        locations = visit_locations(db, outlet, payload)
+        locations, scope, label = visit_scope(db, outlet, payload)
         # A new visit always starts as Pending; starting and completing the audit move it on.
         cursor = db.execute(
             """
             INSERT INTO schedules
-            (business_unit, outlet, zone, locations_data_id, scheduled_date, auditor, remarks, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
+            (business_unit, outlet, zone, locations_data_id, scope_data_id, scheduled_date, auditor, remarks, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
             """,
             (
                 payload.get("businessUnit", "Ottotree"),
                 outlet,
-                locations_label(locations),
+                label,
                 save_value(db, locations),
+                save_value(db, scope),
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor", "Unassigned"),
                 payload.get("remarks", ""),
@@ -147,6 +148,8 @@ def start_schedule(self, parsed, payload=None):
                 "business_unit": schedule["business_unit"], "outlet": schedule["outlet"], "zone": schedule["zone"],
                 # The audit covers the locations the visit was scheduled for, and no others.
                 "locations_data_id": save_value(db, visit_locations_of(schedule["locations_data_id"])),
+                # And, when the visit was for particular assets, those assets only.
+                "scope_data_id": save_value(db, visit_scope_of(schedule["scope_data_id"])),
                 "audit_date": normalize_audit_date(schedule["scheduled_date"]), "auditor": user["name"],
                 "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
                 "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
@@ -307,17 +310,18 @@ def patch_schedules(self, parsed, payload=None):
             self.send_error(404)
             return
         outlet = payload.get("outlet") or first_outlet(db)
-        locations = visit_locations(db, outlet, payload)
+        locations, scope, label = visit_scope(db, outlet, payload)
         db.execute(
             """
             UPDATE schedules
-            SET outlet = ?, zone = ?, locations_data_id = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
+            SET outlet = ?, zone = ?, locations_data_id = ?, scope_data_id = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
             WHERE id = ?
             """,
             (
                 outlet,
-                locations_label(locations),
+                label,
                 save_value(db, locations),
+                save_value(db, scope),
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor") or existing["auditor"] or "Unassigned",
                 payload.get("remarks", ""),

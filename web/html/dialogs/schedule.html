@@ -10,9 +10,23 @@
         <input type="search" data-assignee-search placeholder="Find a person" hidden>
         <div data-assignee-options></div>
       </fieldset>
-      <fieldset class="zone-location-picker visit-location-picker">
-        <legend>Locations</legend>
-        <div data-visit-location-options></div>
+      <fieldset class="zone-location-picker visit-location-picker visit-scope">
+        <legend>Audit covers</legend>
+        <nav class="sub-tabs scope-tabs" aria-label="Choose the audit by">
+          <button type="button" class="active" data-scope-tab="locations" aria-pressed="true">Locations</button>
+          <button type="button" data-scope-tab="zones" aria-pressed="false">Zones</button>
+          <button type="button" data-scope-tab="assets" aria-pressed="false">Assets</button>
+        </nav>
+        <p class="muted scope-hint" data-scope-hint></p>
+        <div data-scope-panel="locations"><div data-visit-location-options></div></div>
+        <div data-scope-panel="zones" hidden><div data-visit-zone-options></div></div>
+        <div data-scope-panel="assets" hidden>
+          <div class="scope-asset-tools">
+            <input type="search" data-visit-asset-search placeholder="Find an asset by name, code, or location">
+            <span class="muted" data-visit-asset-count></span>
+          </div>
+          <div class="visit-asset-options" data-visit-asset-options></div>
+        </div>
       </fieldset>
       <label>Remarks<textarea name="remarks" placeholder="Any notes..."></textarea></label>
       <p class="form-message" data-schedule-message role="alert"></p>

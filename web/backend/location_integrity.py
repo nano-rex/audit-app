@@ -73,6 +73,43 @@ def locations_label(values):
     return ", ".join(values) if values else ALL_LOCATIONS
 
 
+def visit_scope(db, outlet, payload):
+    """What a visit covers, chosen on one of three tabs: locations (none ticked means all), zones
+    (their locations), or particular assets (and so their locations). Returns the locations, the
+    scope as chosen ({"by": ..., "zones": [...]} or {"by": "assets", "assets": [ids]}), and its label."""
+    by = payload.get("scope") or "locations"
+    if by == "zones":
+        names = payload.get("zones")
+        if not isinstance(names, list) or not names or any(not isinstance(name, str) for name in names):
+            raise ValueError("Choose at least one zone")
+        rows = {row["name"]: load_value(row["locations_data_id"]) or [] for row in
+                db.execute("SELECT name, locations_data_id FROM zones WHERE outlet_code = ?", (outlet,))}
+        names = list(dict.fromkeys(names))
+        if any(name not in rows for name in names):
+            raise ValueError("Every zone must belong to the selected outlet")
+        locations = list(dict.fromkeys(location for name in names for location in rows[name]))
+        if not locations:
+            raise ValueError("The chosen zones have no locations yet")
+        return locations, {"by": "zones", "zones": names}, f"Zone{'s' if len(names) > 1 else ''}: {', '.join(names)}"
+    if by == "assets":
+        ids = payload.get("assets")
+        if not isinstance(ids, list) or not ids or not all(str(value).isdigit() for value in ids):
+            raise ValueError("Choose at least one asset")
+        ids = list(dict.fromkeys(int(value) for value in ids))
+        rows = []
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            rows += db.execute(f"SELECT id, location, zone FROM equipment WHERE outlet = ? AND id IN ({','.join('?' for _ in chunk)})", (outlet, *chunk)).fetchall()
+        if len(rows) != len(ids):
+            raise ValueError("Every asset must belong to the selected outlet")
+        locations = list(dict.fromkeys(row["location"] or row["zone"] or "Unassigned" for row in rows))
+        return locations, {"by": "assets", "assets": ids}, f"{len(ids)} asset{'s' if len(ids) != 1 else ''} in {', '.join(locations)}"[:500]
+    if by != "locations":
+        raise ValueError("Choose locations, zones, or assets")
+    locations = visit_locations(db, outlet, payload)
+    return locations, {"by": "locations"}, locations_label(locations)
+
+
 def update_membership(db, outlet, old_name, new_name=None):
     for row in db.execute("SELECT id, locations_data_id FROM zones WHERE outlet_code = ?", (outlet,)).fetchall():
         previous = load_value(row["locations_data_id"]) or []
