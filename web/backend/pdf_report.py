@@ -421,7 +421,9 @@ class ReportWriter:
         chart.categoryAxis.strokeColor = BORDER
         chart.valueAxis.valueMin = 0
         chart.valueAxis.valueMax = maximum or max(1, max(value for _, value in pairs))
-        chart.valueAxis.valueStep = 25 if maximum == 100 else max(1, round(chart.valueAxis.valueMax / 4))
+        chart.valueAxis.valueStep = 25 if maximum == 100 else nice_step(chart.valueAxis.valueMax / 4)
+        if maximum != 100:
+            chart.valueAxis.valueMax = chart.valueAxis.valueStep * -(-chart.valueAxis.valueMax // chart.valueAxis.valueStep)
         chart.valueAxis.labels.fontName, chart.valueAxis.labels.fontSize = self.font, 6.5
         chart.valueAxis.labels.fillColor = MUTED
         chart.valueAxis.strokeColor = BORDER
@@ -444,29 +446,25 @@ class ReportWriter:
         drawing.add(String(0, height - 9, title, fontName=self.bold, fontSize=7.5, fillColor=MUTED))
         return drawing
 
-    def asset_register(self, parts, assets):
-        """Every asset inspected, by location, with its register details and how it did."""
+    def asset_attributes(self, items, assets):
+        """The audit's assets as charts of their register attributes (type, brand, category,
+        installation year, status, warranty, expiry), each split into those that passed every
+        check and those with a failure."""
+        from backend.report_figures import FAIL as FAIL_HEX, PASS as PASS_HEX, asset_attributes
+        total, failing, attributes = asset_attributes(items, assets)
         self.heading("Assets inspected")
-        for part in parts:
-            grouped = {}
-            for item in part["items"]:
-                grouped.setdefault(item.get("equipmentId") or item.get("section") or "Item", []).append(item)
-            rows = [["Asset", "Code", "Type", "Brand / model", "Serial", "Installed", "Status", "Result"]]
-            markup = {}
-            for index, checks in enumerate(grouped.values(), 1):
-                first = checks[0]
-                asset = (assets or {}).get(str(first.get("equipmentId") or ""), {})
-                failed = sum(not check.get("passed") and not check.get("notApplicable") for check in checks)
-                result = f"{failed} failed" if failed else f"{len(checks)}/{len(checks)} passed"
-                rows.append([first.get("section") or asset.get("name") or "Item", asset.get("code") or "", asset.get("type") or "",
-                             " ".join(value for value in (asset.get("brand"), asset.get("model")) if value), asset.get("serial_number") or "",
-                             asset.get("installation_date") or "", asset.get("status") or "", result])
-                markup[(index, 7)] = self.pill(result, "fail" if failed else "pass")
-            count = len(rows) - 1
-            label = self.rich(f'<b>{escape(part["location"])}</b> <font color="{hex_of(MUTED)}" size="7.5">· {count} asset{"s" if count != 1 else ""} · {part["summary"]["score"]}/100</font>', "Heading3", part["location"])
-            self.add(CondPageBreak(60), label, Spacer(1, 3))
-            self.table(rows, [100, 84, 62, 70, 70, 50, 60, 62], markup=markup, style="Caption")
-            self.add(Spacer(1, 7))
+        self.text(f"{total} asset{'s' if total != 1 else ''} inspected · {total - failing} passed every check · {failing} with a failure", "Caption")
+        if not attributes:
+            return
+        half = (WIDTH - 8) / 2
+        cells = []
+        for name, rows in attributes:
+            chart = hbar_drawing(self, [label for label, *_ in rows],
+                                 [("All passed", [passed for _, passed, _ in rows], colors.HexColor(f"#{PASS_HEX}")),
+                                  ("With failures", [failed for *_, failed in rows], colors.HexColor(f"#{FAIL_HEX}"))],
+                                 half - 14, stacked=True, legend=True)
+            cells.append([self.paragraph(name, "Heading3"), self.paragraph(f"{len(rows)} value{'s' if len(rows) != 1 else ''}", "Caption"), Spacer(1, 4), chart])
+        self.add(Spacer(1, 4), card_grid(self, cells, 2))
 
     def findings(self, findings):
         """Each finding as a card: reference and status, where and who, then what was found."""
@@ -536,8 +534,8 @@ class ReportWriter:
 
 
 def build_report(session, brand, summary, media, settings=None, parts=None, assets=None):
-    """One audit overall: details, score, charts, grading by location, every asset inspected with
-    its register details, findings, and signatures."""
+    """One audit overall: details, score, charts, grading by location, the assets inspected as
+    charts of their attributes, findings, and signatures."""
     writer = ReportWriter(brand, media, settings)
     writer.letterhead("Facilities Audit Report")
     writer.audit_details(session)
@@ -545,10 +543,10 @@ def build_report(session, brand, summary, media, settings=None, parts=None, asse
     writer.scorecard(summary, findings)
     parts = parts or []
     writer.charts(summary, parts, findings)
-    # One grading row per location, then each asset in a row; the location report has every check.
+    # One grading row per location, then the assets by attribute; the location report has every check.
     writer.location_grading(session)
     if parts:
-        writer.asset_register(parts, assets)
+        writer.asset_attributes(session.get("items", []), assets)
     writer.findings(findings)
     writer.add(CondPageBreak(130))
     writer.signatures(session)
@@ -826,6 +824,14 @@ def column_drawing(writer, points, colours, names, line=None, mark=None, width=W
     return drawing
 
 
+def nice_step(rough):
+    from math import floor, log10
+    if rough <= 1:
+        return 1
+    power = 10 ** floor(log10(rough))
+    return next(step * power for step in (1, 2, 5, 10) if step * power >= rough)
+
+
 def hbar_drawing(writer, labels, series, width, maximum=None, mark=None, stacked=False, overlap=False, legend=False, suffix="", label_format=None):
     """Horizontal bars per label: one series (each bar its own colour), several side by side,
     stacked, or overlapping (the longest behind the average)."""
@@ -847,7 +853,12 @@ def hbar_drawing(writer, labels, series, width, maximum=None, mark=None, stacked
     peak = max([1] + ([sum(values) for values in zip(*[values for _, values, _ in series])] if stacked else [value for _, values, _ in series for value in values]))
     chart.valueAxis.valueMin = 0
     chart.valueAxis.valueMax = maximum or peak
-    chart.valueAxis.valueStep = 25 if maximum == 100 else max(1, round(chart.valueAxis.valueMax / 4))
+    if maximum != 100:
+        # Round steps (1, 2, or 5 times a power of ten), and an axis that ends on one.
+        chart.valueAxis.valueStep = nice_step(chart.valueAxis.valueMax / 4)
+        chart.valueAxis.valueMax = chart.valueAxis.valueStep * -(-chart.valueAxis.valueMax // chart.valueAxis.valueStep)
+    else:
+        chart.valueAxis.valueStep = 25
     chart.valueAxis.visible = not label_format
     chart.valueAxis.labels.fontName, chart.valueAxis.labels.fontSize = writer.font, 6.5
     chart.valueAxis.labels.fillColor = MUTED

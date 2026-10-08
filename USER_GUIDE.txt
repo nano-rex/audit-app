@@ -182,8 +182,11 @@ An administrator should configure these records before staff begin auditing:
    their findings. Use search and filters to narrow the list.
 4. Use Export PDF or Export Excel on Sign-off, in History, or in an open
    inspection to download it.
-   - Export PDF asks which report: Overall (the score, grading by location,
-     findings, and signatures) or Selected locations (tick All locations or
+   - Export PDF asks which report: Overall (the score, charts, grading by
+     location, the assets inspected charted by type, brand, category,
+     installation year, status, warranty, and expiry, each split into those
+     that passed every check and those with a failure; then findings and
+     signatures) or Selected locations (tick All locations or
      the ones you want; each comes in full: every check and remark, photos,
      and findings, then the signatures). In full reports each asset has its
      own table of checks followed by its photos; an asset photographed in

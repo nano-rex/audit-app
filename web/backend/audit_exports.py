@@ -87,7 +87,7 @@ def sheet_title(name, taken):
 
 def inspection_xlsx(session):
     """The audit as an editable workbook laid out like its PDFs: Overall first (details, score,
-    charts, grading, every asset with its register details, findings, signatures), then one
+    charts, grading, the assets by attribute, findings, signatures), then one
     sheet per location in full (each asset's checks and photos, and the findings there)."""
     from datetime import datetime
     from openpyxl import Workbook
@@ -104,7 +104,7 @@ def inspection_xlsx(session):
     sheet.scorecard(summary, findings)
     sheet.charts(summary, parts, findings)
     sheet.location_grading(parts)
-    sheet.asset_register(parts, asset_records(session.get("items", [])))
+    sheet.asset_attributes(session.get("items", []), asset_records(session.get("items", [])))
     sheet.findings(findings)
     sheet.signatures(session)
     taken = {"overall"}

@@ -877,6 +877,9 @@ class ServerTests(unittest.TestCase):
         self.assertIn("Export Room", overall)
         self.assertIn("Dripping", overall)
         self.assertGreaterEqual(len(workbook["Overall"]._charts), 1)
+        # The assets as counts by attribute (with their charts), not a list of every asset.
+        self.assertTrue({"Assets inspected", "All passed", "With failures", "Category"}.issubset(overall))
+        self.assertNotIn("Brand / model", overall)
         room = cells("Export Room")
         self.assertIn("Location: Export Room", room)
         self.assertTrue({"No leaks", "Clean", "Dripping", "Fail", "Pass"}.issubset(room))
