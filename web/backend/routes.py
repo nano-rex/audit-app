@@ -14,7 +14,7 @@ from backend.routes_assets import delete_equipment, patch_equipment, patch_equip
 from backend.routes_inspections import delete_inspection_sessions, delete_schedules, patch_inspection_sessions, patch_schedules, post_inspection_sessions, post_schedules
 from backend.routes_inspections import start_audit, start_schedule
 from backend.routes_locations import delete_locations, delete_setup_outlets, delete_zones, patch_locations, patch_setup_outlets, patch_zones, post_locations, post_setup_outlets, post_zones
-from backend.routes_setup import delete_setup_audit_types, delete_setup_categories, delete_setup_departments, delete_setup_priorities, patch_setup_audit_types, patch_setup_categories, patch_setup_departments, patch_setup_priorities, post_settings, post_setup_audit_types, post_setup_categories, post_setup_departments, post_setup_priorities
+from backend.routes_setup import delete_setup_audit_types, delete_setup_departments, delete_setup_priorities, patch_setup_audit_types, patch_setup_departments, patch_setup_priorities, post_settings, post_setup_audit_types, post_setup_departments, post_setup_priorities
 from backend.routes_work_orders import delete_comments, delete_notifications, delete_work_orders, patch_notifications, patch_work_orders, patch_work_requests, post_comments, post_work_orders, post_work_requests
 
 ROUTES = {
@@ -36,7 +36,6 @@ ROUTES = {
         '/api/locations': post_locations,
         '/api/zones': post_zones,
         '/api/setup/departments': post_setup_departments,
-        '/api/setup/categories': post_setup_categories,
         '/api/setup/outlets': post_setup_outlets,
         '/api/users': post_users,
         '/api/roles': post_roles,
@@ -57,7 +56,6 @@ ROUTES = {
         '/api/setup/audit-types': patch_setup_audit_types,
         '/api/notifications': patch_notifications,
         '/api/setup/departments': patch_setup_departments,
-        '/api/setup/categories': patch_setup_categories,
         '/api/setup/outlets': patch_setup_outlets,
         '/api/equipment': patch_equipment,
         '/api/equipment/bulk': patch_equipment_bulk,
@@ -71,7 +69,6 @@ ROUTES = {
     'DELETE': {
         '/api/inspection-sessions': delete_inspection_sessions,
         '/api/setup/departments': delete_setup_departments,
-        '/api/setup/categories': delete_setup_categories,
         '/api/setup/priorities': delete_setup_priorities,
         '/api/setup/audit-types': delete_setup_audit_types,
         '/api/notifications': delete_notifications,

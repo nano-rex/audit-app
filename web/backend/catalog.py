@@ -1,7 +1,8 @@
 """Catalog for the audit application."""
 from backend.relational_values import load_value, hydrate_many
 from backend.permissions import CHANGE_RECORDS
-from backend.config import APP_TABS, SUPER_ROLE
+from backend.common import read_setting
+from backend.config import APP_TABS, SUPER_ROLE, VARIABLE_ASSET_TYPES
 from backend.database import connect
 from backend.response_cache import cached_response
 
@@ -17,9 +18,9 @@ def setup_records(include_super=False):
         zones = [dict(row) for row in db.execute(
             "SELECT id, outlet_code, name, locations_data_id, description FROM zones ORDER BY outlet_code, name"
         ).fetchall()]
-        categories = [dict(row) for row in db.execute(
-            "SELECT id, name, description, sequence, active, department FROM categories ORDER BY sequence, name"
-        ).fetchall()]
+        # Asset types replace categories: the variable asset types, and every type in use.
+        variable_types = read_setting(db, "assets.variableTypes", None) or list(VARIABLE_ASSET_TYPES)
+        used_types = [row[0] for row in db.execute("SELECT DISTINCT type FROM equipment WHERE COALESCE(type, '') != '' ORDER BY type")]
         role_query = "SELECT id, name, description, permissions_data_id, inspection_permissions_data_id, protected, action_permissions_data_id, department, reports_to_id FROM roles"
         role_query += "" if include_super else " WHERE name != ?"
         roles = [dict(row) for row in db.execute(
@@ -44,7 +45,8 @@ def setup_records(include_super=False):
         "departments": departments,
         "outlets": outlets,
         "zones": zones,
-        "categories": categories,
+        "variableTypes": variable_types,
+        "assetTypes": sorted(set(variable_types) | set(used_types), key=str.lower),
         "roles": roles,
         "priorities": priorities,
         "auditTypes": audit_types,

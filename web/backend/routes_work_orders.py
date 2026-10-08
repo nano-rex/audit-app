@@ -4,7 +4,7 @@ import time
 from backend import activity
 from backend.reminders import notify_work_order
 from backend.common import priority_due_date, sla_status, work_order_ref
-from backend.database import connect, first_category, first_department, first_outlet
+from backend.database import connect, first_department, first_outlet
 from backend.work_orders import sync_finding_from_work_order
 from backend.workflow import WorkflowError, validate_update
 from backend.work_requests import claim_for_work_order, create_work_request, decline_work_request, edit_work_request, link_work_order
@@ -22,7 +22,6 @@ def post_work_orders(self, parsed, payload=None):
         work_request = claim_for_work_order(db, user, request_id)
         default_outlet = first_outlet(db)
         default_department = first_department(db)
-        default_category = first_category(db)
         status = payload.get("status", "Assigned")
         closed_at = payload["closedAt"]
         priority = payload.get("priority", "Medium")
@@ -41,7 +40,7 @@ def post_work_orders(self, parsed, payload=None):
                 payload.get("outlet") or default_outlet,
                 payload.get("zone", "Unassigned"),
                 payload.get("requestType") or default_department,
-                payload.get("category") or default_category,
+                payload.get("category") or "",
                 priority,
                 payload.get("title", "Work order"),
                 payload.get("description", ""),
@@ -164,7 +163,7 @@ def patch_work_orders(self, parsed, payload=None):
                 payload.get("outlet") or first_outlet(db),
                 payload.get("zone", "Unassigned"),
                 payload.get("requestType") or first_department(db),
-                payload.get("category") or first_category(db),
+                payload.get("category") or "",
                 priority,
                 payload.get("title", "Work order"),
                 payload.get("description", ""),

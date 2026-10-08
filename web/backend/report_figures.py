@@ -83,11 +83,11 @@ def breakdowns(charts, scoring):
     return [
         ("Findings by department", "Who the findings were assigned to", counts("findingsByDepartment", accent), None, ""),
         ("Findings by location", "Where the findings were raised", counts("findingsByArea", accent), None, ""),
-        ("Findings by category", "What kind of item failed", counts("findingsByCategory", accent), None, ""),
+        ("Findings by asset type", "What kind of item failed", counts("findingsByCategory", accent), None, ""),
         ("Findings by priority", "Priority levels given", counts("findingsByPriority", FAIL), None, ""),
         ("Work closed by department", "Share of work orders closed", shares("departmentPerformance"), 100, "%"),
         ("Work closed by location", "Share of work orders closed", shares("locationPerformance"), 100, "%"),
-        ("Work closed by category", "Share of work orders closed", shares("categoryPerformance"), 100, "%"),
+        ("Work closed by asset type", "Share of work orders closed", shares("categoryPerformance"), 100, "%"),
         ("Location scores by month", "Average audit score of each location",
          [(row.get("label") or "", int(row.get("score") or 0), score_colour(int(row.get("score") or 0), scoring), "") for row in charts.get("roomAuditTrend") or []], 100, "/100"),
     ]
@@ -148,7 +148,6 @@ def _date_status(value):
 ASSET_ATTRIBUTES = (
     ("Asset type", lambda asset, first: asset.get("type") or "Not recorded"),
     ("Brand", lambda asset, first: asset.get("brand") or "Not recorded"),
-    ("Category", lambda asset, first: first.get("category") or asset.get("category") or "No category"),
     ("Installation year", lambda asset, first: _year(asset.get("installation_date"))),
     ("Operational status", lambda asset, first: asset.get("status") or "Not recorded"),
     ("Warranty", lambda asset, first: _date_status(asset.get("warranty_date"))),

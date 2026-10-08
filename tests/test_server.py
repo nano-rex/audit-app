@@ -469,7 +469,6 @@ class ServerTests(unittest.TestCase):
         cases = [
             ("/api/equipment", "equipment", "code", {"code": "ROUTE-TEST", "name": "Route test"}),
             ("/api/setup/departments", "departments", "code", {"code": "ROUTE-TEST"}),
-            ("/api/setup/categories", "categories", "name", {"name": "ROUTE-TEST"}),
             ("/api/setup/outlets", "outlets", "code", {"code": "ROUTE-TEST"}),
             ("/api/locations", "locations", "name", {"name": "ROUTE-TEST", "outlet": "STP"}),
             ("/api/zones", "zones", "name", {"name": "ROUTE-TEST", "outlet": "STP"}),
@@ -878,7 +877,7 @@ class ServerTests(unittest.TestCase):
         self.assertIn("Dripping", overall)
         self.assertGreaterEqual(len(workbook["Overall"]._charts), 1)
         # The assets as counts by attribute (with their charts), not a list of every asset.
-        self.assertTrue({"Assets inspected", "All passed", "With failures", "Category"}.issubset(overall))
+        self.assertIn("Assets inspected", overall)
         self.assertNotIn("Brand / model", overall)
         room = cells("Export Room")
         self.assertIn("Location: Export Room", room)

@@ -29,7 +29,7 @@ An administrator should configure these records before staff begin auditing:
    Configure role permissions and inspection capabilities as required.
    History and Findings are separate pages (each has its own permission).
    Change Permissions, on a role or on a person, set who may change assets
-   (fixed assets and fixtures & finishes), users, outlets, zones, locations,
+   (fixed assets and variable assets), users, outlets, zones, locations,
    departments, and roles. Add / edit / delete lets someone change those
    records; Approve changes lets them approve others' changes. Someone with
    Add / edit / delete but not Approve changes does not change the record
@@ -54,33 +54,34 @@ An administrator should configure these records before staff begin auditing:
    added under Account.
 2. In Outlets, add each outlet, then add its locations, floors, areas, and
    zones. Set display order where needed. When editing a location, tick the
-   assets and fixtures that belong in it (use the filter to find them);
+   assets that belong in it (use the filter to find them);
    unticking one removes it from the location.
 3. In Assets, register what will be inspected at each outlet and location:
    - On the Fixed Assets tab, Add Fixed Asset for equipment that has a code
      and serial details (speakers, screens, amplifiers).
-   - On the Fixtures & Finishes tab, Add Fixture or Finish for parts of the
-     building itself (wall paint, floor tiles, water pipes, toilets, sinks).
-     These need only a name, location, category, and condition.
-   Give each item a category and review its inspection criteria. A code is
-   generated when you leave it blank.
+   - On the Variable Assets tab, Add Variable Asset for everything without a
+     code label of its own (walls, floors, furniture, fittings, sanitary
+     ware). A variable asset has the same details as a fixed asset (asset
+     type, brand, model, serial number, dates, status) but no Code or QR
+     Code; its Asset Type is chosen from the variable asset types (AV
+     Equipment, Building, Plumbing, Safety, and so on) or typed in.
+   Give each item an asset type and review its inspection criteria. A fixed
+   asset's code is generated when you leave it blank.
    - To add the same item in many places, choose All outlets and/or All
      locations. The form says how many items it will add; each gets its own
      generated code.
    - To change many items at once, use Edit all on an item (or Bulk Edit and
-     pick the name and category). Changes apply to every ticked item; a field
+     pick the name and asset type). Changes apply to every ticked item; a field
      left blank where the items differ keeps each item's own value. Codes (also
      the QR label) and serial numbers must be unique, so set them per item in
      the table at the bottom.
-   - Filter the list by category, outlet, location, asset type, brand, status,
+   - Filter the list by outlet, location, asset type, brand, status,
      and warranty or expiry date (expired, ending within 30 or 90 days, still
      valid, or not recorded).
-4. Under Assets > Categories, set the department responsible for each category.
-   Findings in that category are assigned to it unless the auditor chooses
-   another. Audit types and priority levels are managed by the Super account
-   in Super Settings.
-5. In Settings, review audit scoring, pass mark, rating bands, and category
-   weights. Configure the company name, facilities header, and report logo if
+4. Audit types and priority levels are managed by the Super account in Super
+   Settings.
+5. In Settings, review audit scoring, pass mark, and rating bands (every check
+   counts equally). Configure the company name, facilities header, and report logo if
    these should appear on reports.
 
 3. SCHEDULE AN AUDIT
@@ -141,8 +142,8 @@ An administrator should configure these records before staff begin auditing:
    code follows its date if the date is changed), with the schedule it came from (Schedule SCH-00012, or No schedule) in
    the details line. A schedule nobody has started reads "Not started".
 3. Work through each listed location and the criteria of each item in it.
-4. Use Show and Category above the checklist to work through one kind of item
-   or one category at a time, for example only Plumbing. The location and zone
+4. Use Show and Asset Type above the checklist to work through one kind of
+   item or one asset type at a time, for example only Plumbing. The location and zone
    percentages then count the items shown; the whole checklist must still be
    finished to complete the inspection.
 5. Tick each criterion that passes, or choose Pass all on an asset to tick
@@ -156,12 +157,12 @@ An administrator should configure these records before staff begin auditing:
    The same viewer opens from the Photos button on work orders, findings, and
    the asset register.
 7. Finding details opens the Record Audit Finding dialog (it also opens when
-   you untick a criterion). Select the category, priority, department, and PIC;
+   you untick a criterion). Select the asset type, priority, department, and PIC;
    describe the problem; add the cause, recommendation, required action, and
    evidence. Choose Save Finding to Draft to keep these details with the
-   inspection; a summary appears under the criterion. The category and
-   department start from the item's category and that category's responsible
-   department; a failed criterion with only a remark uses those defaults. The
+   inspection; a summary appears under the criterion. The asset type starts
+   from the item's, and the department from the first department; a failed
+   criterion with only a remark uses those defaults. The
    findings are recorded when the inspection is completed; no work is ordered
    until a work request is raised for them (section 6).
 8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
@@ -191,7 +192,7 @@ An administrator should configure these records before staff begin auditing:
 4. Use Export PDF or Export Excel on Sign-off, in History, or in an open
    inspection to download it.
    - Export PDF asks which report: Overall (the score, charts, grading by
-     location, the assets inspected charted by type, brand, category,
+     location, the assets inspected charted by type, brand,
      installation year, status, warranty, and expiry, each split into those
      that passed every check and those with a failure; then findings and
      signatures) or Selected locations (tick All locations or
@@ -211,11 +212,11 @@ An administrator should configure these records before staff begin auditing:
 
 6. REQUEST AND ORDER WORK
 -------------------------
-1. Inspections > Findings lists each item (fixed asset or fixture) that failed
+1. Inspections > Findings lists each item (fixed or variable asset) that failed
    a check, once, with the checks it failed, their remarks, and photos. It
    shows items that are not closed; change Status to see the rest.
 2. Choose Create work request on an item. The request starts with the item's
-   department, category, priority, the failed checks as the work needed, and
+   department, asset type, priority, the failed checks as the work needed, and
    its photos; adjust them and choose Submit Request. The item then shows its
    request number (WR-...). Something that was not found in an audit can be
    requested with Add Work Request on Maintenance > Work Requests.
@@ -224,7 +225,7 @@ An administrator should configure these records before staff begin auditing:
    work order, filled in from the request: set the PIC and due date and save.
    Or choose Decline with the reason when no work is needed; its findings
    close with that reason. While a request is open, whoever raised it (or
-   whoever assigns work) can Edit it: department, category, priority, the
+   whoever assigns work) can Edit it: department, asset type, priority, the
    work needed, and photos; for a request added directly, also its outlet,
    location, and item. Once it has a work order, edit the work order.
 4. Maintenance > Work Orders lists the work orders; Edit changes any of them
@@ -262,7 +263,7 @@ An administrator should configure these records before staff begin auditing:
    showing each figure's parts and share; then audits by month with their
    average score against the pass mark, findings by month (priority and
    non-priority), each outlet's latest score coloured by grade, previous vs
-   current audits, breakdowns by department, location, and category, time to
+   current audits, breakdowns by department, location, and asset type, time to
    act, and each person's work.
    Export PDF and Export Excel follow the page: the same sections, charts,
    and colours in the same order. The Excel file's Report sheet holds each

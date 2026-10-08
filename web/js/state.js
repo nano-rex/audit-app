@@ -62,7 +62,6 @@ let equipmentCache = [];
 let equipmentPage = 1;
 let equipmentFilterKey = "";
 let departmentCache = [];
-let categoryCache = [];
 let outletCache = [];
 let zoneCache = [];
 let locationCache = [];
@@ -81,7 +80,6 @@ let inspectionHistoryCache = [];
 let inspectionHistorySearch = "";
 let photoMarkState = null;
 const departmentFilters = { search: "" };
-const categoryFilters = { search: "" };
 const outletFilters = { search: "" };
 const userFilters = { search: "", role: "", department: "" };
 const roleFilters = { search: "" };
@@ -109,7 +107,7 @@ let equipmentLocationRequest = 0;
 // What each kind of inspectable item is called, and the checks it starts with.
 const itemKinds = {
   asset: { label: "Fixed Asset", plural: "fixed assets" },
-  fixture: { label: "Fixture & Finish", plural: "fixtures and finishes" },
+  fixture: { label: "Variable Asset", plural: "variable assets" },
 };
 const defaultFixtureCriteria = [
   "Clean and free from stains or marks",
@@ -117,7 +115,7 @@ const defaultFixtureCriteria = [
   "Works as intended",
   "Safe with no hazard to users",
 ];
-// The checklist can be narrowed to one kind of item or one category, for example one department's items.
+// The checklist can be narrowed to one kind of item or one asset type.
 const inspectionFilter = { kind: "", category: "" };
 const defaultInspectionCriteria = [
   "Present and correctly placed",

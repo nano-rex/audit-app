@@ -170,8 +170,9 @@ function updateSetupSelects() {
   document.querySelectorAll('select[name="requestType"], select[name="department"]').forEach((select) => {
     updateSelectOptions(select, setupOptions.departments, false, "Select department");
   });
+  // Findings, work requests, and work orders are filed by the asset type of the item.
   document.querySelectorAll('select[name="category"]').forEach((select) => {
-    updateSelectOptions(select, setupOptions.categories, false, "Select category");
+    updateSelectOptions(select, setupOptions.assetTypes || [], true, "No asset type");
   });
   document.querySelectorAll('select[name="priority"]').forEach((select) => {
     updateSelectOptions(select, setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], false, "Select priority");
@@ -207,7 +208,7 @@ function updateEquipmentFilterSelects() {
     .filter((row) => !outlet || row.outlet === outlet)
     .map((row) => row.location || row.zone || "")
     .filter(Boolean))].sort();
-  // Choices come from the items of the tab shown: fixed assets, or fixtures and finishes.
+  // Choices come from the items of the tab shown: fixed assets, or variable assets.
   const items = equipmentCache.filter((row) => (row.kind || "asset") === equipmentFilters.kind);
   const types = [...new Set(items.map((row) => row.type || row.equipment_type || "").filter(Boolean))].sort();
   const brands = [...new Set(items.map((row) => row.brand || "").filter(Boolean))].sort();
@@ -216,8 +217,6 @@ function updateEquipmentFilterSelects() {
   updateSelectOptions(document.getElementById("equipment-filter-type"), types, true, "All types");
   updateSelectOptions(document.getElementById("equipment-filter-brand"), brands, true, "All brands");
   updateSelectOptions(document.getElementById("equipment-filter-status"), statuses, true, "All statuses");
-  updateSelectOptions(document.getElementById("equipment-filter-category"), setupOptions.categories, true, "All categories");
-  document.getElementById("equipment-filter-category").value = equipmentFilters.category;
   document.getElementById("equipment-filter-location").value = equipmentFilters.location;
   document.getElementById("equipment-filter-type").value = equipmentFilters.type;
   document.getElementById("equipment-filter-brand").value = equipmentFilters.brand;
@@ -230,7 +229,7 @@ function updateEquipmentFilterSelects() {
 function updateWorkOrderFilterSelects() {
   updateSelectOptions(document.getElementById("work-order-filter-outlet"), setupOptions.outlets, true, "All outlets");
   updateSelectOptions(document.getElementById("work-order-filter-department"), setupOptions.departments, true, "All departments");
-  updateSelectOptions(document.getElementById("work-order-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("work-order-filter-category"), setupOptions.assetTypes || [], true, "All asset types");
   updateSelectOptions(document.getElementById("work-order-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
   if (workOrderFilters.outlet) document.getElementById("work-order-filter-outlet").value = workOrderFilters.outlet;
   if (workOrderFilters.department) document.getElementById("work-order-filter-department").value = workOrderFilters.department;
@@ -247,7 +246,7 @@ function updateWorkOrderFilterSelects() {
 function updateFindingFilterSelects() {
   updateSelectOptions(document.getElementById("finding-filter-outlet"), setupOptions.outlets, true, "All outlets");
   updateSelectOptions(document.getElementById("finding-filter-department"), setupOptions.departments, true, "All departments");
-  updateSelectOptions(document.getElementById("finding-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("finding-filter-category"), setupOptions.assetTypes || [], true, "All asset types");
   updateSelectOptions(document.getElementById("finding-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
   if (findingFilters.outlet) document.getElementById("finding-filter-outlet").value = findingFilters.outlet;
   if (findingFilters.department) document.getElementById("finding-filter-department").value = findingFilters.department;
@@ -264,7 +263,7 @@ function updateFindingFilterSelects() {
 function updateHistoryFilterSelects() {
   updateSelectOptions(document.getElementById("history-filter-outlet"), setupOptions.outlets, true, "All outlets");
   updateSelectOptions(document.getElementById("history-filter-department"), setupOptions.departments, true, "All departments");
-  updateSelectOptions(document.getElementById("history-filter-category"), setupOptions.categories, true, "All categories");
+  updateSelectOptions(document.getElementById("history-filter-category"), setupOptions.assetTypes || [], true, "All asset types");
   updateSelectOptions(document.getElementById("history-filter-priority"), setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], true, "All priorities");
   const locations = [...new Set(inspectionHistoryCache.flatMap((session) =>
     (session.locations || []).filter(Boolean)

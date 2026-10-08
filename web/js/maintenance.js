@@ -52,7 +52,7 @@ function workRequestRow(row) {
     <article>
       <div>
         <b>${escapeHtml(row.request_ref || `WR-${row.id}`)} · ${escapeHtml(row.item_name || "Item")}</b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.location)} | ${escapeHtml(row.department || "No department")} | ${escapeHtml(row.category || "No category")} | ${escapeHtml(row.priority || "No priority")}</span>
+        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.location)} | ${escapeHtml(row.department || "No department")} | ${escapeHtml(row.category || "No asset type")} | ${escapeHtml(row.priority || "No priority")}</span>
         <span class="pre-line">${escapeHtml(row.description || "")}</span>
         <span>${escapeHtml(source)} | Requested by ${escapeHtml(row.requested_by || "someone")}${created ? ` on ${escapeHtml(created)}` : ""}${row.work_order_ref ? ` | ${escapeHtml(row.work_order_ref)} ${escapeHtml(row.work_order_status || "")}` : ""}${row.decline_remark ? ` | Declined: ${escapeHtml(row.decline_remark)}` : ""}</span>
       </div>
@@ -81,7 +81,7 @@ async function openWorkRequestEditor(source = null, existing = null) {
   form.elements.itemName.required = !source;
   updateSelectOptions(form.elements.outlet, setupOptions.outlets, true, "Select outlet");
   updateSelectOptions(form.elements.department, setupOptions.departments, false, "Select department");
-  updateSelectOptions(form.elements.category, setupOptions.categories, false, "Select category");
+  updateSelectOptions(form.elements.category, setupOptions.assetTypes || [], true, "No asset type");
   updateSelectOptions(form.elements.priority, setupOptions.priorities.length ? setupOptions.priorities : ["High", "Medium", "Low"], false, "Select priority");
   const sourceBox = form.querySelector("[data-work-request-source]");
   sourceBox.hidden = !source;

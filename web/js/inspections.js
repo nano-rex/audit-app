@@ -128,6 +128,11 @@ async function loadInspectionItems() {
   updateInspectionProgress();
 }
 
+// Categories were retired: an item is filed under its asset type.
+function assetTypeOf(item) {
+  return item?.type || item?.equipment_type || "";
+}
+
 // Assets with the same name in the same location become one item, keyed by the lowest asset id so
 // a saved draft finds its group again. The group's checks apply to every asset in it.
 function groupForCasualAudit(items) {
@@ -247,7 +252,7 @@ function renderInspectionLocationItems(location) {
   const page = paginateList(`inspection-location-${location}`, items, { location, ...inspectionFilter }, () => renderInspectionLocationItems(location));
   const empty = all.length
     ? `<article class="check-item"><div><span>Filtered</span><strong>Nothing in this location matches the filter.</strong></div></article>`
-    : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
+    : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed or variable assets are assigned to this location.</strong></div></article>`;
   container.innerHTML = (page.items.length ? page.items.map(inspectionItemCard).join("") : empty) + page.controls;
   applyInspectionSessionItems();
   page.items.forEach((equipment) => {
@@ -271,16 +276,16 @@ function renderInspectionLocationItems(location) {
 
 function matchesInspectionFilter(item) {
   return (!inspectionFilter.kind || (item.kind || "asset") === inspectionFilter.kind)
-    && (!inspectionFilter.category || (item.category || "") === inspectionFilter.category);
+    && (!inspectionFilter.category || assetTypeOf(item) === inspectionFilter.category);
 }
 
-// Offer the categories the outlet's items actually use, and say how much of the checklist is shown.
+// Offer the asset types the outlet's items actually use, and say how much of the checklist is shown.
 function renderInspectionFilter() {
   const select = document.querySelector("[data-inspection-filter-category]");
   if (!select) return;
-  const categories = [...new Set(inspectionItems.map((item) => item.category || "").filter(Boolean))].sort();
+  const categories = [...new Set(inspectionItems.map(assetTypeOf).filter(Boolean))].sort();
   if (inspectionFilter.category && !categories.includes(inspectionFilter.category)) inspectionFilter.category = "";
-  updateSelectOptions(select, categories, true, "All categories");
+  updateSelectOptions(select, categories, true, "All asset types");
   select.value = inspectionFilter.category;
   const kind = document.querySelector("[data-inspection-filter-kind]");
   if (kind) kind.value = inspectionFilter.kind;
@@ -305,7 +310,7 @@ function inspectionItemCard(item) {
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
-        <span>${escapeHtml(item.kind === "fixture" ? "Fixture & finish" : item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.category || "No category")} | ${escapeHtml(item.groupCount > 1 ? `${item.groupCount} assets` : item.code || item.asset_id || "")}</span>
+        <span>${escapeHtml(item.kind === "fixture" ? "Variable asset" : "Fixed asset")} | ${escapeHtml(assetTypeOf(item) || "No asset type")} | ${escapeHtml(item.groupCount > 1 ? `${item.groupCount} assets` : item.code || item.asset_id || "")}</span>
         <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}${item.groupCount > 1 ? ` <span class="group-count">×${item.groupCount}</span>` : ""}</strong>
         ${item.groupCount > 1 ? `<small class="muted">${item.groupCount} assets with this name here are graded together</small>` : ""}
       </div>
@@ -320,7 +325,7 @@ function inspectionItemCard(item) {
             type: item.type || item.equipment_type || "Fixed Asset",
             outlet: item.outlet,
             location: item.location || item.zone || "",
-            category: item.category || "",
+            category: assetTypeOf(item),
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
           <button class="outline" type="button" data-record-finding>Finding details</button>
@@ -336,7 +341,7 @@ function renderFindingSummary(criterionRow) {
   const summary = criterionRow?.querySelector("[data-finding-summary]");
   if (!summary) return;
   const details = parseStoredObject(criterionRow.dataset.findingDetails);
-  // Every item carries its category; a priority means finding details were recorded for this criterion.
+  // Every item carries its asset type; a priority means finding details were recorded for this criterion.
   const parts = details.priority ? [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean) : [];
   summary.textContent = parts.length ? `Finding: ${parts.join(" · ")}` : "";
   summary.hidden = !parts.length;
@@ -593,8 +598,8 @@ function collectInspectionPayload(complete = false) {
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
-        // A finding may be given its own category; otherwise the item's category applies (it also drives weighted scoring).
-        category: details.category || equipment?.category || "",
+        // A finding is filed under the item's asset type unless another one was chosen for it.
+        category: details.category || assetTypeOf(equipment || {}),
         passed,
         notApplicable: false,
         score: passed ? 100 : 0,
@@ -611,17 +616,17 @@ function collectInspectionPayload(complete = false) {
     const drafted = parseInspectionCriteria(equipment.inspection_criteria).map((criterion) => inspectionPageDrafts.get(`${equipment.id}:${criterion}`)).filter(Boolean);
     const saved = drafted.length ? drafted : inspectionSessionItems.filter((item) => String(item.equipmentId) === String(equipment.id));
     if (saved.length) {
-      // Checks kept from a location page left earlier carry the asset's name, location, and category.
+      // Checks kept from a location page left earlier carry the asset's name, location, and asset type.
       items.push(...saved.map((entry) => ({
         ...(equipment.groupCount > 1 ? { groupIds: equipment.groupIds, groupCount: equipment.groupCount } : {}),
         location: equipment.location || equipment.zone || "",
         section: equipment.name || equipment.asset_id || "Fixed Asset",
-        category: equipment.category || "",
+        category: assetTypeOf(equipment),
         notApplicable: false,
         score: entry.passed ? 100 : 0,
         evidenceStatus: (entry.images || []).length ? entry.images.map(imageLabel).join(", ") : "Missing image",
         ...entry,
-        category: entry.category || equipment.category || "",
+        category: entry.category || assetTypeOf(equipment),
       })));
       return;
     }
@@ -631,7 +636,7 @@ function collectInspectionPayload(complete = false) {
       location: equipment.location || equipment.zone || "",
       section: equipment.name || equipment.asset_id || "Fixed Asset",
       item: criterion,
-      category: equipment.category || "",
+      category: assetTypeOf(equipment),
       passed: false,
       notApplicable: false,
       score: 0,
@@ -742,7 +747,7 @@ function openInspectionLocation(location) {
   if (section && !section.dataset.loaded) {
     const items = inspectionLocationEquipment.get(location) || [];
     const container = section.querySelector("[data-location-items]");
-    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed assets, fixtures, or finishes are assigned to this location.</strong></div></article>`;
+    container.innerHTML = items.length ? "" : `<article class="check-item"><div><span>Nothing to inspect</span><strong>No fixed or variable assets are assigned to this location.</strong></div></article>`;
     section.dataset.loaded = "true";
     if (items.length) renderInspectionLocationItems(location);
   }

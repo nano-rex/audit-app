@@ -12,7 +12,7 @@ from backend.database import connect, first_department
 from backend.control import adopt_organization_supers, ensure_super_account
 from backend.activity import backfill as backfill_activity
 from backend.change_requests import grant_existing_access
-from backend.seed_data import outlets_on_people, split_history_from_findings, seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_categories, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
+from backend.seed_data import outlets_on_people, split_history_from_findings, seed_operation_roles, normalize_loudspeaker_outlets, seed_audit_types, seed_equipment, seed_locations, seed_priority_levels, retire_corrective_actions_page, seed_roles, seed_schedules, seed_settings, seed_setup_records, seed_users, seed_zones
 
 
 def ensure_column(db, table, column, definition):
@@ -556,7 +556,6 @@ def init_db():
             seed_equipment(db)
         normalize_loudspeaker_outlets(db)
         seed_setup_records(db)
-        seed_categories(db)
         seed_locations(db)
         seed_zones(db)
         seed_roles(db)
@@ -568,6 +567,8 @@ def init_db():
         repair_item_details(db)
         from backend.audit_metadata import convert_audit_codes
         convert_audit_codes(db)
+        from backend.seed_data import adopt_variable_assets
+        adopt_variable_assets(db)
         grant_existing_access(db)
         # Earlier audits, requests, and work orders, as far as their records tell who and when.
         backfill_activity(db)

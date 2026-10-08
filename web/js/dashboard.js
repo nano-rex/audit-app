@@ -274,19 +274,15 @@ function renderNotifications() {
     : `<article><div><b>No notifications found</b><span>Assigned, due soon, overdue, and completed notices appear here.</span></div></article>`);
 }
 
-// Fixed assets and fixtures & finishes are separate tabs over one register.
+// Fixed assets and variable assets are separate tabs over one register.
 function setEquipmentKind(kind) {
   equipmentFilters.kind = kind;
-  setText("[data-equipment-title]", kind === "fixture" ? "Fixtures & Finishes" : "Fixed Assets");
+  setText("[data-equipment-title]", kind === "fixture" ? "Variable Assets" : "Fixed Assets");
   const search = document.getElementById("equipment-search");
-  if (search) search.placeholder = kind === "fixture" ? "Search fixtures and finishes" : "Search fixed assets";
+  if (search) search.placeholder = kind === "fixture" ? "Search variable assets" : "Search fixed assets";
   document.querySelectorAll("#equipment [data-show-kind]").forEach((node) => { node.hidden = node.dataset.showKind !== kind; });
-  setText("[data-status-filter-label]", kind === "fixture" ? "Condition" : "Operational Status");
-  // Type, brand, warranty, and expiry describe fixed assets only; the statuses differ by tab.
-  equipmentFilters.status = "";
-  if (kind === "fixture") {
-    equipmentFilters.type = equipmentFilters.brand = equipmentFilters.warranty = equipmentFilters.expiry = "";
-  }
+  // Both kinds have the same details; the choices in each filter follow the tab shown.
+  equipmentFilters.status = equipmentFilters.type = equipmentFilters.brand = "";
   if (typeof updateEquipmentFilterSelects === "function" && document.getElementById("equipment-filter-status")) updateEquipmentFilterSelects();
   if (equipmentCache.length) renderEquipment();
 }
@@ -354,7 +350,6 @@ function renderEquipment() {
     ].join(" ").toLowerCase();
     return (!search || haystack.includes(search))
       && (!equipmentFilters.kind || (row.kind || "asset") === equipmentFilters.kind)
-      && (!equipmentFilters.category || (row.category || "") === equipmentFilters.category)
       && (!equipmentFilters.outlet || row.outlet === equipmentFilters.outlet)
       && (!equipmentFilters.location || location === equipmentFilters.location)
       && (!equipmentFilters.type || type === equipmentFilters.type)
@@ -373,7 +368,7 @@ function renderEquipment() {
         <span>Page ${equipmentPage} of ${pages} · ${rows.length} items</span>
         <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === pages ? "disabled" : ""}>Next</button>
       </nav>`
-    : `<article><div><b>Nothing found</b><span>Adjust search or filters, or add a fixed asset or a fixture.</span></div></article>`);
+    : `<article><div><b>Nothing found</b><span>Adjust search or filters, or add a fixed asset or a variable asset.</span></div></article>`);
 }
 
 window.addEventListener("pagination-size-changed", () => {
@@ -472,7 +467,7 @@ function renderMainDashboard(data) {
     ["priorityVsNonPriority", "Priority vs Non-Priority"],
     ["findingsByDepartment", "Issues by Department"],
     ["findingsByArea", "Issues by Area"],
-    ["findingsByCategory", "Issues by Description Category"],
+    ["findingsByCategory", "Issues by Asset Type"],
     ["monthlyAuditTrend", "Monthly Completed Audit Trend"],
   ];
   setHtml("[data-dashboard-charts]", definitions.map(([key, label, score]) => auditChart(label, charts[key] || [], score)).join(""));
