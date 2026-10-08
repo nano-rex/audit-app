@@ -29,7 +29,7 @@ def setup_records(include_super=False):
             "SELECT id, name, classification, due_days, active FROM priority_levels ORDER BY due_days, name"
         ).fetchall()]
         audit_types = [dict(row) for row in db.execute(
-            "SELECT id, name, description, active FROM audit_types ORDER BY name"
+            "SELECT id, name, description, active, style FROM audit_types ORDER BY name"
         ).fetchall()]
         settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings ORDER BY key").fetchall()}
     for zone in zones:

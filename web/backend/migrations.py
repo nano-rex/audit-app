@@ -440,6 +440,7 @@ def init_db():
         ensure_column(db, "findings", "required_action", "TEXT")
         ensure_column(db, "schedules", "zone", "TEXT")
         ensure_column(db, "schedules", "priority", "TEXT")
+        ensure_column(db, "schedules", "audit_type", "TEXT")
         ensure_column(db, "schedules", "due_date", "TEXT")
         ensure_column(db, "equipment", "kind", "TEXT NOT NULL DEFAULT 'asset'")
         ensure_column(db, "equipment", "category", "TEXT")
@@ -576,6 +577,9 @@ def init_db():
                        f"NULLIF(completion_date, ''), date('now')) WHERE status IN ('Completed', 'Verified')")
         seed_priority_levels(db)
         seed_audit_types(db)
+        ensure_column(db, "audit_types", "style", "TEXT NOT NULL DEFAULT 'Detailed'")
+        from backend.seed_data import seed_audit_styles
+        seed_audit_styles(db)
         seed_settings(db)
         seed_users(db)
         # Super accounts belong to the control database, never to an organization.

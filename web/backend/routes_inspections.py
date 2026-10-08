@@ -9,7 +9,7 @@ from backend.audit_metadata import allocate_reference, validate_metadata
 from backend.common import inspection_name, inspection_progress, normalize_audit_date
 from backend.database import connect, first_outlet, insert_record
 from backend.inspections import complete_item_details, finalize_inspection, visit_locations_of, visit_scope_of
-from backend.location_integrity import visit_scope, visit_terms
+from backend.location_integrity import visit_audit_type, visit_scope, visit_terms
 from backend.schedule_assignment import assignees_of, save_assignment, validate_assignees
 
 
@@ -103,12 +103,13 @@ def post_schedules(self, parsed, payload=None):
         outlet = payload.get("outlet") or first_outlet(db)
         locations, scope, label = visit_scope(db, outlet, payload)
         priority, due_date = visit_terms(db, payload)
+        audit_type = visit_audit_type(db, payload)
         # A new visit always starts as Pending; starting and completing the audit move it on.
         cursor = db.execute(
             """
             INSERT INTO schedules
-            (business_unit, outlet, zone, locations_data_id, scope_data_id, priority, due_date, scheduled_date, auditor, remarks, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
+            (business_unit, outlet, zone, locations_data_id, scope_data_id, priority, due_date, audit_type, scheduled_date, auditor, remarks, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?)
             """,
             (
                 payload.get("businessUnit", "Ottotree"),
@@ -118,6 +119,7 @@ def post_schedules(self, parsed, payload=None):
                 save_value(db, scope),
                 priority,
                 due_date,
+                audit_type,
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor", "Unassigned"),
                 payload.get("remarks", ""),
@@ -157,7 +159,8 @@ def start_schedule(self, parsed, payload=None):
                 "items_data_id": save_value(db, []), "signatures_data_id": save_value(db, {}), "progress": 0, "status": "Draft",
                 "created_at": now, "updated_at": now, "owner_user_id": user["id"], "schedule_id": schedule_id,
                 "audit_ref": allocate_reference(db, schedule["scheduled_date"], schedule["outlet"]), "audit_time": datetime.now().strftime("%H:%M"),
-                "audit_type": (db.execute("SELECT name FROM audit_types WHERE active = 1 ORDER BY id LIMIT 1").fetchone() or [""])[0],
+                # The visit's audit type, which also sets how it is graded (Detailed or Casual).
+                "audit_type": schedule["audit_type"] or (db.execute("SELECT name FROM audit_types WHERE active = 1 ORDER BY name = 'Detailed' DESC, id LIMIT 1").fetchone() or [""])[0],
                 "remarks": schedule["remarks"] or "",
             })
             db.execute("UPDATE inspection_sessions SET inspection_name = audit_ref WHERE id = ?", (session_id,))
@@ -315,10 +318,11 @@ def patch_schedules(self, parsed, payload=None):
         outlet = payload.get("outlet") or first_outlet(db)
         locations, scope, label = visit_scope(db, outlet, payload)
         priority, due_date = visit_terms(db, payload)
+        audit_type = visit_audit_type(db, payload)
         db.execute(
             """
             UPDATE schedules
-            SET outlet = ?, zone = ?, locations_data_id = ?, scope_data_id = ?, priority = ?, due_date = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
+            SET outlet = ?, zone = ?, locations_data_id = ?, scope_data_id = ?, priority = ?, due_date = ?, audit_type = ?, scheduled_date = ?, auditor = ?, remarks = ?, status = ?
             WHERE id = ?
             """,
             (
@@ -328,6 +332,7 @@ def patch_schedules(self, parsed, payload=None):
                 save_value(db, scope),
                 priority,
                 due_date,
+                audit_type,
                 payload.get("scheduledDate", "Today"),
                 payload.get("auditor") or existing["auditor"] or "Unassigned",
                 payload.get("remarks", ""),

@@ -120,7 +120,9 @@ def finalize_inspection(db, session_id, payload, now):
             "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
             "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
             "source_item_id": item_id, "equipment_id": int(item["equipmentId"]) if str(item.get("equipmentId") or "").isdigit() else None,
-            "item_name": item.get("section") or "", "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
+            # A casual audit's group is one finding for all the assets in it.
+            "item_name": (f"{item.get('section') or ''} ×{item['groupCount']}" if int(item.get("groupCount") or 1) > 1 else item.get("section") or ""),
+            "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
         })
         finding_reference = finding_ref(finding_id, audit_date)
         db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (finding_reference, finding_id))
@@ -196,6 +198,9 @@ def inspection_session(session_id):
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
     data["visit_locations"] = visit_locations_of(data.pop("locations_data_id", None))
     data["visit_scope"] = visit_scope_of(data.pop("scope_data_id", None))
+    with connect() as db:
+        style = db.execute("SELECT style FROM audit_types WHERE name = ?", (data.get("audit_type") or "",)).fetchone()
+    data["audit_style"] = style[0] if style and style[0] else "Detailed"
     data["inspection_name"] = normalized_inspection_name(data)
     data["audit_ref"] = audit["audit_ref"] if audit else (data.get("audit_ref") or "")
     data["scoring"] = load_value(audit["scoring_data_id"]) if audit and audit["scoring_data_id"] else None

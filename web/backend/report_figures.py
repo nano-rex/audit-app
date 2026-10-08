@@ -167,13 +167,15 @@ def asset_attributes(items, assets, limit=12):
     inspected = []
     for key, checks in grouped.items():
         failed = any(not check.get("passed") and not check.get("notApplicable") for check in checks)
-        inspected.append(((assets or {}).get(key, {}), checks[0], failed))
+        # A casual audit's group stands for every asset in it.
+        weight = max(1, int(checks[0].get("groupCount") or 1))
+        inspected.append(((assets or {}).get(key, {}), checks[0], failed, weight))
     result = []
     for name, value_of in ASSET_ATTRIBUTES:
         counts = {}
-        for asset, first, failed in inspected:
+        for asset, first, failed, weight in inspected:
             entry = counts.setdefault(value_of(asset, first), [0, 0])
-            entry[1 if failed else 0] += 1
+            entry[1 if failed else 0] += weight
         if set(counts) <= {"Not recorded"}:
             continue
         rows = [(value, passed, failed) for value, (passed, failed) in counts.items()]
@@ -182,4 +184,4 @@ def asset_attributes(items, assets, limit=12):
             rest = rows[limit - 1:]
             rows = rows[:limit - 1] + [("Other", sum(row[1] for row in rest), sum(row[2] for row in rest))]
         result.append((name, rows))
-    return len(inspected), sum(failed for *_, failed in inspected), result
+    return sum(weight for *_, weight in inspected), sum(weight for *_, failed, weight in inspected if failed), result

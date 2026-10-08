@@ -500,3 +500,17 @@ function escapeHtml(value) {
 function escapeAttr(value) {
   return escapeHtml(value).replace(/`/g, "&#096;");
 }
+
+// How the chosen audit type grades, under the Audit Type list of a visit.
+function auditStyleOf(name) {
+  return (typeof auditTypeCache !== "undefined" ? auditTypeCache : []).find((row) => row.name === name)?.style || "Detailed";
+}
+
+function updateAuditTypeHint() {
+  const form = document.getElementById("schedule-form");
+  if (!form) return;
+  const style = auditStyleOf(form.elements.visitAuditType.value);
+  setText("[data-audit-type-hint]", style === "Casual"
+    ? "Casual: assets with the same name in a location are checked once, and the grade applies to all of them."
+    : "Detailed: every asset is checked and graded on its own.");
+}

@@ -2324,3 +2324,19 @@ people view: a card per person {
   color: var(--red);
   font-weight: 700;
 }
+
+/* A casual audit's group of same-named assets. */
+.inspection-item strong .group-count {
+  display: inline-block;
+  width: auto;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.group-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 13px;
+}
