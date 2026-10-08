@@ -561,6 +561,10 @@ def init_db():
         seed_operation_roles(db)
         outlets_on_people(db)
         split_history_from_findings(db)
+        from backend.inspections import repair_item_details
+        repair_item_details(db)
+        from backend.audit_metadata import convert_audit_codes
+        convert_audit_codes(db)
         grant_existing_access(db)
         # Earlier audits, requests, and work orders, as far as their records tell who and when.
         backfill_activity(db)

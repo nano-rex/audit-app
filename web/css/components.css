@@ -834,11 +834,6 @@ fieldset {
   text-align: right;
 }
 
-[data-current-audit-reference] {
-  display: block;
-  margin: 2px 0 10px;
-}
-
 .inspection-item > label {
   margin-top: 8px;
 }

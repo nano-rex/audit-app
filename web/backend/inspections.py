@@ -8,6 +8,63 @@ from backend.workflow import WorkflowError
 from backend.database import connect, first_category, first_department, first_outlet, insert_record
 
 
+def asset_details(db, ids):
+    """Name, location, and category of these assets, by id."""
+    ids, found = sorted(set(ids)), {}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        for row in db.execute(f"SELECT id, name, asset_id, location, zone, category FROM equipment WHERE id IN ({','.join('?' for _ in chunk)})", chunk):
+            found[row["id"]] = row
+    return found
+
+
+def complete_item_details(db, items):
+    """Every check carries its asset's name, location, and category. A page could save checks
+    without them (those ticked on a location page left before saving), which printed as "Item" in
+    "All Locations"; they are filled in from the asset."""
+    def asset_id(item):
+        value = str(item.get("equipmentId") or "")
+        return int(value) if value.isdigit() else None
+    missing = [asset_id(item) for item in items if asset_id(item) and not (item.get("section") and item.get("location"))]
+    if not missing:
+        return items, False
+    assets = asset_details(db, missing)
+    completed = []
+    for item in items:
+        asset = assets.get(asset_id(item)) if not (item.get("section") and item.get("location")) else None
+        if asset:
+            item = dict(item)
+            item["section"] = item.get("section") or asset["name"] or asset["asset_id"] or "Fixed Asset"
+            item["location"] = item.get("location") or asset["location"] or asset["zone"] or ""
+            item["category"] = item.get("category") or asset["category"] or ""
+            item.setdefault("notApplicable", False)
+            item.setdefault("score", 100 if item.get("passed") else 0)
+        completed.append(item)
+    return completed, True
+
+
+def repair_item_details(db):
+    """Once: fill the asset name and location of checks (and their findings) saved without them."""
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.itemDetailsRepaired'").fetchone():
+        return
+    for row in db.execute("SELECT id, items_data_id FROM inspection_sessions").fetchall():
+        items, changed = complete_item_details(db, load_value(row["items_data_id"] or "[]") or [])
+        if changed:
+            db.execute("UPDATE inspection_sessions SET items_data_id = ? WHERE id = ?", (save_value(db, items), row["id"]))
+    findings = db.execute("SELECT id, equipment_id, item_name, location FROM findings WHERE equipment_id IS NOT NULL "
+                          "AND (COALESCE(item_name, '') = '' OR COALESCE(location, '') IN ('', 'All Locations'))").fetchall()
+    assets = asset_details(db, [row["equipment_id"] for row in findings])
+    for row in findings:
+        asset = assets.get(row["equipment_id"])
+        if asset:
+            location = row["location"]
+            if (location or "") in ("", "All Locations"):
+                location = asset["location"] or asset["zone"] or location
+            db.execute("UPDATE findings SET item_name = ?, location = ? WHERE id = ?",
+                       (row["item_name"] or asset["name"] or asset["asset_id"] or "", location, row["id"]))
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.itemDetailsRepaired', ?)", (save_value(db, True),))
+
+
 def require_photo_evidence(items, settings):
     """A failed check always needs a photo; a passed one only when every inspected asset must have one."""
     every_asset = settings.get("system.requirePhotoEveryAsset") is not False
@@ -34,7 +91,7 @@ def finalize_inspection(db, session_id, payload, now):
         "auditor": payload.get("auditor", "Unnamed Auditor"), "audit_type": payload.get("auditType") or "Standard",
         "remarks": payload.get("remarks", ""), "score": summary["score"], "scoring_data_id": save_value(db, summary), "created_at": now,
     })
-    reference = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0] or allocate_reference(db, audit_date)
+    reference = db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session_id,)).fetchone()[0] or allocate_reference(db, audit_date, outlet)
     db.execute("UPDATE audits SET audit_ref = ? WHERE id = ?", (reference, audit_id))
     for item in items:
         item_id = insert_record(db, "inspection_items", {
@@ -129,7 +186,8 @@ def inspection_session(session_id):
     if not row:
         return None
     data = dict(row)
-    data["items"] = load_value(data.pop("items_data_id") or "[]")
+    with connect() as db:
+        data["items"], _ = complete_item_details(db, load_value(data.pop("items_data_id") or "[]") or [])
     data["signatures"] = load_value(data.pop("signatures_data_id") or "{}")
     data["visit_locations"] = visit_locations_of(data.pop("locations_data_id", None))
     data["inspection_name"] = normalized_inspection_name(data)

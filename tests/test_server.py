@@ -449,7 +449,7 @@ class ServerTests(unittest.TestCase):
         created = [json.loads(response[2]) for response in responses]
         self.assertEqual(len({item["auditRef"] for item in created}), 5)
         for item in created:
-            self.assertRegex(item["auditRef"], r"^AUD-2026-\d{4,}$")
+            self.assertRegex(item["auditRef"], r"^AUDIT-STP-20260918-\d{6}$")
         record = created[0]
         path = f"/api/inspection-sessions/{record['id']}"
         saved = json.loads(self.request(path)[2])
@@ -760,7 +760,9 @@ class ServerTests(unittest.TestCase):
         session = json.loads(body)
         self.assertEqual(session["schedule_id"], schedule["id"])
         self.assertNotEqual(session["auditor"], "Assigned auditor")
-        self.assertTrue(session["inspection_name"].endswith(f"_{session_id}"))
+        # An audit is named by its code: AUDIT-<outlet>-<date>-<number>.
+        self.assertRegex(session["audit_ref"], r"^AUDIT-.+-\d{8}-\d{6}$")
+        self.assertEqual(session["inspection_name"], session["audit_ref"])
         self.assertEqual(self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [{"passed": True, "images": [self.evidence()]}], "complete": True})[0], 200)
         _, _, body = self.request("/api/schedules")
         saved = next(row for row in json.loads(body)["items"] if row["id"] == schedule["id"])
@@ -863,17 +865,20 @@ class ServerTests(unittest.TestCase):
         status, headers, body = self.request(f"/api/inspection-sessions/{session_id}/export.xlsx")
         self.assertEqual(status, 200)
         workbook = load_workbook(BytesIO(body))
-        # The whole audit first, then each location in full.
+        # The whole audit first, then each location in full, laid out like the PDF.
         self.assertEqual(workbook.sheetnames, ["Overall", "Export Room", "Elsewhere"])
-        overall = [row for row in workbook["Overall"].iter_rows(values_only=True)]
-        self.assertIn(("Export Room", 2, 1, 1, 0), [row[:5] for row in overall])
-        self.assertIn("Dripping", [row[9] for row in overall if len(row) > 9])
-        room = [row for row in workbook["Export Room"].iter_rows(values_only=True)]
-        self.assertIn(("Location", "Export Room"), [row[:2] for row in room])
-        self.assertEqual(sorted(row[1] for row in room if row[0] == "Export sink"), ["Clean", "No leaks"])
-        self.assertIn("Dripping", [row[9] for row in room if len(row) > 9])
-        self.assertNotIn("Other lamp", [row[0] for row in room])
-        self.assertEqual([row[0] for row in workbook["Elsewhere"].iter_rows(values_only=True)][-1], "No findings")
+        cells = lambda name: [value for row in workbook[name].iter_rows(values_only=True) for value in row if value is not None]
+        overall = cells("Overall")
+        self.assertIn("Facilities Audit Report", overall)
+        self.assertIn("Export Room", overall)
+        self.assertIn("Dripping", overall)
+        self.assertGreaterEqual(len(workbook["Overall"]._charts), 1)
+        room = cells("Export Room")
+        self.assertIn("Location: Export Room", room)
+        self.assertTrue({"No leaks", "Clean", "Dripping", "Fail", "Pass"}.issubset(room))
+        self.assertNotIn("Other lamp", room)
+        self.assertGreaterEqual(len(workbook["Export Room"]._images), 1)
+        self.assertIn("No findings.", cells("Elsewhere"))
         # The PDF: overall, or chosen locations in full.
         status, headers, body = self.request(f"/api/inspection-sessions/{session_id}/export.pdf?location=Export%20Room")
         self.assertEqual(status, 200, body[:200])
@@ -891,9 +896,12 @@ class ServerTests(unittest.TestCase):
         status, _, body = self.request("/api/location-report.xlsx?outlet=MST&location=Export%20Room&from=2026-10-01&to=2026-10-31")
         self.assertEqual(status, 200)
         workbook = load_workbook(BytesIO(body))
-        checks = [row[3] for row in workbook["Checklist"].iter_rows(min_row=2, values_only=True)]
-        self.assertEqual(sorted(checks), ["Clean", "No leaks"])
-        self.assertEqual(workbook["Report"]["B5"].value, len(list(workbook["Audits"].iter_rows(min_row=2))))
+        self.assertEqual(workbook.sheetnames[0], "Overview")
+        audit_sheets = workbook.sheetnames[1:]
+        self.assertTrue(audit_sheets)
+        checks = [value for name in audit_sheets for row in workbook[name].iter_rows(values_only=True) for value in row if value is not None]
+        self.assertTrue({"No leaks", "Clean"}.issubset(checks))
+        self.assertNotIn("Works", checks)
         status, headers, body = self.request("/api/location-report.pdf?outlet=MST&location=Export%20Room")
         self.assertEqual(status, 200)
         text = "\n".join(page.extract_text() for page in PdfReader(BytesIO(body)).pages)
@@ -1176,6 +1184,42 @@ class ServerTests(unittest.TestCase):
         # Once a work order is made, the request is settled.
         self.assertEqual(self.request(path, "PATCH", {"action": "decline", "remark": "Fixed already"})[0], 200)
         self.assertEqual(self.request(path, "PATCH", {"action": "edit", "description": "Later"})[0], 409)
+
+    def test_z_checks_keep_their_asset_name(self):
+        status, _, body = self.request("/api/equipment", "POST", {"name": "Named Chiller", "outlet": "MST", "location": "Plant Room", "code": "NAME-CHILLER"})
+        self.assertEqual(status, 200, body)
+        asset = json.loads(body)["id"]
+        # Checks sent without the asset's name or location (as a page left earlier sent them).
+        items = [{"equipmentId": str(asset), "item": "Cold", "passed": False, "notes": "Warm", "priority": "High", "images": [{"name": "x.png"}]},
+                 {"equipmentId": str(asset), "item": "Quiet", "passed": True, "images": [{"name": "y.png"}]}]
+        status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "MST", "auditDate": "2026-10-08", "items": items, "complete": True})
+        self.assertEqual(status, 200, body)
+        session = json.loads(self.request(f"/api/inspection-sessions/{json.loads(body)['id']}")[2])
+        self.assertEqual({(item["section"], item["location"]) for item in session["items"]}, {("Named Chiller", "Plant Room")})
+        with app.connect() as db:
+            finding = db.execute("SELECT item_name, location FROM findings WHERE equipment_id = ?", (asset,)).fetchone()
+        self.assertEqual(tuple(finding), ("Named Chiller", "Plant Room"))
+
+    def test_z_old_audit_codes_are_converted(self):
+        from backend.audit_metadata import convert_audit_codes
+        with app.connect() as db:
+            db.execute("DELETE FROM app_settings WHERE key = 'system.auditCodesV2'")
+            session = db.execute("INSERT INTO inspection_sessions(business_unit, outlet, zone, audit_date, auditor, items_data_id, progress, status, "
+                                 "created_at, updated_at, audit_ref, inspection_name) VALUES ('Ottotree', 'STP', 'All Locations', '2026-10-06', 'A', ?, 0, "
+                                 "'Draft', 0, 0, 'AUD-2026-0942', 'STP_2026-10-06_13')", (app_save_value(db, []),)).lastrowid
+            request = db.execute("INSERT INTO work_requests(business_unit, outlet, location, item_name, category, priority, department, audit_ref, "
+                                 "description, status, created_at, updated_at) VALUES ('Ottotree', 'STP', 'Room', 'Sink', 'Safety', 'High', 'AVC', "
+                                 "'AUD-2026-0942', 'x', 'Open', 0, 0)").lastrowid
+            convert_audit_codes(db)
+            row = db.execute("SELECT audit_ref, inspection_name FROM inspection_sessions WHERE id = ?", (session,)).fetchone()
+            linked = db.execute("SELECT audit_ref FROM work_requests WHERE id = ?", (request,)).fetchone()
+        self.assertEqual(tuple(row), ("AUDIT-STP-20261006-000942", "AUDIT-STP-20261006-000942"))
+        self.assertEqual(linked[0], "AUDIT-STP-20261006-000942")
+        # A draft's code follows its date.
+        status, _, body = self.request(f"/api/inspection-sessions/{session}", "PATCH", {"auditDate": "2026-10-09", "items": []})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            self.assertEqual(db.execute("SELECT audit_ref FROM inspection_sessions WHERE id = ?", (session,)).fetchone()[0], "AUDIT-STP-20261009-000942")
 
 if __name__ == "__main__":
     unittest.main()
