@@ -239,3 +239,16 @@ function renderReportPage(data) {
   renderTimeToActChart(data.timeToAct || []);
   renderPeopleChart(data.people || []);
 }
+
+// Reports has two sections: the report itself, and the activity log.
+function showReportSubtab(name) {
+  document.querySelectorAll("[data-report-subtab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.reportSubtab === name);
+    button.setAttribute("aria-pressed", String(button.dataset.reportSubtab === name));
+  });
+  document.querySelectorAll("[data-report-panel]").forEach((panel) => { panel.hidden = panel.dataset.reportPanel !== name; });
+}
+
+document.querySelectorAll("[data-report-subtab]").forEach((button) => {
+  button.addEventListener("click", () => showReportSubtab(button.dataset.reportSubtab));
+});

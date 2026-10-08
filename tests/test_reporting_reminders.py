@@ -47,10 +47,13 @@ class ReportingReminderTests(unittest.TestCase):
         self.assertNotIn("F-Mini Studio-B", joined)
         self.assertNotIn("F-Loudspeaker-A", joined)
         workbook = load_workbook(BytesIO(report_xls("Mini Studio", filters)))
-        self.assertEqual(workbook.sheetnames, ["Summary", "Findings", "People", "Time to act", "Activity"])
-        self.assertEqual(workbook["Findings"].max_row, 2)
-        self.assertEqual(workbook["Findings"]["M2"].value, "=1+1")
-        self.assertEqual(workbook["Findings"]["M2"].data_type, "s")
+        # Laid out like the page: the report with its charts, then People, Findings, and Activity.
+        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings", "Activity"])
+        self.assertGreater(len(workbook["Report"]._charts), 0)
+        cells = [cell for row in workbook["Findings"].iter_rows() for cell in row if cell.value is not None]
+        self.assertEqual([cell.value for cell in cells if str(cell.value).startswith("F-")], ["F-Mini Studio-A-2026-01-02"])
+        formula = next(cell for cell in cells if cell.value == "=1+1")
+        self.assertEqual(formula.data_type, "s")
         for invalid in ({"from": "wrong"}, {"from": "2026-02-01", "to": "2026-01-01"}):
             with self.assertRaises(ValueError):
                 report("Mini Studio", invalid)

@@ -548,7 +548,7 @@ class ServerTests(unittest.TestCase):
         from io import BytesIO
         from openpyxl import load_workbook
         workbook = load_workbook(BytesIO(self.request("/api/reports/export.xlsx")[2]))
-        self.assertTrue({"People", "Time to act", "Activity"}.issubset(workbook.sheetnames))
+        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings", "Activity"])
 
     def test_z_declined_request_closes_its_findings(self):
         with app.connect() as db:
