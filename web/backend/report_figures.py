@@ -116,3 +116,70 @@ def people_table(data):
              row["request_raised"], row["order_created"] + row["request_declined"], duration_text(row["requestSeconds"]), row["order_created"],
              row["order_closed"], duration_text(row["orderSeconds"])] for row in data.get("people") or []]
     return header, rows
+
+
+# ---- An audit's assets by their register attributes ----
+
+def _year(value):
+    import re
+    match = re.search(r"(19|20)\d{2}", str(value or ""))
+    return match[0] if match else "Not recorded"
+
+
+def _date_status(value):
+    """Expired, Valid, or Not recorded, for a date typed as 2026-10-09, 09.10.2026, or 9/10/2026."""
+    import re
+    from datetime import date
+    text = str(value or "").strip()
+    match = re.fullmatch(r"(\d{4})[-./](\d{1,2})[-./](\d{1,2})", text)
+    parts = (match[1], match[2], match[3]) if match else None
+    if not parts:
+        match = re.fullmatch(r"(\d{1,2})[-./](\d{1,2})[-./](\d{2}|\d{4})", text)
+        parts = (match[3] if len(match[3]) == 4 else f"20{match[3]}", match[2], match[1]) if match else None
+    try:
+        day = date(int(parts[0]), int(parts[1]), int(parts[2])) if parts else None
+    except ValueError:
+        day = None
+    if not day:
+        return "Not recorded"
+    return "Expired" if day < date.today() else "Valid"
+
+
+ASSET_ATTRIBUTES = (
+    ("Asset type", lambda asset, first: asset.get("type") or "Not recorded"),
+    ("Brand", lambda asset, first: asset.get("brand") or "Not recorded"),
+    ("Category", lambda asset, first: first.get("category") or asset.get("category") or "No category"),
+    ("Installation year", lambda asset, first: _year(asset.get("installation_date"))),
+    ("Operational status", lambda asset, first: asset.get("status") or "Not recorded"),
+    ("Warranty", lambda asset, first: _date_status(asset.get("warranty_date"))),
+    ("Expiry", lambda asset, first: _date_status(asset.get("expiry_date"))),
+)
+
+
+def asset_attributes(items, assets, limit=12):
+    """The audit's assets counted by each register attribute, split into those whose checks all
+    passed and those with a failure: [(attribute, [(value, passed, failed)])], the largest first
+    (years oldest first), with the smallest values over the limit gathered as "Other". An
+    attribute nobody recorded is left out."""
+    grouped = {}
+    for item in items:
+        grouped.setdefault(str(item.get("equipmentId") or item.get("section") or "Item"), []).append(item)
+    inspected = []
+    for key, checks in grouped.items():
+        failed = any(not check.get("passed") and not check.get("notApplicable") for check in checks)
+        inspected.append(((assets or {}).get(key, {}), checks[0], failed))
+    result = []
+    for name, value_of in ASSET_ATTRIBUTES:
+        counts = {}
+        for asset, first, failed in inspected:
+            entry = counts.setdefault(value_of(asset, first), [0, 0])
+            entry[1 if failed else 0] += 1
+        if set(counts) <= {"Not recorded"}:
+            continue
+        rows = [(value, passed, failed) for value, (passed, failed) in counts.items()]
+        rows.sort(key=(lambda row: (row[0] == "Not recorded", row[0])) if name == "Installation year" else (lambda row: -(row[1] + row[2])))
+        if len(rows) > (limit if name != "Installation year" else 30):
+            rest = rows[limit - 1:]
+            rows = rows[:limit - 1] + [("Other", sum(row[1] for row in rest), sum(row[2] for row in rest))]
+        result.append((name, rows))
+    return len(inspected), sum(failed for *_, failed in inspected), result

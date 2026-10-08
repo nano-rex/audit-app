@@ -449,28 +449,34 @@ class SheetWriter:
             self.sheet.add_chart(chart, f"A{self.row}")
             self.row += int(chart.height / 0.53) + 2
 
-    def asset_register(self, parts, assets):
-        """Every asset inspected, by location, with its register details and how it did."""
+    def asset_attributes(self, items, assets):
+        """The PDF's "Assets inspected": the audit's assets counted by each register attribute,
+        split into all passed and with failures, each table with its stacked bars beside it."""
+        from backend.report_figures import FAIL as FAIL_HEX, PASS as PASS_HEX, asset_attributes
+        total, failing, attributes = asset_attributes(items, assets)
         self.heading("Assets inspected")
-        for part in parts:
-            grouped = {}
-            for item in part["items"]:
-                grouped.setdefault(item.get("equipmentId") or item.get("section") or "Item", []).append(item)
-            self.put(self.row, 1, f"{part['location']} · {len(grouped)} asset{'s' if len(grouped) != 1 else ''} · {part['summary']['score']}/100",
-                     size=9.5, bold=True, span=COLUMNS, wrap=False)
+        self.put(self.row - 1, 1, f"{total} asset{'s' if total != 1 else ''} inspected · {total - failing} passed every check · {failing} with a failure",
+                 size=8, colour=MUTED, span=COLUMNS, wrap=False)
+        for name, rows in attributes:
+            self.put(self.row, 1, name, size=9.5, bold=True, span=COLUMNS, wrap=False)
             self.row += 1
-            rows, tones = [], {}
-            for index, checks in enumerate(grouped.values()):
-                first = checks[0]
-                asset = (assets or {}).get(str(first.get("equipmentId") or ""), {})
-                failed = sum(result_of(check) == "Fail" for check in checks)
-                rows.append([first.get("section") or asset.get("name") or "Item", asset.get("code") or "", asset.get("type") or "",
-                             " ".join(value for value in (asset.get("brand"), asset.get("model")) if value), asset.get("serial_number") or "",
-                             asset.get("installation_date") or "", asset.get("status") or "",
-                             f"{failed} failed" if failed else f"{len(checks)}/{len(checks)} passed"])
-                tones[(index, 7)] = "fail" if failed else "pass"
-            self.table(["Asset", "Code", "Type", "Brand / model", "Serial", "Installed", "Status", "Result"], rows, [1] * 8, tones=tones, size=8)
-            self.row += 1
+            top = self.table([name, "All passed", "With failures"], [[label, passed, failed] for label, passed, failed in rows], [2, 1, 1],
+                             tones={**{(index, 1): PASS_HEX for index in range(len(rows))}, **{(index, 2): FAIL_HEX for index in range(len(rows))}})
+            chart = BarChart()
+            chart.type, chart.grouping, chart.overlap, chart.style = "bar", "stacked", 100, 10
+            for column, code in ((3, PASS_HEX), (4, FAIL_HEX)):
+                chart.add_data(Reference(self.sheet, min_col=column, min_row=top, max_row=top + len(rows)), titles_from_data=True)
+                chart.series[-1].graphicalProperties.solidFill = code
+                chart.series[-1].graphicalProperties.line.noFill = True
+            chart.set_categories(Reference(self.sheet, min_col=1, min_row=top + 1, max_row=top + len(rows)))
+            chart.x_axis.scaling.orientation = "maxMin"
+            chart.x_axis.delete = chart.y_axis.delete = False
+            chart.y_axis.majorGridlines = None
+            chart.legend.position = "b"
+            rows_tall = max(6, len(rows) + 4)
+            chart.width, chart.height = 4 * 2.9, rows_tall * 0.53
+            self.sheet.add_chart(chart, f"E{top}")
+            self.row = max(self.row, top + rows_tall) + 1
 
 
 # ---- The Reports page ----
