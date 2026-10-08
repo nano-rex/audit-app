@@ -44,6 +44,10 @@
             <input name="auditTypeId" type="hidden">
             <label>Name<input name="name" placeholder="Routine Audit"></label>
             <label>Description<textarea name="description" placeholder="When this audit type is used"></textarea></label>
+            <label>Grading<select name="style">
+              <option value="Detailed">Detailed: every asset is checked and graded on its own</option>
+              <option value="Casual">Casual: assets with the same name in a location are graded together</option>
+            </select></label>
             <label class="checkbox-line"><input name="active" type="checkbox" checked> Active</label>
             <button class="primary" type="submit">Save Audit Type</button>
           </form>

@@ -87,7 +87,15 @@ An administrator should configure these records before staff begin auditing:
 --------------------
 1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
    Dashboard.
-2. Select the outlet and date. Optionally choose a Priority (one of the
+2. Select the outlet and date, and the Audit Type. Each audit type grades
+   one of two ways (set per type in Super Settings > Audit Types):
+   - Detailed (the default): every asset is checked and graded on its own.
+   - Casual: in each location, assets with the same name are checked once
+     as a group (shown as, for example, DOWNLIGHT ×46); the result and any
+     finding apply to the whole group. Assets with the same name in other
+     locations are separate groups.
+   The audit keeps the visit's type; it cannot be changed on the inspection.
+   Optionally choose a Priority (one of the
    priority levels) and a Due Date (not before the scheduled date); Scheduled
    Work shows the priority beside the visit and marks it overdue in red once
    the due date passes before the audit is completed. Under Assigned to tick the person or

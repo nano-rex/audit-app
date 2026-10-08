@@ -515,6 +515,8 @@ document.querySelector("[data-assignee-search]")?.addEventListener("input", (eve
 
 document.querySelector("[data-only-mine]")?.addEventListener("change", () => renderGuidedSchedules());
 
+document.querySelector('#schedule-form select[name="visitAuditType"]')?.addEventListener("change", updateAuditTypeHint);
+
 document.querySelector('#schedule-form input[name="scheduledDate"]')?.addEventListener("change", (event) => {
   const due = event.target.form.elements.dueDate;
   due.min = event.target.value;

@@ -281,10 +281,14 @@ class SheetWriter:
             asset = (assets or {}).get(str(first.get("equipmentId") or ""), {})
             failed = sum(result_of(check) == "Fail" for check in checks)
             name = first.get("section") or asset.get("name") or "Item"
+            group = int(first.get("groupCount") or 1)
+            if group > 1:
+                name = f"{name} ×{group}"
             self.put(self.row, 1, name, size=9.5, bold=True, background=SURFACE_ALT, span=6, wrap=False)
             self.put(self.row, 7, f"{len(checks)} check{'s' if len(checks) != 1 else ''}", size=8, colour=MUTED, background=SURFACE_ALT, align="right")
             self.pill(self.row, 8, f"{failed} failed" if failed else "All passed", "fail" if failed else "pass")
-            details = asset_details_line(asset, first.get("category"))
+            details = asset_details_line(asset, first.get("category")) if group == 1 else \
+                f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")}, first.get("category"))
             self.put(self.row + 1, 1, details, size=8, colour=MUTED, background=SURFACE_ALT, span=COLUMNS)
             self.height(self.row + 1, [(details, COLUMNS)], 8)
             self.box(self.row, 1, self.row + 1, COLUMNS)

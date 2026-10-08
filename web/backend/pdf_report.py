@@ -346,6 +346,11 @@ class ReportWriter:
             name = first.get("section") or "Item"
             asset = (assets or {}).get(str(first.get("equipmentId") or ""), {})
             details = asset_details_line(asset, first.get("category"))
+            group = int(first.get("groupCount") or 1)
+            if group > 1:
+                # A casual audit graded these same-named assets together.
+                name = f"{name} ×{group}"
+                details = f"{group} assets graded together · " + asset_details_line({key: value for key, value in asset.items() if key not in ("code", "serial_number")}, first.get("category"))
             bar = Table([[[self.rich(f"<b>{escape(name)}</b>", plain=name), self.paragraph(details, "Caption")] if details else self.rich(f"<b>{escape(name)}</b>", plain=name),
                           self.rich(f'<font size="7.5" color="{hex_of(MUTED)}">{count}</font> &nbsp;{status}', "Right")]],
                         colWidths=[WIDTH - 150, 150])

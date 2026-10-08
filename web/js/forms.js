@@ -10,6 +10,11 @@ async function resetScheduleForm() {
   form.elements.scheduledDate.value = todayIsoDate();
   // Priority comes from the priority levels; the due date is optional and not before the visit.
   updateSelectOptions(form.elements.visitPriority, setupOptions.priorities || [], true, "No priority");
+  // The audit type sets the grading: Detailed (each asset) or Casual (same-name assets together).
+  const types = setupOptions.auditTypes || [];
+  updateSelectOptions(form.elements.visitAuditType, types, false, "Select audit type");
+  form.elements.visitAuditType.value = types.includes("Detailed") ? "Detailed" : types[0] || "";
+  updateAuditTypeHint();
   form.elements.visitPriority.value = "";
   form.elements.dueDate.value = "";
   form.elements.dueDate.min = form.elements.scheduledDate.value;
@@ -35,6 +40,10 @@ async function openScheduleEditor(row) {
   priority.value = row.priority || "";
   form.elements.dueDate.value = row.due_date || "";
   form.elements.dueDate.min = row.scheduled_date || "";
+  const auditType = form.elements.visitAuditType;
+  if (row.audit_type && ![...auditType.options].some((option) => option.value === row.audit_type)) auditType.add(new Option(row.audit_type, row.audit_type));
+  if (row.audit_type) auditType.value = row.audit_type;
+  updateAuditTypeHint();
   await loadScheduleAssignees(row.assignees || []);
   form.elements.remarks.value = row.remarks || "";
   form.querySelector("h2").textContent = "Edit Scheduled Visit";
@@ -145,6 +154,7 @@ function openAuditTypeEditor(row = null) {
   form.elements.auditTypeId.value = row?.id || "";
   form.elements.name.value = row?.name || "";
   form.elements.description.value = row?.description || "";
+  form.elements.style.value = row?.style || "Detailed";
   form.elements.active.checked = row ? Boolean(row.active) : true;
   form.querySelector('button[type="submit"]').textContent = row ? "Save Changes" : "Save Audit Type";
   form.scrollIntoView({ block: "nearest" });
@@ -466,6 +476,7 @@ document.getElementById("schedule-form").addEventListener("submit", async (event
     scheduledDate: formValue(form, "scheduledDate", "Today"),
     priority: form.elements.visitPriority.value,
     dueDate: form.elements.dueDate.value,
+    auditType: form.elements.visitAuditType.value,
     assignees: [...form.querySelectorAll('input[name="assignee"]:checked')].map((input) => Number(input.value)),
     remarks: formValue(form, "remarks", ""),
   };
@@ -731,6 +742,7 @@ document.getElementById("audit-type-form")?.addEventListener("submit", async (ev
   const payload = {
     name: formValue(form, "name", "Routine Audit"),
     description: formValue(form, "description", ""),
+    style: form.elements.style.value || "Detailed",
     active: Boolean(form.elements.active.checked),
   };
   await requestJson(id ? `/api/setup/audit-types/${id}` : "/api/setup/audit-types", id ? "PATCH" : "POST", payload);

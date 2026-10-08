@@ -72,7 +72,7 @@ function auditTypeRow(row) {
     <article>
       <div>
         <b>${escapeHtml(row.name)}</b>
-        <span>${escapeHtml(row.description || "No description")} | ${row.active ? "Active" : "Inactive"}</span>
+        <span>${escapeHtml(row.description || "No description")} | ${escapeHtml(row.style || "Detailed")} grading | ${row.active ? "Active" : "Inactive"}</span>
       </div>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-audit-type='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -283,7 +283,7 @@ function scheduleRow(row) {
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
         <b>${escapeHtml(auditTitle(session, `${row.outlet} · ${row.scheduled_date}`))}</b>
         <span>${escapeHtml(row.scheduled_date)}${row.due_date ? ` | <span class="${overdue ? "warn" : ""}">Due ${escapeHtml(row.due_date)}${overdue ? " (overdue)" : ""}</span>` : ""} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
-        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
+        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")}${row.audit_type ? ` | ${escapeHtml(row.audit_type)}${typeof auditStyleOf === "function" && auditStyleOf(row.audit_type) === "Casual" && row.audit_type !== "Casual" ? " (casual)" : ""}` : ""} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>
       <span class="row-actions">
         ${row.priority ? `<span class="status-pill ${urgent ? "status-untouched" : "priority-pill"}">${escapeHtml(row.priority)}</span>` : ""}

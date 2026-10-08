@@ -95,6 +95,17 @@ def visit_terms(db, payload):
     return priority, due
 
 
+def visit_audit_type(db, payload):
+    """The visit's audit type: one of the audit types, Detailed when there is one and none is chosen."""
+    name = str(payload.get("auditType") or "").strip()
+    if name:
+        if not db.execute("SELECT 1 FROM audit_types WHERE name = ?", (name,)).fetchone():
+            raise ValueError("Choose one of the audit types")
+        return name
+    row = db.execute("SELECT name FROM audit_types WHERE active = 1 ORDER BY name = 'Detailed' DESC, id LIMIT 1").fetchone()
+    return row[0] if row else ""
+
+
 def visit_scope(db, outlet, payload):
     """What a visit covers, chosen on one of three tabs: locations (none ticked means all), zones
     (their locations), or particular assets (and so their locations). Returns the locations, the

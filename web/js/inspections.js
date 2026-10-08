@@ -104,6 +104,8 @@ async function loadInspectionItems() {
   const assets = new Set(visitAssets(form).map(String));
   inspectionItems = equipmentData.items.filter((item) => inScope(item.location || item.zone || "Unassigned")
     && (!assets.size || assets.has(String(item.id))));
+  // A casual audit checks the same-named assets of a location once, as one group.
+  if (form.dataset.auditStyle === "Casual") inspectionItems = groupForCasualAudit(inspectionItems);
   inspectionPageDrafts = new Map();
   renderInspectionFilter();
   const locationNames = new Set(locationData.items.map((location) => location.name).filter(inScope));
@@ -124,6 +126,23 @@ async function loadInspectionItems() {
   applyInspectionSessionItems();
   openFirstInspectionLocation();
   updateInspectionProgress();
+}
+
+// Assets with the same name in the same location become one item, keyed by the lowest asset id so
+// a saved draft finds its group again. The group's checks apply to every asset in it.
+function groupForCasualAudit(items) {
+  const groups = new Map();
+  [...items].sort((a, b) => Number(a.id) - Number(b.id)).forEach((item) => {
+    const key = `${item.location || item.zone || "Unassigned"}\u0001${String(item.name || item.asset_id || "").trim().toLowerCase()}`;
+    const group = groups.get(key);
+    if (group) {
+      group.groupIds.push(item.id);
+      group.groupCount += 1;
+    } else {
+      groups.set(key, { ...item, groupIds: [item.id], groupCount: 1 });
+    }
+  });
+  return [...groups.values()];
 }
 
 function visitAssets(form) {
@@ -286,8 +305,9 @@ function inspectionItemCard(item) {
   return `
     <article class="check-item inspection-item" data-equipment-id="${item.id}">
       <div>
-        <span>${escapeHtml(item.kind === "fixture" ? "Fixture & finish" : item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.category || "No category")} | ${escapeHtml(item.code || item.asset_id || "")}</span>
-        <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}</strong>
+        <span>${escapeHtml(item.kind === "fixture" ? "Fixture & finish" : item.type || item.equipment_type || "Fixed Asset")} | ${escapeHtml(item.category || "No category")} | ${escapeHtml(item.groupCount > 1 ? `${item.groupCount} assets` : item.code || item.asset_id || "")}</span>
+        <strong>${escapeHtml(item.name || item.asset_id || "Fixed asset")}${item.groupCount > 1 ? ` <span class="group-count">×${item.groupCount}</span>` : ""}</strong>
+        ${item.groupCount > 1 ? `<small class="muted">${item.groupCount} assets with this name here are graded together</small>` : ""}
       </div>
       <button class="outline pass-all" type="button" data-pass-all>Pass all</button>
       <div class="image-field"><span class="image-field-label">Images</span><div class="image-tiles"><label class="image-pick"><input type="file" name="equipment-${item.id}-images" accept="image/*" capture="environment" multiple data-equipment-images aria-label="Add images"><span>Choose file</span></label><div class="saved-images" data-saved-images></div></div></div>
@@ -569,6 +589,7 @@ function collectInspectionPayload(complete = false) {
       items.push({
         ...details,
         equipmentId: row.dataset.equipmentId,
+        ...(equipment?.groupCount > 1 ? { groupIds: equipment.groupIds, groupCount: equipment.groupCount } : {}),
         location: equipment?.location || equipment?.zone || "",
         section: equipment?.name || equipment?.asset_id || "Fixed Asset",
         item: criterion,
@@ -592,6 +613,7 @@ function collectInspectionPayload(complete = false) {
     if (saved.length) {
       // Checks kept from a location page left earlier carry the asset's name, location, and category.
       items.push(...saved.map((entry) => ({
+        ...(equipment.groupCount > 1 ? { groupIds: equipment.groupIds, groupCount: equipment.groupCount } : {}),
         location: equipment.location || equipment.zone || "",
         section: equipment.name || equipment.asset_id || "Fixed Asset",
         category: equipment.category || "",
@@ -605,6 +627,7 @@ function collectInspectionPayload(complete = false) {
     }
     parseInspectionCriteria(equipment.inspection_criteria).forEach((criterion) => items.push({
       equipmentId: equipment.id,
+      ...(equipment.groupCount > 1 ? { groupIds: equipment.groupIds, groupCount: equipment.groupCount } : {}),
       location: equipment.location || equipment.zone || "",
       section: equipment.name || equipment.asset_id || "Fixed Asset",
       item: criterion,
@@ -864,6 +887,7 @@ async function openInspectionSession(id, returnTo = null) {
   form.elements.outlet.value = session.outlet || "";
   form.dataset.visitLocations = JSON.stringify(session.visit_locations || []);
   form.dataset.visitAssets = JSON.stringify(session.visit_scope?.by === "assets" ? session.visit_scope.assets || [] : []);
+  form.dataset.auditStyle = session.audit_style || "Detailed";
   form.dataset.zoneLabel = session.zone || "All Locations";
   inspectionSessionItems = session.items || [];
   form.elements.auditDate.value = session.audit_date || "";
@@ -876,6 +900,8 @@ async function openInspectionSession(id, returnTo = null) {
   form.dataset.remarksNull = String(session.remarks == null);
   const readOnly = session.status === "Completed" || !(currentUser?.inspectionPermissions || []).includes("auditor");
   ["auditDate", "auditTime", "auditType", "remarks"].forEach((name) => { form.elements[name].disabled = readOnly; });
+  // The audit type is chosen with the visit and sets how assets are grouped, so it stays as set.
+  form.elements.auditType.disabled = true;
   form.elements.outlet.disabled = true;
   setInspectionSignatures(session.signatures || {});
   await updateInspectionLocationSelect();

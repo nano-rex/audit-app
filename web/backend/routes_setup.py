@@ -90,19 +90,28 @@ def post_setup_priorities(self, parsed, payload=None):
     self.json({"ok": True})
 
 
+def audit_style(payload):
+    from backend.config import AUDIT_STYLES
+    style = (payload or {}).get("style") or "Detailed"
+    if style not in AUDIT_STYLES:
+        raise ValueError("Choose Detailed or Casual")
+    return style
+
+
 def post_setup_audit_types(self, parsed, payload=None):
     now = int(time.time() * 1000)
     with connect() as db:
         db.execute(
             """
-            INSERT OR REPLACE INTO audit_types (name, description, active, created_at)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO audit_types (name, description, active, created_at, style)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 payload.get("name", "Standard"),
                 payload.get("description", ""),
                 1 if payload.get("active", True) else 0,
                 now,
+                audit_style(payload),
             ),
         )
     self.json({"ok": True})
@@ -167,13 +176,14 @@ def patch_setup_audit_types(self, parsed, payload=None):
         cursor = db.execute(
             """
             UPDATE audit_types
-            SET name = ?, description = ?, active = ?
+            SET name = ?, description = ?, active = ?, style = ?
             WHERE id = ?
             """,
             (
                 payload.get("name", "Standard"),
                 payload.get("description", ""),
                 1 if payload.get("active", True) else 0,
+                audit_style(payload),
                 int(record_id),
             ),
         )

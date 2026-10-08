@@ -1277,5 +1277,29 @@ class ServerTests(unittest.TestCase):
         for wrong in ({"priority": "Not a level"}, {"dueDate": "2026-11-01"}, {"dueDate": "soon"}):
             self.assertEqual(self.request("/api/schedules", "POST", visit | wrong)[0], 400, wrong)
 
+    def test_z_casual_audit_grades_same_named_assets_together(self):
+        types = {row["name"]: row for row in json.loads(self.request("/api/setup")[2])["auditTypes"]}
+        self.assertEqual((types["Detailed"]["style"], types["Casual"]["style"]), ("Detailed", "Casual"))
+        self.assertEqual(self.request("/api/setup/audit-types", "POST", {"name": "Odd", "style": "Sloppy"})[0], 400)
+        visit = {"outlet": "STP", "scheduledDate": "2026-11-03"}
+        self.assertEqual(self.request("/api/schedules", "POST", visit | {"auditType": "Nope"})[0], 400)
+        # Without a choice a visit is Detailed.
+        status, _, body = self.request("/api/schedules", "POST", visit)
+        row = next(item for item in json.loads(self.request("/api/schedules")[2])["items"] if item["id"] == json.loads(body)["id"])
+        self.assertEqual(row["audit_type"], "Detailed")
+        status, _, body = self.request("/api/schedules", "POST", visit | {"auditType": "Casual"})
+        self.assertEqual(status, 200, body)
+        session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": json.loads(body)["id"]})[2])["id"]
+        session = json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])
+        self.assertEqual((session["audit_type"], session["audit_style"]), ("Casual", "Casual"))
+        # One check for a group of three same-named assets: one finding, named for the group.
+        item = {"section": "Group lamp", "item": "Works", "location": "Room", "passed": False, "notes": "Two flicker",
+                "priority": "High", "images": [self.evidence()], "groupIds": [1, 2, 3], "groupCount": 3}
+        status, _, body = self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [item], "complete": True})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            names = [row[0] for row in db.execute("SELECT item_name FROM findings WHERE audit_id = (SELECT audit_id FROM inspection_sessions WHERE id = ?)", (session_id,))]
+        self.assertEqual(names, ["Group lamp ×3"])
+
 if __name__ == "__main__":
     unittest.main()

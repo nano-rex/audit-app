@@ -254,6 +254,18 @@ def seed_audit_types(db):
         )
 
 
+def seed_audit_styles(db):
+    """Once: the two grading styles become audit types of their own, Detailed and Casual."""
+    if db.execute("SELECT 1 FROM app_settings WHERE key = 'system.auditStylesSeeded'").fetchone():
+        return
+    now = int(time.time() * 1000)
+    for name, description in (("Detailed", "Every asset is checked and graded on its own"),
+                              ("Casual", "Assets with the same name in a location are checked and graded together")):
+        db.execute("INSERT OR IGNORE INTO audit_types (name, description, active, created_at, style) VALUES (?, ?, 1, ?, ?)",
+                   (name, description, now, name))
+    db.execute("INSERT INTO app_settings (key, value_data_id) VALUES ('system.auditStylesSeeded', ?)", (save_value(db, True),))
+
+
 def seed_settings(db):
     company = db.execute("SELECT value_data_id FROM app_settings WHERE key = 'report.companyName'").fetchone()
     company = load_value(company[0]) if company else DEFAULT_REPORT_SETTINGS["companyName"]

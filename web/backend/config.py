@@ -90,6 +90,10 @@ DEFAULT_PRIORITY_LEVELS = [
 ]
 
 
+# How an audit type grades: Detailed checks every asset; Casual checks assets with the same name in
+# a location once, as a group, and the result applies to all of them.
+AUDIT_STYLES = ("Detailed", "Casual")
+
 DEFAULT_AUDIT_TYPES = [
     {"name": "Standard", "description": "Full outlet inspection", "active": True},
     {"name": "Quick", "description": "Short follow-up inspection", "active": True},
