@@ -252,13 +252,15 @@ An administrator should configure these records before staff begin auditing:
    average score against the pass mark, findings by month (priority and
    non-priority), each outlet's latest score coloured by grade, previous vs
    current audits, breakdowns by department, location, and category, time to
-   act, and each person's work. The Activity Log has its own tab next to
-   Report; the date and outlet filters apply to both.
+   act, and each person's work.
    Export PDF and Export Excel follow the page: the same sections, charts,
    and colours in the same order. The Excel file's Report sheet holds each
    chart beside the table it reads (edit a number and the chart follows);
-   People, Findings, and Activity (every entry in the period) are on their
-   own sheets, ready to filter. Reports
+   People and Findings are on their own sheets, ready to filter.
+3. Activity Log (beside Dashboard and Reports, for those with the Reports
+   permission) lists who did what and when: audits, sign-offs, work
+   requests, work orders, and changes, newest first. Filter by dates,
+   outlet, and person, or search. It is not part of the report exports. Reports
    (and the Location PDF and Excel in History) need the Reports permission on
    the person's role; without it the Reports button is not shown.
    Reports also shows how people act:
@@ -274,7 +276,7 @@ An administrator should configure these records before staff begin auditing:
    These follow the report's dates and outlet, and are in the PDF and Excel
    exports. Activity from before this log existed is filled in from the
    records, as far as they show who acted.
-3. Use Export PDF or Excel on an inspection for its detailed audit report,
+4. Use Export PDF or Excel on an inspection for its detailed audit report,
    and Location PDF or Excel in History for one location. Use the Reports
    page export actions for CSV, Excel, or JSON report data. If an export
    says a package is missing, the server is running without the project's

@@ -231,7 +231,10 @@ def report(unit, filters=None):
         ).fetchall()))
     activity_where, activity_params = report_scope(unit, "activity_log", filters)
     with connect() as db:
-        performance = kpi_report(db, activity_where, activity_params)
+        # People and time to act come from the activity log; the log itself is its own page.
+        performance = kpi_report(db, activity_where, activity_params, limit=0)
+        performance.pop("activity", None)
+        performance.pop("activityTotal", None)
         # The charts colour scores by these bands and mark the pass mark.
         scoring = {key: float(read_setting(db, f"scoring.{key}", fallback) or fallback)
                    for key, fallback in (("passMark", 70), ("excellentBand", 90), ("goodBand", 70), ("belowBand", 60))}
@@ -261,6 +264,14 @@ def report(unit, filters=None):
     }
 
 
+def activity_items(unit, filters=None, limit=500):
+    """The Activity Log page: the latest entries in the period (newest first), and how many there are."""
+    where, params = report_scope(unit, "activity_log", filters or {})
+    with connect() as db:
+        performance = kpi_report(db, where, params, limit=limit)
+    return {"items": performance["activity"], "total": performance["activityTotal"]}
+
+
 def report_pdf(unit, filters=None):
     from backend.pdf_report import build_summary_report
     filters = filters or {}
@@ -277,12 +288,9 @@ def report_xls(unit, filters=None):
     from backend.xlsx_report import report_workbook
     filters = filters or {}
     period = " to ".join(value for value in (filters.get("from"), filters.get("to")) if value) or "All dates"
-    where, params = report_scope(unit, "activity_log", filters)
     with connect() as db:
         settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
-        # Every entry in the period, unlike the page's latest 200.
-        activity = kpi_report(db, where, params, limit=None)["activity"]
-    return report_workbook(report(unit, filters), finding_items(unit, filters)["items"], activity,
+    return report_workbook(report(unit, filters), finding_items(unit, filters)["items"],
                            f"{filters.get('outlet') or 'All outlets'} | {period}", branding_settings(), settings)
 
 

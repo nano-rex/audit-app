@@ -254,7 +254,7 @@ function applyNavbarTabs() {
   const findingsEnabled = currentUser?.role === "Super" || setupOptions.settings["system.findingsEnabled"] !== false;
   document.querySelectorAll('[data-feature-section="findings"]').forEach((node) => { node.hidden = !findingsEnabled; });
   // Reports, and the location reports in History, need the Reports permission.
-  document.querySelectorAll('[data-context-tab="reports"], [data-requires="reports"]').forEach((node) => { node.hidden = !allowedIds.has("reports"); });
+  document.querySelectorAll('[data-context-tab="reports"], [data-context-tab="activity"], [data-requires="reports"]').forEach((node) => { node.hidden = !allowedIds.has("reports"); });
   if (typeof applyActionPermissions === "function") applyActionPermissions();
   renderTabMenu();
   layoutNavbar();
@@ -295,7 +295,11 @@ function allowedAppTabs() {
   if (allowedIds.has("inspections")) allowedIds.add("history");
   if (allowedIds.has("inspections") && findingsEnabled) allowedIds.add("findings");
   if (["users", "departments", "roles"].some((id) => allowedIds.has(id))) allowedIds.add("users");
-  if (allowedIds.has("reports")) allowedIds.add("today");
+  if (allowedIds.has("reports")) {
+    allowedIds.add("today");
+    // The Activity Log sits beside Reports and needs the same permission.
+    allowedIds.add("activity");
+  }
   if (allowedIds.has("equipment")) allowedIds.add("categories");
   // History and Findings are sub-pages of Inspections, so their users need that page to reach them.
   if (allowedIds.has("history") || (allowedIds.has("findings") && findingsEnabled)) allowedIds.add("inspections");

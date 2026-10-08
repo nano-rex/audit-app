@@ -616,7 +616,8 @@ def build_location_report(outlet, location, period, audits, brand, media, settin
 
 def build_summary_report(data, findings, scope, brand, settings=None):
     """The Reports page on paper, in its order and colours: the four rings, audits and findings by
-    month, outlets, breakdowns, time to act, people, then the findings and activity lists."""
+    month, outlets, breakdowns, time to act, people, then the findings. The activity log is its own
+    page and is not part of the report."""
     from backend import report_figures as figures
     from backend.activity import duration_text
     writer = ReportWriter(brand, None, settings)
@@ -735,17 +736,6 @@ def build_summary_report(data, findings, scope, brand, settings=None):
                      markup={(index, 6): writer.pill(row.get("status") or "", "pass" if row.get("status") == "Closed" else "warn") for index, row in enumerate(findings, 1)})
     else:
         writer.text("No findings in this period.", "Caption")
-    writer.heading("Activity log")
-    if data["activity"]:
-        shown = data["activity"][:100]
-        writer.table([["When", "Person", "Action", "Record", "Outlet", "Took"]]
-                     + [[datetime.fromtimestamp(row["created_at"] / 1000).strftime("%Y-%m-%d %H:%M"), row["user_name"] or "Unknown", row["label"],
-                         row["record_ref"] or "", row["outlet"] or "", duration_text(round(row["duration_ms"] / 1000)) if row["duration_ms"] is not None else ""]
-                        for row in shown], [72, 70, 120, 110, 40, 60], style="Caption")
-        if data["activityTotal"] > len(shown):
-            writer.text(f"The latest {len(shown)} of {data['activityTotal']} entries; the Excel export lists them all.", "Caption")
-    else:
-        writer.text("No activity in this period.", "Caption")
     return writer.build(scope, "Audit report")
 
 

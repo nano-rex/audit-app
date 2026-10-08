@@ -48,7 +48,7 @@ class ReportingReminderTests(unittest.TestCase):
         self.assertNotIn("F-Loudspeaker-A", joined)
         workbook = load_workbook(BytesIO(report_xls("Mini Studio", filters)))
         # Laid out like the page: the report with its charts, then People, Findings, and Activity.
-        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings", "Activity"])
+        self.assertEqual(workbook.sheetnames, ["Report", "People", "Findings"])
         self.assertGreater(len(workbook["Report"]._charts), 0)
         cells = [cell for row in workbook["Findings"].iter_rows() for cell in row if cell.value is not None]
         self.assertEqual([cell.value for cell in cells if str(cell.value).startswith("F-")], ["F-Mini Studio-A-2026-01-02"])
