@@ -230,7 +230,6 @@ document.querySelector('#work-order-form [name="status"]')?.addEventListener("ch
 
 // A new work order is made from a work request (requestId), prefilled from it as row.
 async function openWorkOrderEditor(row = null, requestId = "") {
-  activeFindingRow = null;
   const dialog = document.getElementById("work-order-dialog");
   const form = document.getElementById("work-order-form");
   const isEdit = Boolean(row?.id);
@@ -523,26 +522,6 @@ document.getElementById("work-order-form").addEventListener("submit", async (eve
     pic: formValue(form, "pic", ""),
     workRequestId: Number(form.dataset.workRequestId) || undefined,
   };
-  if (activeFindingRow) {
-    if (!payload.description.trim()) {
-      setText("[data-work-order-message]", "Describe what is wrong before saving the finding.");
-      return;
-    }
-    activeFindingRow.dataset.findingDetails = JSON.stringify({
-      category: payload.category, priority: payload.priority, assignedDepartment: payload.requestType, pic: payload.pic,
-      cause: payload.cause, recommendation: payload.recommendation, requiredAction: payload.requiredAction,
-    });
-    // The remark is a single-line field; keep the description readable there.
-    activeFindingRow.querySelector('input[name*="-notes-"]').value = payload.description.replace(/\s*\n+\s*/g, "; ").trim();
-    renderFindingSummary(activeFindingRow);
-    const asset = activeFindingRow.closest("[data-equipment-id]");
-    asset.dataset.savedImages = JSON.stringify(payload.images);
-    asset.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(payload.images);
-    activeFindingRow = null;
-    form.closest("dialog").close();
-    updateInspectionProgress();
-    return;
-  }
   try {
     await requestJson(id ? `/api/work-orders/${id}` : "/api/work-orders", id ? "PATCH" : "POST", payload);
   } catch (error) {

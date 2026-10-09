@@ -567,8 +567,6 @@ checklistContainer?.addEventListener("change", async (event) => {
     if (input.checked) notes.value = "";
   }
   updateInspectionProgress();
-  if (input.checked) return;
-  await openFindingEditor(row);
 });
 
 document.querySelector("[data-inspection-filter-kind]")?.addEventListener("change", (event) => {
@@ -580,35 +578,6 @@ document.querySelector("[data-inspection-filter-category]")?.addEventListener("c
   inspectionFilter.category = event.target.value;
   applyInspectionFilter();
 });
-
-// A failed criterion is recorded with the work-order form, limited to the fields a finding keeps.
-async function openFindingEditor(row) {
-  const detail = JSON.parse(row.querySelector("[data-inspection-check]").dataset.inspectionCheck);
-  const saved = parseStoredObject(row.dataset.findingDetails);
-  const notes = row.querySelector('input[name*="-notes-"]');
-  await openWorkOrderEditor({
-    outlet: detail.outlet,
-    zone: detail.location,
-    request_type: saved.assignedDepartment || setupOptions.departments[0] || "",
-    category: saved.category || detail.category || "",
-    priority: saved.priority || "High",
-    status: "Assigned",
-    assignee: "Technical Support",
-    pic: saved.pic || "",
-    title: `${detail.name} - ${detail.criterion}`,
-    description: notes?.value.trim() || `Failed check: ${detail.criterion}`,
-    cause: saved.cause || "",
-    recommendation: saved.recommendation || "",
-    required_action: saved.requiredAction || "",
-    images_json: row.closest("[data-equipment-id]").dataset.savedImages || "[]",
-  });
-  activeFindingRow = row;
-  const findingForm = document.getElementById("work-order-form");
-  findingForm.dataset.mode = "finding";
-  findingForm.querySelector("h2").textContent = "Record Audit Finding";
-  findingForm.querySelector('button[type="submit"]').textContent = "Save Finding to Draft";
-  findingForm.querySelector("[data-work-order-closed]").hidden = true;
-}
 
 document.querySelector("[data-work-order-evidence-upload]").addEventListener("change", async (event) => {
   const input = event.target;
@@ -686,12 +655,6 @@ checklistContainer?.addEventListener("click", (event) => {
       if (notes) notes.disabled = true;
     });
     updateInspectionProgress();
-    return;
-  }
-
-  const findingButton = event.target.closest("[data-record-finding]");
-  if (findingButton) {
-    openFindingEditor(findingButton.closest(".criteria-row")).catch(showLoadError);
     return;
   }
 

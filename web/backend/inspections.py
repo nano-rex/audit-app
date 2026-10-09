@@ -76,6 +76,12 @@ def require_photo_evidence(items, settings):
             raise WorkflowError(f"Add a photo for {name} before completing the inspection")
 
 
+def default_priority(db):
+    row = db.execute("SELECT name FROM priority_levels WHERE active = 1 ORDER BY classification = 'Priority' DESC, due_days, name LIMIT 1").fetchone() \
+        or db.execute("SELECT name FROM priority_levels ORDER BY due_days LIMIT 1").fetchone()
+    return row[0] if row else "Priority"
+
+
 def finding_targets(item):
     """The assets a failed check is a finding for, as (asset id, name). A casual audit's group check
     is a finding for each asset the auditor said has the issue (named "Downlight · AST-00012"); a
@@ -118,7 +124,9 @@ def finalize_inspection(db, session_id, payload, now):
         })
         if item.get("passed") or item.get("notApplicable"):
             continue
-        priority = item.get("priority") or "Priority"
+        # Details are set on the Findings page afterwards; until then a finding takes the most
+        # urgent active priority level.
+        priority = item.get("priority") or default_priority(db)
         priority_row = db.execute("SELECT classification FROM priority_levels WHERE name = ?", (priority,)).fetchone()
         if not priority_row:
             raise ValueError("Select a configured priority for every finding")

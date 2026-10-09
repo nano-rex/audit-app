@@ -310,32 +310,16 @@ test("the Super account keeps every regular page and adds the two restricted one
   assert.equal(context.orderedAppTabs().map((tab) => tab.id).join(), "today,inspections,categories,notifications,settings,account,super-dashboard,super-settings");
 });
 
-test("a failed check saves its finding details to the draft and closes the dialog", async () => {
-  let submit, closed = false, summarised = false;
-  const dialog = { close() { closed = true; } };
-  const values = { requestType: "AVC", category: "Electrical", priority: "High", pic: "Gavin", description: "Cable missing\nat the rear", cause: "Wear" };
-  const form = { dataset: {}, closest: () => dialog, addEventListener(event, handler) { if (event === "submit") submit = handler; } };
-  const notes = { value: "" };
-  const asset = { dataset: {}, querySelector: () => ({ innerHTML: "" }) };
-  // The checklist row has a remark field and no category control.
-  const row = { dataset: {}, closest: () => asset, querySelector: (selector) => selector.includes("-notes-") ? notes : null };
-  const dummy = { addEventListener() {} };
-  const context = vm.createContext({
-    ...shared(),
-    document: { ...emptyDocument(), getElementById: (id) => id === "work-order-form" ? form : dummy, querySelector: () => dummy },
-    activeFindingRow: row, currentUnit: "Facilities",
-    wireForm() {}, setText() {}, updateInspectionProgress() {}, renderInspectionImages: () => "",
-    renderFindingSummary() { summarised = true; },
-    storedImagesFromDataset: () => [], parseStoredImages: () => [],
-    formValue: (_, key, fallback) => values[key] || fallback,
-    requestJson: async () => { throw new Error("A draft finding must not be sent as a work order"); },
-  });
-  vm.runInContext(source("forms.js"), context);
-  await submit({ preventDefault() {}, currentTarget: form });
-  assert.equal(closed, true);
-  assert.equal(summarised, true);
-  assert.equal(notes.value, "Cable missing; at the rear");
-  assert.deepEqual(JSON.parse(row.dataset.findingDetails), { category: "Electrical", priority: "High", assignedDepartment: "AVC", pic: "Gavin", cause: "Wear", recommendation: "", requiredAction: "" });
+test("a finding can be removed until it is closed or has work", () => {
+  const context = vm.createContext({ ...shared(), currentUser: { role: "Auditor" } });
+  vm.runInContext(source("findings.js"), context);
+  assert.equal(context.canEditFindings(), true);
+  assert.equal(context.findingIsSettled({ status: "Open" }), false);
+  assert.equal(context.findingIsSettled({ status: "Requested", request_ref: "WR-2026-00001" }), true);
+  assert.equal(context.findingIsSettled({ status: "Open", order_ref: "WO-2026-00002" }), true);
+  assert.equal(context.findingIsSettled({ status: "Closed" }), true);
+  context.currentUser = { role: "Department/PIC" };
+  assert.equal(context.canEditFindings(), false);
 });
 
 test("photo evidence is always needed for failed checks and optional for passed ones", () => {

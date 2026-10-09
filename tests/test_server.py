@@ -1311,5 +1311,34 @@ class ServerTests(unittest.TestCase):
         from backend.inspections import finding_targets
         self.assertEqual(finding_targets({"section": "Old group", "groupCount": 3, "equipmentId": "7"}), [(7, "Old group ×3")])
 
+    def test_z_findings_are_edited_and_removed_on_the_findings_page(self):
+        # A failed check needs only its remark; the finding takes the most urgent priority level.
+        items = [{"section": "Edit lamp", "item": "Works", "location": "Room", "passed": False, "notes": "Dead", "images": [self.evidence()]},
+                 {"section": "Edit lamp", "item": "Clean", "location": "Room", "passed": False, "notes": "Dusty", "images": [self.evidence()]}]
+        status, _, body = self.request("/api/inspection-sessions", "POST", {"outlet": "STP", "items": items, "complete": True})
+        self.assertEqual(status, 200, body)
+        with app.connect() as db:
+            rows = {row["criterion"]: dict(row) for row in db.execute("SELECT * FROM findings WHERE item_name = 'Edit lamp'")}
+            urgent = db.execute("SELECT name FROM priority_levels WHERE active = 1 ORDER BY classification = 'Priority' DESC, due_days, name LIMIT 1").fetchone()[0]
+            department = db.execute("SELECT code FROM departments ORDER BY code DESC LIMIT 1").fetchone()[0]
+        self.assertEqual(rows["Works"]["priority"], urgent)
+        works, clean = rows["Works"]["id"], rows["Clean"]["id"]
+        change = {"category": "Lighting", "department": department, "pic": "Lamp Fixer", "dueDate": "2026-12-01", "comment": "Bulb dead",
+                  "cause": "Old bulb", "recommendation": "Replace", "requiredAction": "Fit a new bulb"}
+        self.assertEqual(self.request(f"/api/findings/{works}", "PATCH", change)[0], 200)
+        with app.connect() as db:
+            row = db.execute("SELECT category, assigned_department, pic, due_date, comment, cause, recommendation, required_action FROM findings WHERE id = ?", (works,)).fetchone()
+        self.assertEqual(tuple(row), ("Lighting", department, "Lamp Fixer", "2026-12-01", "Bulb dead", "Old bulb", "Replace", "Fit a new bulb"))
+        for wrong in ({"priority": "Nope"}, {"department": "Nope"}, {"dueDate": "soon"}, {"comment": " "}):
+            self.assertEqual(self.request(f"/api/findings/{works}", "PATCH", wrong)[0], 400, wrong)
+        # Removed while it has no work; refused once a work request covers it.
+        self.assertEqual(self.request(f"/api/findings/{clean}", "DELETE")[0], 200)
+        with app.connect() as db:
+            self.assertIsNone(db.execute("SELECT 1 FROM findings WHERE id = ?", (clean,)).fetchone())
+        self.assertEqual(self.request("/api/work-requests", "POST", {"findingIds": [works], "description": "Fix the lamp"})[0], 200)
+        self.assertEqual(self.request(f"/api/findings/{works}", "DELETE")[0], 409)
+        self.assertEqual(self.request(f"/api/findings/{works}", "PATCH", {"pic": "Someone else"})[0], 200)
+        self.assertEqual(self.request("/api/findings/999999", "PATCH", {"pic": "x"})[0], 404)
+
 if __name__ == "__main__":
     unittest.main()

@@ -214,14 +214,19 @@ function findingItemRow(group) {
   // Findings recorded before work requests existed already have their own work order.
   const order = group.findings.find((row) => row.order_ref);
   const untouched = group.findings.every((row) => row.status === "Open");
-  const kind = group.item_kind === "fixture" ? "Fixture" : "Fixed asset";
+  const kind = group.item_kind === "fixture" ? "Variable asset" : "Fixed asset";
   const status = request ? `${request.request_ref} · ${request.request_status || ""}` : order ? order.order_ref : untouched ? "No work request yet" : "";
   return `
     <article class="finding-item">
       <div>
         <b>${escapeHtml(group.item_name || "Item")} <small class="muted">${escapeHtml(kind)}</small></b>
         <span>${escapeHtml(group.audit_ref || `Audit ${group.audit_id}`)} | ${escapeHtml(group.outlet)} | ${escapeHtml(group.location)} | ${escapeHtml(group.department || "No department")} | ${escapeHtml(group.priority || "")}</span>
-        <ul class="finding-checks">${group.findings.map((row) => `<li><span class="status-pill ${row.status === "Closed" ? "status-complete" : "status-untouched"}">${escapeHtml(row.status)}</span> ${escapeHtml(row.criterion || "Check")}${row.comment && row.comment !== row.criterion ? ` — ${escapeHtml(row.comment)}` : ""}</li>`).join("")}</ul>
+        <ul class="finding-checks">${group.findings.map((row) => `<li><span class="status-pill ${row.status === "Closed" ? "status-complete" : "status-untouched"}">${escapeHtml(row.status)}</span>
+          <span class="finding-check-text">${escapeHtml(row.criterion || "Check")}${row.comment && row.comment !== row.criterion ? ` — ${escapeHtml(row.comment)}` : ""}
+            <small class="muted">${escapeHtml([row.priority, row.category, row.assigned_department, row.pic && `PIC ${row.pic}`, row.due_date && `Due ${row.due_date}`].filter(Boolean).join(" · "))}</small></span>
+          ${typeof canEditFindings === "function" && canEditFindings() && row.status !== "Closed" ? `<span class="finding-actions">
+            <button type="button" class="outline" data-edit-finding="${row.id}">Edit</button>
+            ${findingIsSettled(row) ? "" : `<button type="button" class="danger" data-delete-finding="${row.id}">Delete</button>`}</span>` : ""}</li>`).join("")}</ul>
       </div>
       <span class="row-actions">
         <span class="muted">${escapeHtml(status)}</span>
