@@ -254,8 +254,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 store, identifier = MediaStore(config.DB_PATH), parsed.path.removeprefix("/api/media/")
                 if parse_qs(parsed.query).get("thumb"):
-                    thumbnail = store.thumbnail(identifier)
-                    stored = (thumbnail, "image/jpeg") if thumbnail is not None else None
+                    stored = store.thumbnail(identifier)
                 else:
                     stored = store.read(identifier)
             except ValueError:

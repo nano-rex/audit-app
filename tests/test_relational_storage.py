@@ -47,7 +47,11 @@ class RelationalStorageTests(unittest.TestCase):
             self.assertEqual(hydrate_many([record])[0]["signatures_json"], {})
             self.assertEqual(db.execute("SELECT typeof(content) FROM media_images").fetchone()[0], "blob")
             self.assertEqual(db.execute("SELECT COUNT(*) FROM value_nodes WHERE text_value LIKE 'data:image/%'").fetchone()[0], 0)
-        self.assertEqual(media.image_bytes(saved["image"]), base64.b64decode(photo_data_url().split(",")[1]))
+        # The embedded image is stored as a small WebP of the same picture.
+        from io import BytesIO
+        from PIL import Image
+        with Image.open(BytesIO(media.image_bytes(saved["image"]))) as stored, Image.open(BytesIO(base64.b64decode(photo_data_url().split(",")[1]))) as original:
+            self.assertEqual((stored.format, stored.size), ("WEBP", original.size))
         # A single SQLite backup is sufficient to restore both records and images.
         restored = Path(self.directory.name) / "restored.db"
         with sqlite3.connect(config.DB_PATH) as source, sqlite3.connect(restored) as target:
