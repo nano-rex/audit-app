@@ -18,6 +18,10 @@ class MediaStore:
     formats = {"PNG": ("png", "image/png"), "JPEG": ("jpg", "image/jpeg"), "WEBP": ("webp", "image/webp")}
     identifier = re.compile(r"^[0-9a-f]{64}\.(?:png|jpg|webp)$")
     max_bytes = 10 * 1024 * 1024
+    # Every uploaded image is stored as a small WebP, to keep the database (and its backups) light.
+    target_bytes = 8 * 1024
+    sizes = (1280, 960, 720, 540, 400, 300, 220, 160)
+    qualities = (70, 55, 40, 30)
     _schema_lock = threading.Lock()
     _initialized_paths = set()
     _thumbnail_lock = threading.Lock()
@@ -71,7 +75,8 @@ class MediaStore:
         return (bytes(row[0]), row[1]) if row else None
 
     def thumbnail(self, identifier, size=240):
-        """A small JPEG for lists, so a page of evidence does not download every full photo."""
+        """A small image for lists, so a page of evidence does not download every full photo; an
+        image stored small already (every upload now is) is served as it is. Returns (bytes, type)."""
         key = (str(self.database_path), identifier, size)
         with self._thumbnail_lock:
             cached = self._thumbnails.get(key)
@@ -81,12 +86,14 @@ class MediaStore:
         stored = self.read(identifier)
         if stored is None:
             return None
+        if len(stored[0]) <= self.target_bytes * 2:
+            return stored
         with Image.open(BytesIO(stored[0])) as picture:
             picture = ImageOps.exif_transpose(picture)
             picture.thumbnail((size, size))
             output = BytesIO()
             picture.convert("RGB").save(output, "JPEG", quality=80)
-        body = output.getvalue()
+        body = (output.getvalue(), "image/jpeg")
         with self._thumbnail_lock:
             self._thumbnails[key] = body
             while len(self._thumbnails) > 256:
@@ -133,13 +140,46 @@ class MediaStore:
             imported += 1
         return imported
 
+    def compact(self, content):
+        """The image as a WebP of at most target_bytes where it can be: the largest size and best
+        quality that fit, stepping down; failing that, the smallest tried. Photos are turned upright
+        first, and transparency (a signature's background) is kept."""
+        try:
+            with Image.open(BytesIO(content)) as source:
+                if source.format not in self.formats or source.width * source.height > 40_000_000:
+                    raise ValueError("Use PNG, JPEG, or WebP images under 40 megapixels")
+                if source.format == "JPEG":
+                    # Decode a large JPEG at a reduced scale straight away; it is shrunk anyway.
+                    source.draft("RGB", (self.sizes[0] * 2, self.sizes[0] * 2))
+                picture = ImageOps.exif_transpose(source)
+                picture = picture.convert("RGBA" if "A" in picture.getbands() or source.info.get("transparency") is not None else "RGB")
+                # Scale a large photo down once, rather than at every attempt.
+                picture.thumbnail((self.sizes[0], self.sizes[0]), Image.Resampling.LANCZOS, reducing_gap=2.0)
+        except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as error:
+            raise ValueError("The uploaded file is not a valid image") from error
+        smallest = None
+        for size in self.sizes:
+            if size > max(picture.size) and size != self.sizes[0]:
+                continue
+            scaled = picture.copy()
+            scaled.thumbnail((size, size))
+            for quality in self.qualities:
+                output = BytesIO()
+                scaled.save(output, "WEBP", quality=quality, method=4)
+                body = output.getvalue()
+                if smallest is None or len(body) < len(smallest):
+                    smallest = body
+                if len(body) <= self.target_bytes:
+                    return body
+        return smallest
+
     def store(self, value, name="photo"):
         if not isinstance(value, str) or not value.startswith("data:image/") or ";base64," not in value:
             raise ValueError("Upload a PNG, JPEG, or WebP image")
         encoded = value.split(";base64,", 1)[1]
         if len(encoded) > self.max_bytes * 4 // 3 + 4:
             raise ValueError("Each image must be at most 10 MiB")
-        content = base64.b64decode(encoded, validate=True)
+        content = self.compact(base64.b64decode(encoded, validate=True))
         identifier, mime = self.put(content)
         return {"id": identifier, "url": "/api/media/" + identifier, "name": Path(str(name)).name[:200], "type": mime, "size": len(content)}
 

@@ -1291,14 +1291,25 @@ class ServerTests(unittest.TestCase):
         session_id = json.loads(self.request("/api/schedules/start", "POST", {"scheduleId": json.loads(body)["id"]})[2])["id"]
         session = json.loads(self.request(f"/api/inspection-sessions/{session_id}")[2])
         self.assertEqual((session["audit_type"], session["audit_style"]), ("Casual", "Casual"))
-        # One check for a group of three same-named assets: one finding, named for the group.
-        item = {"section": "Group lamp", "item": "Works", "location": "Room", "passed": False, "notes": "Two flicker",
-                "priority": "High", "images": [self.evidence()], "groupIds": [1, 2, 3], "groupCount": 3}
-        status, _, body = self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": [item], "complete": True})
+        # A group of five: three checks failed; asset A has two of the issues, asset B all three.
+        group = {"section": "Group lamp", "location": "Room", "priority": "High", "images": [self.evidence()],
+                 "groupIds": [11, 12, 13, 14, 15], "groupCount": 5}
+        labels = {"11": "AST-A", "12": "AST-B"}
+        items = [group | {"item": "Works", "passed": False, "notes": "Flickers", "affectedIds": [11, 12], "affectedLabels": labels},
+                 group | {"item": "Clean", "passed": False, "notes": "Dusty", "affectedIds": [11, 12], "affectedLabels": labels},
+                 group | {"item": "Fixed", "passed": False, "notes": "Loose", "affectedIds": [12, 99], "affectedLabels": labels},
+                 group | {"item": "Present", "passed": True}]
+        status, _, body = self.request(f"/api/inspection-sessions/{session_id}", "PATCH", {"items": items, "complete": True})
         self.assertEqual(status, 200, body)
         with app.connect() as db:
-            names = [row[0] for row in db.execute("SELECT item_name FROM findings WHERE audit_id = (SELECT audit_id FROM inspection_sessions WHERE id = ?)", (session_id,))]
-        self.assertEqual(names, ["Group lamp ×3"])
+            rows = db.execute("SELECT item_name, criterion, equipment_id FROM findings WHERE audit_id = (SELECT audit_id FROM inspection_sessions WHERE id = ?) "
+                              "ORDER BY equipment_id, criterion", (session_id,)).fetchall()
+        # One finding per affected asset and issue; an id outside the group is ignored.
+        self.assertEqual([tuple(row) for row in rows], [("Group lamp · AST-A", "Clean", 11), ("Group lamp · AST-A", "Works", 11),
+                                                        ("Group lamp · AST-B", "Clean", 12), ("Group lamp · AST-B", "Fixed", 12),
+                                                        ("Group lamp · AST-B", "Works", 12)])
+        from backend.inspections import finding_targets
+        self.assertEqual(finding_targets({"section": "Old group", "groupCount": 3, "equipmentId": "7"}), [(7, "Old group ×3")])
 
 if __name__ == "__main__":
     unittest.main()

@@ -476,7 +476,7 @@ class AccountSecurityTests(unittest.TestCase):
         self.assertEqual(self.request("/api/auth/logout", "POST", {}, token=token)[0], 200)
         self.assertEqual(self.request("/api/auth/me", token=token)[0], 401)
 
-    def test_photo_thumbnails_are_small_jpegs_and_need_a_session(self):
+    def test_uploads_are_stored_small_and_need_a_session(self):
         from io import BytesIO
         import base64
         from PIL import Image
@@ -485,13 +485,17 @@ class AccountSecurityTests(unittest.TestCase):
         data_url = "data:image/png;base64," + base64.b64encode(picture.getvalue()).decode()
         _, _, body = self.request("/api/media", "POST", {"image": {"dataUrl": data_url, "name": "wide.png"}})
         url = json.loads(body)["image"]["url"]
+        # Every upload is stored as a small WebP (a few kilobytes), which lists show as it is.
         status, headers, full = self.request(url)
-        self.assertEqual((status, headers["Content-Type"]), (200, "image/png"))
+        self.assertEqual((status, headers["Content-Type"]), (200, "image/webp"))
+        self.assertLessEqual(len(full), 8 * 1024)
+        self.assertLess(len(full), len(picture.getvalue()) // 50)
         status, headers, thumb = self.request(url + "?thumb=1")
-        self.assertEqual((status, headers["Content-Type"]), (200, "image/jpeg"))
-        self.assertLess(len(thumb), len(full) // 10)
+        self.assertEqual((status, headers["Content-Type"], thumb), (200, "image/webp", full))
         with Image.open(BytesIO(thumb)) as small:
-            self.assertEqual(small.size, (240, 135))
+            # The noisiest picture is stepped down in size until it fits, keeping its shape.
+            self.assertLessEqual(max(small.size), 1280)
+            self.assertAlmostEqual(small.size[0] / small.size[1], 1600 / 900, delta=0.02)
         self.assertEqual(self.request(url + "?thumb=1")[2], thumb)
         self.assertEqual(self.request(url + "?thumb=1", token=None)[0], 401)
         self.assertEqual(self.request("/api/media/" + "0" * 64 + ".png?thumb=1")[0], 404)

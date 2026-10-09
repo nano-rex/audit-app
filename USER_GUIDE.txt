@@ -91,10 +91,16 @@ An administrator should configure these records before staff begin auditing:
 2. Select the outlet and date, and the Audit Type. Each audit type grades
    one of two ways (set per type in Super Settings > Audit Types):
    - Detailed (the default): every asset is checked and graded on its own.
-   - Casual: in each location, assets with the same name are checked once
-     as a group (shown as, for example, DOWNLIGHT ×46); the result and any
-     finding apply to the whole group. Assets with the same name in other
-     locations are separate groups.
+   - Casual: in each location, assets with the same name and the same
+     asset type are checked once as a group (shown as, for example,
+     DOWNLIGHT ×46). Assets with the same name in other locations, or of
+     another type, are separate groups. When checks of a group are left
+     unticked with a remark, Affected assets appears below them: tick the
+     assets that have issues (fixed assets are named by code, variable
+     assets by serial number or position), then tick the issues each one
+     has. Every issue must be given to at least one asset before the
+     inspection can be completed; each affected asset then gets its own
+     finding for each of its issues.
    The audit keeps the visit's type; it cannot be changed on the inspection.
    Optionally choose a Priority (one of the
    priority levels) and a Due Date (not before the scheduled date); Scheduled

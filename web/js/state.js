@@ -104,6 +104,8 @@ const allChoice = "__all__";
 // The locations listed in the asset form, with their outlets.
 let equipmentFormLocations = [];
 let equipmentLocationRequest = 0;
+// A casual audit's choice of affected assets per group, kept while moving between location pages.
+let inspectionAffectedDrafts = new Map();
 // What each kind of inspectable item is called, and the checks it starts with.
 const itemKinds = {
   asset: { label: "Fixed Asset", plural: "fixed assets" },

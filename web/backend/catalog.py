@@ -163,7 +163,7 @@ def query_equipment_items(outlet=None, compact=False):
     if outlet:
         where = "WHERE outlet = ?"
         params = (outlet,)
-    columns = ("id, kind, category, asset_id, outlet, zone, equipment_type, name, type, code, location, "
+    columns = ("id, kind, category, asset_id, outlet, zone, equipment_type, name, type, code, location, serial_number, "
                "inspection_criteria_data_id") if compact else ("id, kind, category, asset_id, qr_code, outlet, zone, equipment_type, health_status, "
                "last_checked, replacement_flag, notes, name, description, type, operational_status, code, model, serial_number, brand, location, "
                "installation_date, temporary_relocation, warranty_date, calibration_date, expiry_date, photos_data_id, inverter_model, motor_capacity, source_file, source_sheet, inspection_criteria_data_id")

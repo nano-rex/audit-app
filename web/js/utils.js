@@ -97,16 +97,36 @@ function parseStoredObject(value) {
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.addEventListener("load", () => {
+    reader.addEventListener("load", async () => {
       resolve({
         name: file.name,
         type: file.type || "application/octet-stream",
         size: file.size,
-        dataUrl: reader.result,
+        dataUrl: await shrinkPhotoDataUrl(reader.result),
       });
     });
     reader.addEventListener("error", () => reject(reader.error));
     reader.readAsDataURL(file);
+  });
+}
+
+// A phone photo is scaled down in the browser before it is sent, so uploads are quick; the server
+// then stores every image as a small WebP of a few kilobytes.
+function shrinkPhotoDataUrl(dataUrl, longest = 1280) {
+  if (typeof Image === "undefined" || typeof document === "undefined" || !String(dataUrl).startsWith("data:image/")) return Promise.resolve(dataUrl);
+  return new Promise((resolve) => {
+    const picture = new Image();
+    picture.onload = () => {
+      const scale = Math.min(1, longest / Math.max(picture.naturalWidth, picture.naturalHeight));
+      if (scale === 1 && dataUrl.length < 400_000) return resolve(dataUrl);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(picture.naturalWidth * scale);
+      canvas.height = Math.round(picture.naturalHeight * scale);
+      canvas.getContext("2d").drawImage(picture, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    picture.onerror = () => resolve(dataUrl);
+    picture.src = dataUrl;
   });
 }
 

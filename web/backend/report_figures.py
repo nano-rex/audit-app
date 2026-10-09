@@ -165,10 +165,16 @@ def asset_attributes(items, assets, limit=12):
         grouped.setdefault(str(item.get("equipmentId") or item.get("section") or "Item"), []).append(item)
     inspected = []
     for key, checks in grouped.items():
-        failed = any(not check.get("passed") and not check.get("notApplicable") for check in checks)
-        # A casual audit's group stands for every asset in it.
+        failing = [check for check in checks if not check.get("passed") and not check.get("notApplicable")]
+        # A casual audit's group stands for every asset in it; the assets given its issues failed.
         weight = max(1, int(checks[0].get("groupCount") or 1))
-        inspected.append(((assets or {}).get(key, {}), checks[0], failed, weight))
+        affected = {str(value) for check in failing for value in check.get("affectedIds") or []}
+        if weight > 1 and affected:
+            inspected.append(((assets or {}).get(key, {}), checks[0], True, min(len(affected), weight)))
+            if weight > len(affected):
+                inspected.append(((assets or {}).get(key, {}), checks[0], False, weight - len(affected)))
+        else:
+            inspected.append(((assets or {}).get(key, {}), checks[0], bool(failing), weight))
     result = []
     for name, value_of in ASSET_ATTRIBUTES:
         counts = {}
