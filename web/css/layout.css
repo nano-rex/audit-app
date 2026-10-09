@@ -150,7 +150,7 @@
 
 .criteria-row {
   display: grid;
-  grid-template-columns: minmax(200px, 1.2fr) auto minmax(180px, 1fr);
+  grid-template-columns: minmax(200px, 1.2fr) minmax(180px, 1fr);
   gap: 10px;
   align-items: center;
   padding-top: 10px;

@@ -337,7 +337,6 @@ function renderInspectionLocationItems(location) {
       const draft = inspectionPageDrafts.get(`${equipment.id}:${criterionRow.dataset.criterion}`);
       if (!draft) return;
       criterionRow.dataset.findingDetails = JSON.stringify(draft);
-      renderFindingSummary(criterionRow);
       const id = equipment.id;
       const index = [...criterionRow.parentElement.querySelectorAll("[data-criterion]")].indexOf(criterionRow);
       const check = criterionRow.querySelector("[data-inspection-check]");
@@ -407,24 +406,12 @@ function inspectionItemCard(item) {
             category: assetTypeOf(item),
             criterion,
           }))}'> ${escapeHtml(criterion)}</label>
-          <button class="outline" type="button" data-record-finding>Finding details</button>
           <input name="equipment-${item.id}-notes-${index}" placeholder="Remark if not passed">
-          <small class="finding-summary" data-finding-summary hidden></small>
         </div>
       `).join("")}
       ${item.groupCount > 1 ? `<section class="affected-assets" data-affected-assets hidden></section>` : ""}
     </article>
   `;
-}
-
-function renderFindingSummary(criterionRow) {
-  const summary = criterionRow?.querySelector("[data-finding-summary]");
-  if (!summary) return;
-  const details = parseStoredObject(criterionRow.dataset.findingDetails);
-  // Every item carries its asset type; a priority means finding details were recorded for this criterion.
-  const parts = details.priority ? [details.priority, details.category, details.assignedDepartment, details.pic && `PIC ${details.pic}`].filter(Boolean) : [];
-  summary.textContent = parts.length ? `Finding: ${parts.join(" · ")}` : "";
-  summary.hidden = !parts.length;
 }
 
 function renderInspectionImages(images) {
@@ -903,7 +890,7 @@ function updateInspectionActions(progress, payload) {
   const editable = (currentUser?.inspectionPermissions || []).includes("auditor") && !completed;
   if (button) button.disabled = !editable;
   // A completed or view-only checklist is shown as recorded.
-  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-record-finding], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
+  checklistContainer?.querySelectorAll("[data-inspection-check], [data-equipment-images], [data-pass-all], [data-delete-inspection-image], [data-mark-inspection-image]").forEach((control) => { control.disabled = !editable; });
   if (!editable) checklistContainer?.querySelectorAll('input[name*="-notes-"]').forEach((control) => { control.disabled = true; });
   document.querySelectorAll("[data-export-inspection]").forEach((link) => {
     link.href = id ? `/api/inspection-sessions/${id}/export.${link.dataset.exportInspection}` : "#";
@@ -942,7 +929,6 @@ function applyInspectionSessionItems() {
         category: item.category, priority: item.priority, assignedDepartment: item.assignedDepartment, pic: item.pic,
         cause: item.cause, recommendation: item.recommendation, requiredAction: item.requiredAction,
       });
-      renderFindingSummary(criterionRow);
       const checkbox = criterionRow.querySelector("[data-inspection-check]");
       const notes = criterionRow.querySelector('input[name*="-notes-"]');
       checkbox.checked = Boolean(item.passed);

@@ -755,9 +755,6 @@ fieldset {
 
 #work-order-form[data-mode="finding"] [data-work-order-only] { display: none; }
 .criteria-row.passed [data-record-finding] { visibility: hidden; }
-.finding-summary { grid-column: 1 / -1; color: var(--muted); }
-.finding-summary[hidden],
-.criteria-row.passed .finding-summary { display: none; }
 
 /* Row actions are compact and the same size in cards, lists, and tables. */
 .row-actions button,
@@ -2417,4 +2414,32 @@ people view: a card per person {
 .check-item .affected-asset > label b {
   color: var(--text);
   font-size: 14px;
+}
+
+/* Findings: each check with its details, and its Edit and Delete. */
+.finding-checks li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+
+.finding-check-text {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.finding-check-text small {
+  display: block;
+}
+
+.finding-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.finding-actions button {
+  min-height: 30px;
+  padding: 2px 10px;
+  font-size: 13px;
 }

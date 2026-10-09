@@ -154,7 +154,7 @@ An administrator should configure these records before staff begin auditing:
    finished to complete the inspection.
 5. Tick each criterion that passes, or choose Pass all on an asset to tick
    every criterion that has no remark. For a failed criterion, leave it
-   unticked and enter a remark, or select Finding details beside it.
+   unticked and enter a remark.
 6. Add a photo for each asset. You can add multiple photos, remove a photo, or
    open Mark to annotate it before saving the mark. Select a photo's thumbnail
    to view it: scroll, pinch, or use + and − to zoom, drag to move around, and
@@ -162,15 +162,11 @@ An administrator should configure these records before staff begin auditing:
    photos shown together, and a marked photo can be compared with its original.
    The same viewer opens from the Photos button on work orders, findings, and
    the asset register.
-7. Finding details opens the Record Audit Finding dialog (it also opens when
-   you untick a criterion). Select the asset type, priority, department, and PIC;
-   describe the problem; add the cause, recommendation, required action, and
-   evidence. Choose Save Finding to Draft to keep these details with the
-   inspection; a summary appears under the criterion. The asset type starts
-   from the item's, and the department from the first department; a failed
-   criterion with only a remark uses those defaults. The
-   findings are recorded when the inspection is completed; no work is ordered
-   until a work request is raised for them (section 6).
+7. A failed criterion needs only its remark (and, in a casual audit, the
+   affected assets). Its finding is recorded when the inspection is completed,
+   filed under the item's asset type with the most urgent priority level and
+   the first department; set the details afterwards on Inspections > Findings
+   (section 6). No work is ordered until a work request is raised for it.
 8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
    Work and select it again to resume.
 9. When every criterion is ticked or has a remark, and the required photos
@@ -221,6 +217,11 @@ An administrator should configure these records before staff begin auditing:
 1. Inspections > Findings lists each item (fixed or variable asset) that failed
    a check, once, with the checks it failed, their remarks, and photos. It
    shows items that are not closed; change Status to see the rest.
+   Edit on a check sets its finding's details: asset type, priority,
+   department, PIC, due date, the finding itself, cause, recommendation,
+   required action, and photos. Delete removes a finding that has no work
+   request or work order yet (the audit's score stays as recorded). A closed
+   finding cannot be changed, and Department/PIC accounts only view them.
 2. Choose Create work request on an item. The request starts with the item's
    department, asset type, priority, the failed checks as the work needed, and
    its photos; adjust them and choose Submit Request. The item then shows its

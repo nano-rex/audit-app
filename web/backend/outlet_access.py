@@ -15,6 +15,7 @@ RECORDS = {
     "equipment": ("equipment", "outlet"),
     "locations": ("locations", "outlet_code"),
     "zones": ("zones", "outlet_code"),
+    "findings": ("findings", "outlet"),
 }
 DENIED = "That outlet is not assigned to your account"
 

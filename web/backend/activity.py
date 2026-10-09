@@ -16,6 +16,8 @@ ACTIONS = {
     "order_created": "Created work order",
     "order_status": "Changed work order status",
     "order_closed": "Closed work order",
+    "finding_edited": "Edited finding",
+    "finding_deleted": "Removed finding",
 }
 
 
