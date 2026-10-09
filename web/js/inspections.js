@@ -107,6 +107,7 @@ async function loadInspectionItems() {
   // A casual audit checks the same-named assets of a location once, as one group.
   if (form.dataset.auditStyle === "Casual") inspectionItems = groupForCasualAudit(inspectionItems);
   inspectionPageDrafts = new Map();
+  inspectionAffectedDrafts = new Map();
   renderInspectionFilter();
   const locationNames = new Set(locationData.items.map((location) => location.name).filter(inScope));
   inspectionItems.forEach((item) => {
@@ -138,16 +139,89 @@ function assetTypeOf(item) {
 function groupForCasualAudit(items) {
   const groups = new Map();
   [...items].sort((a, b) => Number(a.id) - Number(b.id)).forEach((item) => {
-    const key = `${item.location || item.zone || "Unassigned"}\u0001${String(item.name || item.asset_id || "").trim().toLowerCase()}`;
+    // Same location, same name, and same asset type.
+    const key = [item.location || item.zone || "Unassigned", String(item.name || item.asset_id || "").trim().toLowerCase(),
+      String(assetTypeOf(item)).trim().toLowerCase()].join("\u0001");
     const group = groups.get(key);
     if (group) {
       group.groupIds.push(item.id);
       group.groupCount += 1;
+      group.members.push(item);
     } else {
-      groups.set(key, { ...item, groupIds: [item.id], groupCount: 1 });
+      groups.set(key, { ...item, groupIds: [item.id], groupCount: 1, members: [item] });
     }
   });
-  return [...groups.values()];
+  // Each asset of a group is named so the auditor can say which ones have issues: a fixed asset by
+  // its code, a variable asset (no code label) by its serial number or its place in the group.
+  return [...groups.values()].map((group) => ({
+    ...group,
+    members: group.members.map((item, index) => ({
+      id: item.id,
+      label: item.kind === "fixture" ? (item.serial_number ? `S/N ${item.serial_number}` : `No. ${index + 1}`) : item.code || item.asset_id || `No. ${index + 1}`,
+    })),
+  }));
+}
+
+// ---- A casual audit's group: which of its assets have the issues found ----
+
+function affectedMap(row) {
+  try {
+    const value = JSON.parse(row.dataset.affected || "{}");
+    return value && typeof value === "object" ? value : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+// The group's checks that failed: unticked, with a remark.
+function failedCriteria(row) {
+  return [...row.querySelectorAll("[data-criterion]")].map((criterionRow) => ({
+    criterion: criterionRow.dataset.criterion,
+    passed: criterionRow.querySelector("[data-inspection-check]")?.checked,
+    notes: criterionRow.querySelector('input[name*="-notes-"]')?.value.trim() || "",
+  })).filter((check) => !check.passed && check.notes);
+}
+
+function renderAffectedAssets(row) {
+  const section = row?.querySelector("[data-affected-assets]");
+  if (!section) return;
+  const group = inspectionItems.find((item) => String(item.id) === row.dataset.equipmentId);
+  const failed = failedCriteria(row);
+  section.hidden = !failed.length || !group;
+  if (section.hidden) return;
+  const map = affectedMap(row);
+  Object.keys(map).forEach((id) => { map[id] = (map[id] || []).filter((criterion) => failed.some((check) => check.criterion === criterion)); });
+  row.dataset.affected = JSON.stringify(map);
+  const locked = document.getElementById("inspection-form")?.dataset.completed === "true";
+  const chosen = group.members.filter((member) => map[member.id]);
+  const unassigned = failed.filter((check) => !chosen.some((member) => map[member.id].includes(check.criterion)));
+  section.innerHTML = `
+    <h4>Affected assets <small>${chosen.length} of ${group.groupCount} chosen</small></h4>
+    <p class="muted">Tick the assets that have these issues, then the issues each one has.</p>
+    ${group.members.map((member) => `
+      <div class="affected-asset${map[member.id] ? " chosen" : ""}">
+        <label><input type="checkbox" data-affected-asset="${member.id}"${map[member.id] ? " checked" : ""}${locked ? " disabled" : ""}><b>${escapeHtml(member.label)}</b></label>
+        ${map[member.id] ? `<div class="affected-issues">${failed.map((check) => `
+          <label><input type="checkbox" data-affected-issue="${member.id}" value="${escapeAttr(check.criterion)}"${map[member.id].includes(check.criterion) ? " checked" : ""}${locked ? " disabled" : ""}>
+            <span>${escapeHtml(check.criterion)} <small class="muted">— ${escapeHtml(check.notes)}</small></span></label>`).join("")}</div>` : ""}
+      </div>`).join("")}
+    ${unassigned.length ? `<p class="affected-warning">Not yet given to an asset: ${unassigned.map((check) => escapeHtml(check.criterion)).join(", ")}</p>` : ""}`;
+}
+
+// The ids of the assets given a check, and their names, for one criterion of a group.
+function affectedFor(row, criterion) {
+  const group = inspectionItems.find((item) => String(item.id) === row.dataset.equipmentId);
+  const map = affectedMap(row);
+  const members = (group?.members || []).filter((member) => (map[member.id] || []).includes(criterion));
+  return members.length ? { affectedIds: members.map((member) => member.id), affectedLabels: Object.fromEntries(members.map((member) => [member.id, member.label])) } : {};
+}
+
+function affectedFromItems(items) {
+  const map = {};
+  items.forEach((item) => (item.affectedIds || []).forEach((id) => {
+    map[id] = [...new Set([...(map[id] || []), item.item])];
+  }));
+  return map;
 }
 
 function visitAssets(form) {
@@ -228,6 +302,7 @@ function captureInspectionPageDrafts(location) {
   container.querySelectorAll("[data-equipment-id]").forEach((row) => {
     const equipmentId = row.dataset.equipmentId;
     const images = storedImagesFromDataset(row);
+    if (row.dataset.affected) inspectionAffectedDrafts.set(equipmentId, row.dataset.affected);
     row.querySelectorAll("[data-criterion]").forEach((criterionRow, index) => {
       const key = `${equipmentId}:${criterionRow.dataset.criterion}`;
       inspectionPageDrafts.set(key, {
@@ -237,6 +312,7 @@ function captureInspectionPageDrafts(location) {
         notApplicable: false,
         notes: formData.get(`equipment-${equipmentId}-notes-${index}`) || "",
         images,
+        ...(formData.get(`equipment-${equipmentId}-criterion-${index}`) === "pass" ? {} : affectedFor(row, criterionRow.dataset.criterion)),
       });
     });
   });
@@ -271,6 +347,9 @@ function renderInspectionLocationItems(location) {
       const row = criterionRow.closest("[data-equipment-id]");
       if (row && draft.images) { row.dataset.savedImages = JSON.stringify(draft.images); row.querySelector("[data-saved-images]").innerHTML = renderInspectionImages(draft.images); }
     });
+    const row = container.querySelector(`[data-equipment-id="${equipment.id}"]`);
+    if (row && inspectionAffectedDrafts.has(String(equipment.id))) row.dataset.affected = inspectionAffectedDrafts.get(String(equipment.id));
+    if (row && equipment.groupCount > 1) renderAffectedAssets(row);
   });
 }
 
@@ -333,6 +412,7 @@ function inspectionItemCard(item) {
           <small class="finding-summary" data-finding-summary hidden></small>
         </div>
       `).join("")}
+      ${item.groupCount > 1 ? `<section class="affected-assets" data-affected-assets hidden></section>` : ""}
     </article>
   `;
 }
@@ -606,6 +686,7 @@ function collectInspectionPayload(complete = false) {
         evidenceStatus: images.length ? images.map(imageLabel).join(", ") : "Missing image",
         notes: formData.get(`equipment-${row.dataset.equipmentId}-notes-${index}`) || "",
         images,
+        ...(passed ? {} : affectedFor(row, criterion)),
       });
     });
   });
@@ -836,6 +917,9 @@ function validateInspectionComplete(payload) {
   if (missingImage) return `Upload image(s) for ${missingImage.section}.`;
   const missingRemark = payload.items.find((item) => !item.passed && !item.notApplicable && !item.notes.trim());
   if (missingRemark) return `Enter a remark for unchecked criterion: ${missingRemark.section} - ${missingRemark.item}.`;
+  // In a casual audit, every issue of a group belongs to at least one of its assets.
+  const unassigned = payload.items.find((item) => Number(item.groupCount) > 1 && !item.passed && !item.notApplicable && !(item.affectedIds || []).length);
+  if (unassigned) return `Choose which ${unassigned.section} assets have "${unassigned.item}" (Affected assets, below its checks).`;
   return "";
 }
 
@@ -844,6 +928,7 @@ function applyInspectionSessionItems() {
   document.querySelectorAll("[data-equipment-id]").forEach((row) => {
     const saved = inspectionSessionItems.filter((item) => String(item.equipmentId) === row.dataset.equipmentId);
     if (!saved.length) return;
+    if (row.querySelector("[data-affected-assets]")) row.dataset.affected = JSON.stringify(affectedFromItems(saved));
     const images = saved[0].images || [];
     row.dataset.savedImages = JSON.stringify(images);
     const savedImages = row.querySelector("[data-saved-images]");
@@ -867,6 +952,7 @@ function applyInspectionSessionItems() {
         notes.disabled = checkbox.checked;
       }
     });
+    renderAffectedAssets(row);
   });
 }
 
@@ -914,3 +1000,31 @@ async function openInspectionSession(id, returnTo = null) {
   showInspectionSubtab("guided");
   showGuidedContent(true);
 }
+
+// A casual audit's group: choosing affected assets and their issues, and keeping the choice in step
+// with the checks (an issue ticked off again leaves every asset).
+checklistContainer?.addEventListener("change", (event) => {
+  const row = event.target.closest("[data-equipment-id]");
+  if (!row?.querySelector("[data-affected-assets]")) return;
+  const asset = event.target.closest("[data-affected-asset]");
+  const issue = event.target.closest("[data-affected-issue]");
+  if (asset || issue) {
+    const map = affectedMap(row);
+    if (asset) {
+      if (asset.checked) map[asset.dataset.affectedAsset] = failedCriteria(row).length === 1 ? [failedCriteria(row)[0].criterion] : [];
+      else delete map[asset.dataset.affectedAsset];
+    } else {
+      const list = new Set(map[issue.dataset.affectedIssue] || []);
+      if (issue.checked) list.add(issue.value); else list.delete(issue.value);
+      map[issue.dataset.affectedIssue] = [...list];
+    }
+    row.dataset.affected = JSON.stringify(map);
+  }
+  renderAffectedAssets(row);
+});
+
+checklistContainer?.addEventListener("input", (event) => {
+  if (!event.target.matches('input[name*="-notes-"]')) return;
+  const row = event.target.closest("[data-equipment-id]");
+  if (row?.querySelector("[data-affected-assets]")) renderAffectedAssets(row);
+});

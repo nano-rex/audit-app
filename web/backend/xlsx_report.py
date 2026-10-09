@@ -271,7 +271,7 @@ class SheetWriter:
 
     def checklist(self, items, assets):
         """Each asset: a bar with its details and how it did, its checks, then its photos."""
-        from backend.pdf_report import asset_details_line
+        from backend.pdf_report import asset_details_line, remark_with_assets
         grouped = {}
         for item in items:
             grouped.setdefault(item.get("equipmentId") or item.get("section") or "Item", []).append(item)
@@ -293,7 +293,7 @@ class SheetWriter:
             self.height(self.row + 1, [(details, COLUMNS)], 8)
             self.box(self.row, 1, self.row + 1, COLUMNS)
             self.row += 2
-            self.table(["Check", "Result", "Remark"], [[check.get("item") or "", result_of(check), check.get("notes") or ""] for check in checks],
+            self.table(["Check", "Result", "Remark"], [[check.get("item") or "", result_of(check), remark_with_assets(check)] for check in checks],
                        [4, 1, 3], result_column=1)
             seen, photos = set(), []
             for check in checks:

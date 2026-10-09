@@ -76,6 +76,24 @@ def require_photo_evidence(items, settings):
             raise WorkflowError(f"Add a photo for {name} before completing the inspection")
 
 
+def finding_targets(item):
+    """The assets a failed check is a finding for, as (asset id, name). A casual audit's group check
+    is a finding for each asset the auditor said has the issue (named "Downlight · AST-00012"); a
+    group without that choice, from before it existed, is one finding for the whole group."""
+    def as_id(value):
+        return int(value) if str(value or "").isdigit() else None
+    section = item.get("section") or ""
+    group = int(item.get("groupCount") or 1)
+    if group > 1:
+        members = {as_id(value) for value in item.get("groupIds") or []} - {None}
+        affected = [as_id(value) for value in item.get("affectedIds") or [] if as_id(value) in members or not members]
+        labels = {str(key): value for key, value in (item.get("affectedLabels") or {}).items()}
+        if affected:
+            return [(asset, f"{section} · {labels.get(str(asset)) or f'#{asset}'}") for asset in dict.fromkeys(affected) if asset is not None]
+        return [(as_id(item.get("equipmentId")), f"{section} ×{group}")]
+    return [(as_id(item.get("equipmentId")), section)]
+
+
 def finalize_inspection(db, session_id, payload, now):
     items = payload.get("items") or []
     settings = {row["key"]: load_value(row["value_data_id"]) for row in db.execute("SELECT key, value_data_id FROM app_settings")}
@@ -111,21 +129,20 @@ def finalize_inspection(db, session_id, payload, now):
         location = item.get("location") or payload.get("zone", "Unassigned")
         comment = item.get("notes") or item.get("item", "Inspection finding")
         due_date = priority_due_date(db, priority, now)
-        images = save_value(db, item.get("images") or [])
-        finding_id = insert_record(db, "findings", {
-            "audit_id": audit_id, "audit_ref": reference, "business_unit": unit, "outlet": outlet, "location": location,
-            "category": category, "priority": priority, "priority_classification": priority_row["classification"],
-            "assigned_department": department, "pic": pic, "comment": comment, "status": "Open",
-            "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
-            "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
-            "source_item_id": item_id, "equipment_id": int(item["equipmentId"]) if str(item.get("equipmentId") or "").isdigit() else None,
-            # A casual audit's group is one finding for all the assets in it.
-            "item_name": (f"{item.get('section') or ''} ×{item['groupCount']}" if int(item.get("groupCount") or 1) > 1 else item.get("section") or ""),
-            "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
-        })
-        finding_reference = finding_ref(finding_id, audit_date)
-        db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (finding_reference, finding_id))
-        db.execute("UPDATE inspection_items SET finding_id = ? WHERE id = ?", (finding_id, item_id))
+        for equipment_id, item_name in finding_targets(item):
+            images = save_value(db, item.get("images") or [])
+            finding_id = insert_record(db, "findings", {
+                "audit_id": audit_id, "audit_ref": reference, "business_unit": unit, "outlet": outlet, "location": location,
+                "category": category, "priority": priority, "priority_classification": priority_row["classification"],
+                "assigned_department": department, "pic": pic, "comment": comment, "status": "Open",
+                "cause": item.get("cause", ""), "recommendation": item.get("recommendation", ""),
+                "required_action": item.get("requiredAction", ""), "images_data_id": images, "due_date": due_date,
+                "source_item_id": item_id, "equipment_id": equipment_id, "item_name": item_name,
+                "criterion": item.get("item") or "", "created_at": now, "updated_at": now,
+            })
+            finding_reference = finding_ref(finding_id, audit_date)
+            db.execute("UPDATE findings SET finding_ref = ? WHERE id = ?", (finding_reference, finding_id))
+            db.execute("UPDATE inspection_items SET finding_id = ? WHERE id = ?", (finding_id, item_id))
     db.execute("UPDATE inspection_sessions SET status = 'Completed', progress = 100, audit_id = ?, updated_at = ? WHERE id = ?", (audit_id, now, session_id))
     db.execute("UPDATE schedules SET status = 'Completed' WHERE id = (SELECT schedule_id FROM inspection_sessions WHERE id = ?)", (session_id,))
     return audit_id

@@ -2340,3 +2340,81 @@ people view: a card per person {
   background: var(--accent-soft);
   font-size: 13px;
 }
+
+/* A casual audit's group: which assets have which issues. */
+.affected-assets {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--orange);
+  border-radius: var(--radius);
+  background: var(--orange-soft);
+}
+
+.affected-assets h4 {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0;
+}
+
+.affected-assets h4 small {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.affected-assets > p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.affected-asset {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.affected-asset > label,
+.affected-issues label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.affected-issues {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 2px 26px;
+  font-size: 14px;
+}
+
+.affected-warning {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* Inspection cards stretch their inputs; the affected-asset boxes stay checkboxes. */
+.check-item .affected-assets input[type="checkbox"] {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.check-item .affected-assets span {
+  display: inline;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.check-item .affected-assets span small {
+  color: var(--muted);
+}
+
+.check-item .affected-asset > label b {
+  color: var(--text);
+  font-size: 14px;
+}

@@ -73,6 +73,12 @@ def asset_details_line(asset):
     return " · ".join(str(part) for part in parts if part)
 
 
+def remark_with_assets(check):
+    """A check's remark, naming the assets of a casual audit's group that have the issue."""
+    labels = list((check.get("affectedLabels") or {}).values())
+    return (check.get("notes") or "") + (f" (affected: {', '.join(labels)})" if labels else "")
+
+
 def mix(colour, amount):
     """The colour faded towards white, as the app's soft tints are."""
     return colors.Color(*(channel + (1 - channel) * amount for channel in colour.rgb()))
@@ -359,7 +365,7 @@ class ReportWriter:
             rows = [["Check", "Result", "Remark"]]
             for check in checks:
                 result = "N/A" if check.get("notApplicable") else "Pass" if check.get("passed") else "Fail"
-                rows.append([check.get("item") or "", result, check.get("notes") or ""])
+                rows.append([check.get("item") or "", result, remark_with_assets(check)])
             self.story.append(KeepTogether([bar, Spacer(1, 3), self.table_flowable(rows, [250, 50, 223], result_column=1)]))
             if with_photos:
                 seen, photos = set(), []
