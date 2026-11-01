@@ -867,6 +867,11 @@ fn static_file(ctx: &Ctx) -> R<Reply> {
         return send_error(404);
     }
     let is_index = target.file_name().is_some_and(|name| name == "index.html");
+    if is_index && ctx.user()?.is_null() {
+        // Without a session the app shell would draw, then send the visitor away once its scripts
+        // asked who is signed in; send them to the sign-in page before anything is drawn.
+        return Ok(Reply::Raw(Response::new(302, "text/plain; charset=utf-8", Vec::new()).header("Location", "/login.html").header("Cache-Control", "no-store")));
+    }
     let mut dependencies = vec![target.clone()];
     if is_index {
         let mut partials = Vec::new();

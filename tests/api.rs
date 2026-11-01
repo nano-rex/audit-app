@@ -194,6 +194,8 @@ fn new_databases_hold_accounts_until_their_password_changes() {
     let (status, body) = client.get("/api/todo");
     assert_eq!((status, body.at("resetRequired").clone()), (403, Value::Bool(true)));
     assert_eq!(client.get("/api/account").0, 200);
+    // The page shell holds the password dialog, so it opens before the password is changed.
+    assert_eq!(client.raw("GET", "/", b"", &[]).status, 200);
     assert_eq!(client.post("/api/auth/change-password", obj([("oldPassword", "wrong".into()), ("newPassword", NEW_PASSWORD.into())])).0, 400);
     assert_eq!(client.post("/api/auth/change-password", obj([("oldPassword", "password123".into()), ("newPassword", "short".into())])).0, 400);
     assert_eq!(client.post("/api/auth/change-password", obj([("oldPassword", "password123".into()), ("newPassword", NEW_PASSWORD.into())])).0, 200);
@@ -254,7 +256,14 @@ fn requests_are_refused_before_their_body_is_read_and_bodies_are_checked() {
 #[test]
 fn static_files_are_allowlisted_compressed_and_revalidated() {
     let server = Server::start();
-    let mut client = server.client();
+    let mut anonymous = server.client();
+    for path in ["/", "/index.html"] {
+        let away = anonymous.raw("GET", path, b"", &[]);
+        assert_eq!((away.status, away.header("Location")), (302, Some("/login.html")), "{path}");
+        assert_eq!(away.header("Cache-Control"), Some("no-store"));
+    }
+    assert_eq!(anonymous.raw("GET", "/login.html", b"", &[]).status, 200);
+    let mut client = server.admin();
     let page = client.raw("GET", "/", b"", &[("Accept-Encoding", "gzip")]);
     assert_eq!(page.status, 200);
     assert_eq!(page.header("Content-Encoding"), Some("gzip"));
