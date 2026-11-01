@@ -1,0 +1,37 @@
+    <section id="today" class="tab-panel active">
+      <nav class="sub-tabs contextual-tabs" aria-label="Dashboard sections">
+        <button class="active" type="button" data-context-tab="today">Dashboard</button>
+        <button type="button" data-context-tab="reports">Reports</button>
+        <button type="button" data-context-tab="activity">Activity Log</button>
+      </nav>
+      <section class="today-hero">
+        <div>
+          <span>Main Dashboard</span>
+          <h2><span data-unit-text></span> audit dashboard</h2>
+        </div>
+        <div class="quick-actions">
+          <!--<button class="primary" data-jump-tab="inspections">Start Inspection</button>-->
+          <!--<button class="outline">Scan QR</button>-->
+          <button class="primary" data-open="schedule" data-scheduled-panel>Schedule Visit</button>
+        </div>
+      </section>
+
+      <section class="panel scheduled-panel" data-scheduled-panel>
+        <h2>Scheduled audits <span class="count-pill" data-scheduled-count hidden></span></h2>
+        <div class="list compact-list" data-today-schedules></div>
+      </section>
+
+      <p>All-time audit overview. Pending includes drafts and scheduled work that has not started; each audit is counted once.</p>
+      <section class="stats" aria-label="Audit overview">
+        <article><span>Total Audits</span><strong data-dashboard="total">—</strong></article>
+        <article><span>Audits Completed</span><strong data-dashboard="auditsCompleted">—</strong></article>
+        <article><span>Audits Pending</span><strong data-dashboard="auditsPending">—</strong></article>
+        <article><span>Priority Issues</span><strong data-dashboard="priorityIssues">—</strong></article>
+        <article><span>Non-Priority Issues</span><strong data-dashboard="nonPriorityIssues">—</strong></article>
+        <article><span>Outstanding Issues</span><strong data-dashboard="outstandingFindings">—</strong><small>Findings not yet closed</small></article>
+        <article><span>Closed Work Orders</span><strong data-dashboard="closedWorkOrders">—</strong><small>Work orders that are done</small></article>
+        <article><span>Overall Audit Score</span><strong data-dashboard="overallAuditScore">—</strong><small>Average of completed audits</small></article>
+      </section>
+      <section class="chart-grid" data-dashboard-charts aria-label="Audit charts"></section>
+
+    </section>

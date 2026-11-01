@@ -1,0 +1,17 @@
+  <dialog id="audit-pdf-dialog">
+    <form method="dialog" id="audit-pdf-form">
+      <header><h2>Export PDF</h2><button type="button" data-close-dialog>x</button></header>
+      <p class="muted" data-audit-pdf-title></p>
+      <div class="export-choices">
+        <label class="permission-option"><input type="radio" name="pdfScope" value="overall" checked><span><b>Overall</b> — the score, grading by location, findings, and signatures</span></label>
+        <label class="permission-option"><input type="radio" name="pdfScope" value="locations"><span><b>Selected locations</b> — full audit details: every check and remark, photos, and findings</span></label>
+      </div>
+      <section class="zone-location-picker" data-audit-pdf-locations hidden>
+        <h3>Locations</h3>
+        <div data-audit-pdf-location-options></div>
+      </section>
+      <footer class="form-actions">
+        <a class="button-link primary" data-download data-audit-pdf-link href="#">Download PDF</a>
+      </footer>
+    </form>
+  </dialog>

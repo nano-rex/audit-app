@@ -1,0 +1,21 @@
+  <dialog id="photo-viewer" class="photo-viewer" aria-labelledby="photo-viewer-title">
+    <header>
+      <h2 id="photo-viewer-title" data-photo-title>Photo</h2>
+      <div class="photo-viewer-tools">
+        <button class="outline" type="button" data-photo-version hidden>Show original</button>
+        <button class="outline" type="button" data-photo-zoom="out" aria-label="Zoom out">−</button>
+        <output data-photo-zoom-level aria-live="polite">100%</output>
+        <button class="outline" type="button" data-photo-zoom="in" aria-label="Zoom in">+</button>
+        <button class="outline" type="button" data-photo-zoom="fit">Fit</button>
+        <button type="button" data-close-dialog aria-label="Close">x</button>
+      </div>
+    </header>
+    <div class="photo-viewer-stage" data-photo-stage tabindex="0" aria-label="Photo. Scroll or pinch to zoom, drag to move.">
+      <img data-photo-image alt="" draggable="false">
+    </div>
+    <footer>
+      <button class="outline" type="button" data-photo-step="-1">Previous</button>
+      <p class="muted" data-photo-caption></p>
+      <button class="outline" type="button" data-photo-step="1">Next</button>
+    </footer>
+  </dialog>

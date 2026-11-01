@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en" class="app-booting">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Audit App</title>
+  <link rel="stylesheet" href="css/base.css?v=20261020-no-flicker">
+  <link rel="stylesheet" href="css/layout.css?v=20261020-no-flicker">
+  <link rel="stylesheet" href="css/components.css?v=20261020-no-flicker">
+  <link rel="stylesheet" href="css/responsive.css?v=20261020-no-flicker">
+  <script src="js/theme.js?v=20261020-no-flicker"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img class="brand-logo" data-brand-logo alt="" hidden>
+      <h1 data-brand-title>Audit App</h1>
+      <p data-brand-subtitle>Facilities audit workspace</p>
+    </div>
+    <div class="account-strip" data-account-strip hidden>
+      <button class="account-chip" type="button" data-jump-tab="account" title="Open your account" data-auth-user></button>
+    </div>
+    <div class="nav-row">
+      <nav class="tabs" aria-label="Audit sections">
+        <button class="active" data-tab="today">Dashboard</button>
+        <button data-tab="inspections">Inspections</button>
+        <button data-tab="history" data-nested-only hidden>History</button>
+        <button data-tab="findings" data-nested-only hidden>Findings</button>
+        <button data-tab="work-orders">Maintenance</button>
+        <button data-tab="equipment" data-nested-only hidden>Fixed Assets</button>
+        <button data-tab="reports" data-nested-only hidden>Reports</button>
+        <button data-tab="activity" data-nested-only hidden>Activity Log</button>
+        <button data-tab="notifications">Notifications</button>
+        <button data-tab="approvals">Approvals</button>
+        <button data-tab="categories">Assets</button>
+        <button data-tab="outlets">Outlets</button>
+        <button data-tab="users">Users</button>
+        <button data-tab="settings">Settings</button>
+        <button data-tab="account">Account</button>
+        <button data-tab="super-dashboard">Super Dashboard</button>
+        <button data-tab="super-settings">Super Settings</button>
+      </nav>
+      <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="tab-menu" aria-label="Open tab menu">☰</button>
+      <div class="tab-menu" id="tab-menu" hidden>
+        <h2>Pages</h2>
+        <p>Move pages up or down. The first pages appear on the bar as space allows.</p>
+        <p data-navigation-status role="status" aria-live="polite"></p>
+        <div data-menu-tabs></div>
+      </div>
+    </div>
+  </header>
+
+  <div class="server-outdated" data-server-outdated role="alert" hidden>
+    The app was updated but the server is still running the previous version, so some changes will not be saved.
+    Restart the server (from the audit-app folder: <code>.venv/bin/python web/server.py</code>), then reload this page.
+  </div>
+  <main>
+    <!-- include: html/tabs/today.html -->
+    <!-- include: html/tabs/inspections.html -->
+    <!-- include: html/tabs/history.html -->
+    <!-- include: html/tabs/findings.html -->
+    <!-- include: html/tabs/work-orders.html -->
+    <!-- include: html/tabs/equipment.html -->
+    <!-- include: html/tabs/reports.html -->
+    <!-- include: html/tabs/activity.html -->
+    <!-- include: html/tabs/notifications.html -->
+    <!-- include: html/tabs/approvals.html -->
+    <!-- include: html/tabs/categories.html -->
+    <!-- include: html/tabs/outlets.html -->
+    <!-- include: html/tabs/users.html -->
+    <!-- include: html/tabs/settings.html -->
+    <!-- include: html/tabs/account.html -->
+    <!-- include: html/tabs/super-dashboard.html -->
+    <!-- include: html/tabs/super-settings.html -->
+  </main>
+
+  <!-- include: html/dialogs/work-order.html -->
+  <!-- include: html/dialogs/work-request.html -->
+  <!-- include: html/dialogs/finding.html -->
+  <!-- include: html/dialogs/schedule.html -->
+  <!-- include: html/dialogs/equipment.html -->
+  <!-- include: html/dialogs/location.html -->
+  <!-- include: html/dialogs/department.html -->
+  <!-- include: html/dialogs/outlet.html -->
+  <!-- include: html/dialogs/user.html -->
+  <!-- include: html/dialogs/role.html -->
+  <!-- include: html/dialogs/zone.html -->
+  <!-- include: html/dialogs/auth.html -->
+  <!-- include: html/dialogs/photo-viewer.html -->
+  <!-- include: html/dialogs/audit-pdf.html -->
+
+  <script src="js/auth.js?v=20261020-no-flicker"></script>
+  <script src="js/state.js?v=20261020-no-flicker"></script>
+  <script src="js/utils.js?v=20261020-no-flicker"></script>
+  <script src="js/photo-viewer.js?v=20261020-no-flicker"></script>
+  <script src="js/pagination.js?v=20261020-no-flicker"></script>
+  <script src="js/setup.js?v=20261020-no-flicker"></script>
+  <script src="js/rows.js?v=20261020-no-flicker"></script>
+  <script src="js/dashboard.js?v=20261020-no-flicker"></script>
+  <script src="js/report-charts.js?v=20261020-no-flicker"></script>
+  <script src="js/activity.js?v=20261020-no-flicker"></script>
+  <script src="js/inspections.js?v=20261020-no-flicker"></script>
+  <script src="js/signature-pad.js?v=20261020-no-flicker"></script>
+  <script src="js/signoff.js?v=20261020-no-flicker"></script>
+  <script src="js/audit-export.js?v=20261020-no-flicker"></script>
+  <script src="js/navigation.js?v=20261020-no-flicker"></script>
+  <script src="js/events.js?v=20261020-no-flicker"></script>
+  <script src="js/forms.js?v=20261020-no-flicker"></script>
+  <script src="js/equipment-bulk.js?v=20261020-no-flicker"></script>
+  <script src="js/org-tree.js?v=20261020-no-flicker"></script>
+  <script src="js/approvals.js?v=20261020-no-flicker"></script>
+  <script src="js/maintenance.js?v=20261020-no-flicker"></script>
+  <script src="js/findings.js?v=20261020-no-flicker"></script>
+  <script src="js/permissions.js?v=20261020-no-flicker"></script>
+  <script src="js/account.js?v=20261020-no-flicker"></script>
+  <script src="js/boot.js?v=20261020-no-flicker"></script>
+</body>
+</html>

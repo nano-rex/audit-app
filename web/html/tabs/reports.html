@@ -1,0 +1,64 @@
+    <section id="reports" class="tab-panel">
+      <section class="today-hero report-hero">
+        <div>
+          <span>Reporting</span>
+          <h2><span data-unit-text></span> <span data-report-heading>audit report</span></h2>
+          <p>All-time results by default. Use the date and outlet filters to narrow this report.</p>
+        </div>
+        <div class="quick-actions">
+          <a class="button-link primary" data-export-pdf data-download href="/api/reports/export.pdf">Export PDF</a>
+          <a class="button-link outline" data-export-xls data-download href="/api/reports/export.xlsx">Export Excel</a>
+        </div>
+      </section>
+      <form class="panel filter" id="report-filter-form">
+        <label>From<input type="date" name="from"></label>
+        <label>To<input type="date" name="to"></label>
+        <label>Outlet<select name="outlet"><option value="">All outlets</option></select></label>
+        <button type="submit" class="primary">Apply Filters</button>
+        <button type="reset" class="outline">Clear Filters</button>
+        <p data-report-filter-message role="status"></p>
+      </form>
+      <section class="report-overview" data-report-overview></section>
+      <section class="chart-grid report-trends" data-report-trends></section>
+      <section class="chart-grid report-outlets">
+        <article class="panel chart-card">
+          <h2>Latest Scores by Outlet</h2>
+          <p class="muted">Each outlet's latest audit score, coloured by grade</p>
+          <div data-bars></div>
+        </article>
+        <article class="panel chart-card">
+          <h2>Performance Distribution</h2>
+          <p data-performance-summary>No completed audits</p>
+          <div class="legend" data-performance-legend></div>
+          <div class="donut" data-performance-chart role="img" aria-label="No completed audits" hidden></div>
+        </article>
+        <article class="panel chart-card">
+          <h2>Previous vs Current Audit</h2>
+          <p class="muted">Each outlet's last two audit scores</p>
+          <div data-report-comparison></div>
+        </article>
+        <article class="panel chart-card">
+          <h2>Outlet Rankings</h2>
+          <div class="list rankings" data-rankings></div>
+        </article>
+        <article class="panel chart-card">
+          <h2>Critical Issues</h2>
+          <div class="list compact-list" data-report-critical></div>
+        </article>
+      </section>
+      <section class="chart-grid" data-report-charts></section>
+      <section class="panel kpi-panel">
+        <h2>Time to Act</h2>
+        <p class="muted">Average time each step took in this report's period; the faint bar behind is the longest.</p>
+        <div data-time-to-act-chart></div>
+        <div class="stats kpi-times" data-time-to-act></div>
+      </section>
+      <section class="panel kpi-panel">
+        <h2>People</h2>
+        <p class="muted">Who started, completed, signed, and closed audits, raised and acted on work requests, and closed work orders.</p>
+        <div data-kpi-people-chart></div>
+        <div class="table-scroll"><table class="kpi-table" data-kpi-people></table></div>
+      </section>
+    </section>
+      </div>
+    </section>

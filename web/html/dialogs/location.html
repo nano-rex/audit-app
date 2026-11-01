@@ -1,0 +1,20 @@
+  <dialog id="location-dialog">
+    <form method="dialog" id="location-form">
+      <header><h2>Location Setup</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="locationId" type="hidden">
+      <label>Location Name<input name="name" placeholder="Location name"></label>
+      <label>QR Code<input name="qrCode" placeholder="Auto-generated when blank"></label>
+      <div class="form-grid">
+        <label>Floor<input name="floor" placeholder="Ground, Level 1"></label>
+        <label>Area<input name="area" placeholder="Dining, counter, studio"></label>
+        <label>Display Order<input name="displayOrder" type="number" min="0" value="0"></label>
+      </div>
+      <label>Size<input name="size" placeholder="Area, room size, or capacity"></label>
+      <div class="zone-location-picker asset-picker">
+        <h3>Assets in this location <span class="count-pill" data-location-asset-count>0</span></h3>
+        <input type="search" data-location-asset-filter placeholder="Filter by name or code" aria-label="Filter assets">
+        <div data-location-asset-options></div>
+      </div>
+      <button class="primary" type="submit" value="default">Save Location</button>
+    </form>
+  </dialog>

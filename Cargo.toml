@@ -1,0 +1,21 @@
+[package]
+name = "audit-app"
+version = "2.0.0"
+edition = "2021"
+rust-version = "1.85"
+description = "Facilities audit application: guided checklists, findings, work orders, sign-off, and reports"
+license = "GPL-3.0-only"
+repository = "https://github.com/nano-rex/audit-app"
+
+# The application deliberately has no third-party crates: everything is the Rust standard
+# library plus the code in this repository, so the whole program can be reviewed. SQLite is
+# the system's libsqlite3, reached through the declarations in src/sqlite.rs.
+[dependencies]
+
+[profile.dev]
+# Password hashing runs 600,000 SHA-256 rounds; unoptimized it takes seconds per sign-in.
+opt-level = 2
+
+[profile.release]
+lto = "thin"
+strip = true

@@ -1,0 +1,258 @@
+async function loadLocations() {
+  if (!selectedLocationOutlet) {
+    setHtml("[data-location-records]", `<section class="admin-group"><ul><li><b>No outlet selected</b><span>Create an outlet first.</span></li></ul></section>`);
+    return;
+  }
+  setLoading("[data-location-records]", "Loading locations…");
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
+  const data = await response.json();
+  locationCache = data.items;
+  renderLocations();
+}
+
+function renderLocations() {
+  const page = paginateList("locations", locationCache, selectedLocationOutlet, renderLocations);
+  setHtml("[data-location-records]", (page.items.length
+    ? `<section class="admin-group"><ul>${page.items.map(locationRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No locations</b><span>Add a location for this outlet.</span></li></ul></section>`) + page.controls);
+}
+
+async function loadZones() {
+  setLoading("[data-zone-records]", "Loading zones…");
+  if (!selectedZoneOutlet) {
+    const response = await authFetch("/api/zones");
+    const data = await response.json();
+    zoneCache = data.items || [];
+    renderZones();
+    return;
+  }
+  const response = await authFetch(`/api/zones?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
+  const data = await response.json();
+  zoneCache = [
+    ...zoneCache.filter((zone) => zone.outlet_code !== selectedZoneOutlet),
+    ...data.items,
+  ];
+  renderZones();
+}
+
+function renderZones() {
+  const rows = zoneCache.filter((row) => !selectedZoneOutlet || row.outlet_code === selectedZoneOutlet);
+  const page = paginateList("zones", rows, selectedZoneOutlet, renderZones);
+  const outlets = [...new Set(page.items.map((row) => row.outlet_code))];
+  setHtml("[data-zone-records]", (page.items.length
+    ? outlets.map((outlet) => `<section class="admin-group"><h3>${escapeHtml(outlet)}</h3><ul>${page.items.filter((row) => row.outlet_code === outlet).map(zoneRow).join("")}</ul></section>`).join("")
+    : `<section class="admin-group"><ul><li><b>No zones</b><span>Add a zone for this outlet.</span></li></ul></section>`) + page.controls);
+}
+
+async function populateLocationEquipmentSelect(locationName = "") {
+  const form = document.getElementById("location-form");
+  const response = await authFetch(`/api/equipment?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
+  const data = await response.json();
+  const here = (item) => (item.location || item.zone || "") === locationName;
+  // Items already in this location first, then the rest by name.
+  const items = [...data.items].sort((a, b) => Number(here(b)) - Number(here(a)) || String(a.name || "").localeCompare(String(b.name || "")));
+  form.querySelector("[data-location-asset-filter]").value = "";
+  setHtml("[data-location-asset-options]", items.length ? items.map((item) => {
+    const label = item.name || item.asset_id || item.code || `Item ${item.id}`;
+    const elsewhere = !here(item) && (item.location || item.zone) ? `Now in ${item.location || item.zone}` : "";
+    return `<label class="zone-location-option"><input type="checkbox" name="equipmentIds" value="${item.id}"${here(item) && locationName ? " checked" : ""}>
+      <span>${escapeHtml(label)}</span><small>${escapeHtml([item.code || item.asset_id || "", elsewhere].filter(Boolean).join(" · "))}</small></label>`;
+  }).join("") : `<p class="muted">No assets are registered for this outlet.</p>`);
+  updateLocationAssetCount();
+}
+
+function updateLocationAssetCount() {
+  const form = document.getElementById("location-form");
+  setText("[data-location-asset-count]", String(form.querySelectorAll('[data-location-asset-options] input:checked').length));
+}
+
+document.querySelector("[data-location-asset-filter]")?.addEventListener("input", (event) => {
+  const text = event.target.value.trim().toLowerCase();
+  document.querySelectorAll("[data-location-asset-options] label").forEach((label) => {
+    label.hidden = Boolean(text) && !label.textContent.toLowerCase().includes(text);
+  });
+});
+document.querySelector("[data-location-asset-options]")?.addEventListener("change", updateLocationAssetCount);
+
+async function populateZoneLocationSelect(selectedLocations = []) {
+  const form = document.getElementById("zone-form");
+  const response = await authFetch(`/api/locations?outlet=${encodeURIComponent(selectedZoneOutlet)}`);
+  const data = await response.json();
+  const selected = new Set(selectedLocations);
+  const currentZoneId = formValue(form, "zoneId", "");
+  const zonesForOutlet = zoneCache.filter((zone) => zone.outlet_code === selectedZoneOutlet);
+  const assignedByOtherZone = new Map();
+  zonesForOutlet.forEach((zone) => {
+    if (String(zone.id) === String(currentZoneId)) return;
+    (zone.locations || []).forEach((location) => assignedByOtherZone.set(location, zone.name));
+  });
+  const container = document.querySelector("[data-zone-location-options]");
+  if (!container) return;
+  container.innerHTML = data.items.length
+    ? data.items.map((location) => {
+      const assignedZone = assignedByOtherZone.get(location.name);
+      const disabled = Boolean(assignedZone);
+      return `
+        <label class="zone-location-option ${disabled ? "disabled" : ""}">
+          <input type="checkbox" name="zoneLocations" value="${escapeAttr(location.name)}" ${selected.has(location.name) ? "checked" : ""} ${disabled ? "disabled" : ""}>
+          <span>${escapeHtml(location.name)}</span>
+          ${disabled ? `<small>Used in ${escapeHtml(assignedZone)}</small>` : ""}
+        </label>
+      `;
+    }).join("")
+    : `<p class="muted">No locations are set up for this outlet.</p>`;
+}
+async function loadSetup() {
+  ["[data-department-records]", "[data-outlet-records]", "[data-role-records]", "[data-priority-records]", "[data-audit-type-records]"].forEach((selector) => setLoading(selector, "Loading setup data…"));
+  document.querySelectorAll("[data-super-only-setting]").forEach((panel) => { panel.hidden = currentUser?.role !== "Super"; });
+  document.querySelectorAll("[data-company-admin-setting]").forEach((panel) => { panel.hidden = !["Admin", "Super"].includes(currentUser?.role); });
+  const response = await authFetch("/api/setup");
+  const data = await response.json();
+  setupOptions.departments = data.departments.map((row) => row.code);
+  // Asset types took the place of categories: every type in use, and the variable asset types.
+  setupOptions.assetTypes = data.assetTypes || [];
+  setupOptions.variableTypes = data.variableTypes || [];
+  setupOptions.outlets = data.outlets.map((row) => row.code);
+  setupOptions.zones = data.zones || [];
+  setupOptions.roles = (data.roles || []).map((row) => row.name);
+  setupOptions.priorities = (data.priorities || []).filter((row) => row.active).map((row) => row.name);
+  setupOptions.auditTypes = (data.auditTypes || []).filter((row) => row.active).map((row) => row.name);
+  setupOptions.settings = data.settings || {};
+  setupOptions.tabs = data.tabs || allTabs;
+  departmentCache = data.departments;
+  outletCache = data.outlets;
+  zoneCache = data.zones || [];
+  roleCache = data.roles || [];
+  setupOptions.changeRecords = data.changeRecords || [];
+  priorityCache = data.priorities || [];
+  auditTypeCache = data.auditTypes || [];
+  selectedLocationOutlet = selectedLocationOutlet || setupOptions.outlets[0] || "";
+  updateUserFilterSelects();
+  updateUserRoleSelects();
+  renderDepartments();
+  renderOutlets();
+  renderRoles();
+  renderPriorities();
+  renderAuditTypes();
+  populateSettingsForms();
+  updateLocationOutletSelect();
+  updateZoneOutletSelect();
+}
+
+function renderPriorities() {
+  setHtml("[data-priority-records]", priorityCache.length
+    ? priorityCache.map(priorityRow).join("")
+    : `<article><div><b>No priorities</b><span>Add priority wording, classification, and due days.</span></div></article>`);
+}
+
+function renderAuditTypes() {
+  setHtml("[data-audit-type-records]", auditTypeCache.length
+    ? auditTypeCache.map(auditTypeRow).join("")
+    : `<article><div><b>No audit types</b><span>Add audit types for new audit records.</span></div></article>`);
+}
+
+function populateSettingsForms() {
+  const getSetting = (key, fallback = "") => setupOptions.settings[key] ?? fallback;
+  const scoring = {
+    passMark: getSetting("scoring.passMark", 70),
+    weightingMode: getSetting("scoring.weighting", "Equal"),
+    ratingBands: {
+      excellent: getSetting("scoring.excellentBand", 90),
+      good: getSetting("scoring.goodBand", 70),
+      needsImprovement: getSetting("scoring.belowBand", 60),
+    },
+  };
+  const report = {
+    appTitle: getSetting("report.appTitle", brandingDefaults.appTitle),
+    appSubtitle: getSetting("report.appSubtitle", brandingDefaults.appSubtitle),
+    businessUnitLabel: getSetting("report.businessUnitLabel", brandingDefaults.businessUnitLabel),
+    reportHeading: getSetting("report.reportHeading", "audit report"),
+    loginTitle: getSetting("report.loginTitle", brandingDefaults.loginTitle),
+    companyName: getSetting("report.companyName", brandingDefaults.businessUnitLabel),
+    departmentHeader: getSetting("report.departmentHeader", "Facilities Department"),
+    logoUrl: getSetting("report.logoUrl", ""),
+  };
+  const scoringForm = document.getElementById("scoring-settings-form");
+  if (scoringForm) {
+    scoringForm.elements.passMark.value = scoring.passMark ?? 70;
+    scoringForm.elements.excellentFrom.value = scoring.ratingBands?.excellent ?? 90;
+    scoringForm.elements.goodFrom.value = scoring.ratingBands?.good ?? 75;
+    scoringForm.elements.needsImprovementFrom.value = scoring.ratingBands?.needsImprovement ?? 60;
+  }
+  const systemForm = document.getElementById("system-settings-form");
+  if (systemForm) {
+    systemForm.elements.appTitle.value = report.appTitle;
+    systemForm.elements.appSubtitle.value = report.appSubtitle;
+    systemForm.elements.businessUnitLabel.value = report.businessUnitLabel;
+    systemForm.elements.reportHeading.value = report.reportHeading;
+    systemForm.elements.loginTitle.value = report.loginTitle;
+    systemForm.elements.companyName.value = report.companyName || "Ottotree";
+    systemForm.elements.departmentHeader.value = report.departmentHeader || "Facilities Department";
+    systemForm.elements.logoUrl.value = report.logoUrl || "";
+    renderReportLogo();
+  }
+  const featureForm = document.getElementById("feature-visibility-form");
+  if (featureForm) {
+    featureForm.elements.findingsEnabled.checked = setupOptions.settings["system.findingsEnabled"] !== false;
+    featureForm.elements.requirePhotoEveryAsset.checked = setupOptions.settings["system.requirePhotoEveryAsset"] !== false;
+  }
+}
+
+async function loadUsers() {
+  const response = await authFetch("/api/users");
+  const data = await response.json();
+  userCache = data.items;
+  renderUsers();
+  if (activeUserSection === "organization") renderOrganization();
+}
+
+function renderDepartments() {
+  const search = departmentFilters.search.toLowerCase();
+  const rows = departmentCache.filter((row) => [row.code, row.description, row.responsibilities].join(" ").toLowerCase().includes(search));
+  setHtml("[data-department-records]", rows.length
+    ? `<section class="department-grid" aria-label="Departments">${rows.map(departmentRow).join("")}</section>`
+    : `<section class="admin-group"><ul><li><b>No departments found</b><span>Adjust search or add a department.</span></li></ul></section>`);
+}
+
+function renderOutlets() {
+  const search = outletFilters.search.toLowerCase();
+  const rows = outletCache.filter((row) => [row.code, row.location, row.description].join(" ").toLowerCase().includes(search));
+  const page = paginateList("outlets", rows, outletFilters, renderOutlets);
+  setHtml("[data-outlet-records]", (rows.length
+    ? `<section class="admin-group"><ul>${page.items.map(outletRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No outlets found</b><span>Adjust search or add an outlet.</span></li></ul></section>`) + page.controls);
+}
+
+function updateUserFilterSelects() {
+  updateSelectOptions(document.getElementById("user-filter-department"), setupOptions.departments, true, "All departments");
+  document.getElementById("user-filter-department").value = userFilters.department;
+  updateSelectOptions(document.getElementById("user-filter-role"), setupOptions.roles || [], true, "All roles");
+  document.getElementById("user-filter-role").value = userFilters.role;
+}
+
+function updateUserRoleSelects() {
+  document.querySelectorAll('select[name="role"]').forEach((select) => {
+    updateSelectOptions(select, setupOptions.roles || ["Super"], true, "Select role");
+  });
+}
+
+function renderRoles() {
+  const search = roleFilters.search.toLowerCase();
+  const rows = roleCache.filter((row) => [row.name, row.description, (row.permissions || []).join(" ")].join(" ").toLowerCase().includes(search));
+  setHtml("[data-role-records]", rows.length
+    ? `<section class="admin-group"><ul>${rows.map(roleRow).join("")}</ul></section>`
+    : `<section class="admin-group"><ul><li><b>No roles found</b><span>Add a role to assign non-admin access.</span></li></ul></section>`);
+}
+
+function renderUsers() {
+  const search = userFilters.search.toLowerCase();
+  const rows = userCache.filter((row) => {
+    const haystack = [row.name, row.email, row.role, row.department, row.title, row.responsibilities].join(" ").toLowerCase();
+    return (!search || haystack.includes(search))
+      && (!userFilters.role || row.role === userFilters.role)
+      && (!userFilters.department || row.department === userFilters.department);
+  });
+  setHtml("[data-users]", rows.length
+    ? `<div class="users-table-wrap"><table class="users-table"><thead><tr><th>User</th><th class="user-email">Email</th><th class="user-department">Department</th><th>Role</th><th>Status</th><th class="user-login">Last login</th><th>Actions</th></tr></thead><tbody>${rows.map(userRow).join("")}</tbody></table></div>`
+    : `<article><div><b>No users found</b><span>Adjust filters or add a user.</span></div></article>`);
+}

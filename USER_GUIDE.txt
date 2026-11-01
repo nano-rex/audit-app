@@ -1,0 +1,342 @@
+AUDIT APP — WEB USER GUIDE
+================================
+
+This guide describes the normal web workflow from account setup through audit
+closure and reporting. The pages available to you depend on your role and the
+permissions assigned to your account.
+
+1. SIGN IN AND SET UP YOUR ACCOUNT
+----------------------------------
+1. Open the Audit App website and sign in with the account provided by your
+   administrator.
+2. Open Account to update your name, email, profile picture, and signature.
+   Choose a file for the picture or signature, or draw your signature in the
+   box and choose Use this drawing; then Save Account. Images appear as
+   squares beside their Choose file square; x removes one.
+   Change your password there if needed. Your signed-in account is recorded as
+   the auditor; you do not need to type your name into an inspection.
+3. If you cannot sign in, use Forgot Password to send a reset request. An
+   administrator must review the request and reset the password.
+4. If your account was created without a password of its own, or an
+   administrator reset it, you are asked to choose a new password as soon as
+   you sign in. Nothing else is available until you do.
+
+2. COMPLETE FIRST-TIME ADMIN SETUP
+----------------------------------
+An administrator should configure these records before staff begin auditing:
+
+1. In Users, create accounts and assign each person's role and department.
+   Configure role permissions and inspection capabilities as required.
+   History and Findings are separate pages (each has its own permission).
+   Change Permissions, on a role or on a person, set who may change assets
+   (fixed assets and variable assets), users, outlets, zones, locations,
+   departments, and roles. Add / edit / delete lets someone change those
+   records; Approve changes lets them approve others' changes. Someone with
+   Add / edit / delete but not Approve changes does not change the record
+   directly: their change waits on the Approvals page, the approvers are
+   notified, and it is applied once one of them approves it (or dropped if
+   rejected, with the reason). Nobody approves their own change. Without
+   Add / edit / delete, the add, edit, and delete buttons are not shown.
+   Each person has Outlet access, in their user editor: All outlets is
+   ticked by default; tick particular outlets instead to limit them to those.
+   They then see and change only those outlets, in every list, report, and
+   export. People sharing a role can cover different outlets (for example two
+   Regional Managers, each with their own region). Regional Manager,
+   Operation Manager, PIC, and Captain belong to the Operation department.
+   Each role can report to another role (Reports to, in the role editor);
+   a role cannot report to itself or to a role below it. Removing a role
+   moves the roles under it up to the role it reported to.
+   Users > Organization draws the chain of command: each person as a card
+   with their profile picture (or initials), name, and designation (their
+   role), with branches to the people under them. A person sits under
+   someone in the role above who covers the same outlet. People with nobody
+   above or below them are shown together at the top. A profile picture is
+   added under Account.
+2. In Outlets, add each outlet, then add its locations, floors, areas, and
+   zones. Set display order where needed. When editing a location, tick the
+   assets that belong in it (use the filter to find them);
+   unticking one removes it from the location.
+3. In Assets, register what will be inspected at each outlet and location:
+   - On the Fixed Assets tab, Add Fixed Asset for equipment that has a code
+     and serial details (speakers, screens, amplifiers).
+   - On the Variable Assets tab, Add Variable Asset for everything without a
+     code label of its own (walls, floors, furniture, fittings, sanitary
+     ware). A variable asset has the same details as a fixed asset (asset
+     type, brand, model, serial number, dates, status) but no Code or QR
+     Code; its Asset Type is chosen from the variable asset types (AV
+     Equipment, Building, Plumbing, Safety, and so on) or typed in.
+   Give each item an asset type and review its inspection criteria. A fixed
+   asset's code is generated when you leave it blank.
+   - To add the same item in many places, choose All outlets and/or All
+     locations. The form says how many items it will add; each gets its own
+     generated code.
+   - To change many items at once, use Edit all on an item (or Bulk Edit and
+     pick the name and asset type). Changes apply to every ticked item; a field
+     left blank where the items differ keeps each item's own value. Codes (also
+     the QR label) and serial numbers must be unique, so set them per item in
+     the table at the bottom.
+   - Filter the list by outlet, location, asset type, brand, status,
+     and warranty or expiry date (expired, ending within 30 or 90 days, still
+     valid, or not recorded).
+4. Audit types and priority levels are managed by the Super account in Super
+   Settings.
+5. In Settings, review audit scoring, pass mark, and rating bands (every check
+   counts equally). Configure the company name, facilities header, and report logo if
+   these should appear on reports.
+
+3. SCHEDULE AN AUDIT
+--------------------
+1. Open Inspections and choose Schedule Work, or use Schedule Visit on the
+   Dashboard.
+2. Select the outlet and date, and the Audit Type. Each audit type grades
+   one of two ways (set per type in Super Settings > Audit Types):
+   - Detailed (the default): every asset is checked and graded on its own.
+   - Casual: in each location, assets with the same name and the same
+     asset type are checked once as a group (shown as, for example,
+     DOWNLIGHT ×46). Assets with the same name in other locations, or of
+     another type, are separate groups. When checks of a group are left
+     unticked with a remark, Affected assets appears below them: tick the
+     assets that have issues (fixed assets are named by code, variable
+     assets by serial number or position), then tick the issues each one
+     has. Every issue must be given to at least one asset before the
+     inspection can be completed; each affected asset then gets its own
+     finding for each of its issues.
+   The audit keeps the visit's type; it cannot be changed on the inspection.
+   Optionally choose a Priority (one of the
+   priority levels) and a Due Date (not before the scheduled date); Scheduled
+   Work shows the priority beside the visit and marks it overdue in red once
+   the due date passes before the audit is completed. Under Assigned to tick the person or
+   people who should do it (for example a supervisor assigning staff). Only
+   people who can audit and whose outlets include the visit's outlet are
+   listed. Each person assigned is notified, and the visit is counted on
+   their Inspections tab until it is started. Anyone with audit permission
+   can still start it. Add any scheduling remarks.
+   Under Audit covers, choose what the audit covers on one of three tabs; the
+   tab showing when you save is the one used:
+   - Locations: All locations is ticked, so the audit covers the whole
+     outlet. Tick one or more locations instead to audit only those; untick
+     them all to return to All.
+   - Zones: tick one or more zones; the audit covers their locations.
+   - Assets: tick particular assets (search by name, code, or location; a
+     location's box ticks all its assets). The audit shows those assets
+     only, in their locations.
+   The inspection then shows only what the visit covers.
+   Save the schedule. A new schedule is always Pending; it becomes In Progress
+   when the audit starts and Completed when it is finished.
+   Tick Only mine above Scheduled Work to see just the visits assigned to
+   you and the drafts you started.
+   To remove a visit, choose Edit and Delete. A visit that was already
+   opened has a draft audit, which is deleted with it (you are told first);
+   a visit whose audit is completed is kept with that audit record.
+3. For an audit that happens now, choose Schedule and start now instead of
+   Schedule. The signed-in account is recorded as the auditor, an audit
+   reference is reserved, and the checklist opens straight away. Audit time,
+   type, and remarks can be set at the top of the checklist.
+
+4. START OR RESUME THE GUIDED INSPECTION
+----------------------------------------
+1. An audit started with Schedule and start now is already open. Otherwise
+   open Inspections; Guided Inspection shows Scheduled Work.
+2. Select the scheduled work item here, or under Scheduled audits on the
+   Dashboard (it lists every visit not yet finished, with their number).
+   The app creates or resumes the inspection and displays its reference and details.
+   Scheduled Work lists only unfinished audits, including drafts started
+   without a schedule; once an audit is completed it leaves Scheduled Work
+   and is found in History. Each audit is named the same way everywhere by
+   its code: AUDIT-<outlet>-<date>-<number>, for example
+   AUDIT-STP-20261006-000004 (the number counts the year's audits; a draft's
+   code follows its date if the date is changed), with the schedule it came from (Schedule SCH-00012, or No schedule) in
+   the details line. A schedule nobody has started reads "Not started".
+3. Work through each listed location and the criteria of each item in it.
+4. Use Show and Asset Type above the checklist to work through one kind of
+   item or one asset type at a time, for example only Plumbing. The location and zone
+   percentages then count the items shown; the whole checklist must still be
+   finished to complete the inspection.
+5. Tick each criterion that passes, or choose Pass all on an asset to tick
+   every criterion that has no remark. For a failed criterion, leave it
+   unticked and enter a remark.
+6. Add a photo for each asset. You can add multiple photos, remove a photo, or
+   open Mark to annotate it before saving the mark. Select a photo's thumbnail
+   to view it: scroll, pinch, or use + and − to zoom, drag to move around, and
+   double-click to zoom in or back out. Previous and Next step through the
+   photos shown together, and a marked photo can be compared with its original.
+   The same viewer opens from the Photos button on work orders, findings, and
+   the asset register.
+7. A failed criterion needs only its remark (and, in a casual audit, the
+   affected assets). Its finding is recorded when the inspection is completed,
+   filed under the item's asset type with the most urgent priority level and
+   the first department; set the details afterwards on Inspections > Findings
+   (section 6). No work is ordered until a work request is raised for it.
+8. Choose Save Progress to retain an unfinished inspection. Return to Scheduled
+   Work and select it again to resume.
+9. When every criterion is ticked or has a remark, and the required photos
+   are attached, the button changes to Complete Inspection. An asset with a
+   failed criterion always needs a photo; whether every other asset needs one
+   is set by an administrator under Settings > Workflow options. Locations
+   with nothing to inspect show "None" and do not count. Select the button to
+   submit. The app validates the checklist, calculates the configured score,
+   saves the audit and its findings, and updates the dashboard.
+
+5. ADD SIGNATURES AND REVIEW HISTORY
+------------------------------------
+1. Completing an inspection opens it on Inspections > Sign-off. Sign-off
+   lists every completed audit that is not yet closed, with the signatures it
+   still needs. Open one to see a card each for Audited by, Verified by, and
+   Acknowledged by. Review (on the list, or Review inspection on an open
+   audit) shows the completed inspection itself, read-only, so you can check
+   it before signing; Back to Sign-off returns you to where you were.
+2. On a card you may sign, choose Use my saved signature (the one under
+   Account) or Draw signature to draw or upload one. Each signature is saved
+   at once with your name and the time. The auditor's card is for whoever ran
+   the inspection.
+3. Open History or Findings (under Inspections) to browse inspections and
+   their findings. Use search and filters to narrow the list.
+4. Use Export PDF or Export Excel on Sign-off, in History, or in an open
+   inspection to download it.
+   - Export PDF asks which report: Overall (the score, charts, grading by
+     location, the assets inspected charted by type, brand,
+     installation year, status, warranty, and expiry, each split into those
+     that passed every check and those with a failure; then findings and
+     signatures) or Selected locations (tick All locations or
+     the ones you want; each comes in full: every check and remark, photos,
+     and findings, then the signatures). In full reports each asset has its
+     own table of checks followed by its photos; an asset photographed in
+     no check shows its registered photo.
+   - The Excel file's first sheet, Overall, has the audit details, a row per
+     location, and every finding. Each following sheet is one location in
+     full: the audit details, every check with its result and remark, and
+     the findings there.
+5. To report on one location over time, choose its Outlet and Location in the
+   History filters (and From/To dates if wanted), then Location PDF or
+   Location Excel. It covers every completed audit of that location: an
+   overview of the audits, then each audit's checks, photos, findings, and
+   signatures there.
+
+6. REQUEST AND ORDER WORK
+-------------------------
+1. Inspections > Findings lists each item (fixed or variable asset) that failed
+   a check, once, with the checks it failed, their remarks, and photos. It
+   shows items that are not closed; change Status to see the rest.
+   Edit on a check sets its finding's details: asset type, priority,
+   department, PIC, due date, the finding itself, cause, recommendation,
+   required action, and photos. Delete removes a finding that has no work
+   request or work order yet (the audit's score stays as recorded). A closed
+   finding cannot be changed, and Department/PIC accounts only view them.
+2. Choose Create work request on an item. The request starts with the item's
+   department, asset type, priority, the failed checks as the work needed, and
+   its photos; adjust them and choose Submit Request. The item then shows its
+   request number (WR-...). Something that was not found in an audit can be
+   requested with Add Work Request on Maintenance > Work Requests.
+3. Maintenance > Work Requests lists open requests (change Status for the
+   rest); for whoever assigns work they are counted on the Maintenance tab. Choose Create work order to turn a request into a
+   work order, filled in from the request: set the PIC and due date and save.
+   Or choose Decline with the reason when no work is needed; its findings
+   close with that reason. While a request is open, whoever raised it (or
+   whoever assigns work) can Edit it: department, asset type, priority, the
+   work needed, and photos; for a request added directly, also its outlet,
+   location, and item. Once it has a work order, edit the work order.
+4. Maintenance > Work Orders lists the work orders; Edit changes any of them
+   until it is closed (a closed work order can only be viewed); those assigned to you or
+   your department are counted on the Maintenance tab. A Department/PIC account sees only records assigned to that PIC or
+   department, and cannot create or decline orders.
+5. Open a work order to review the issue, evidence, due date, priority, and
+   assignment. Add comments to its timeline as work progresses.
+6. A work order moves through Open, Assigned, In Progress, and Pending, and
+   is Closed when the work is done. The person or department it is assigned
+   to, or an auditor or administrator, closes it; today's date is recorded,
+   and its request and findings close with it. The Status list offers only
+   the allowed steps. Deleting an unstarted work order returns its request to
+   Open.
+7. Closed work orders are kept for audit history and open read-only. If a
+   change is refused, the reason is shown at the bottom of the dialog.
+8. The Notifications page shows relevant progress, assignment,
+   due-soon, and overdue notices. Open goes to the inspection or work order a
+   notice is about and marks it read; Mark all read clears the rest. The
+   number of unread notices is shown on the Notifications button, or on the
+   page menu when that button does not fit.
+
+7. CLOSE AN AUDIT AND REVIEW REPORTS
+-----------------------------------
+1. A verifier can close a completed audit on Sign-off (or from its History
+   record) after all
+   required signatures are present and every finding is closed (its work
+   order closed or its request declined). Audits waiting for your signature,
+   or ready for you to close, are counted on the Inspections and Sign-off
+   tabs. A closed audit is
+   read-only.
+2. Open Reports to review scores, findings, overdue work, outlet comparisons,
+   and charts. Use the date and outlet filters to narrow the report. The page
+   opens with four rings (audits, findings, work orders, scheduled tasks)
+   showing each figure's parts and share; then audits by month with their
+   average score against the pass mark, findings by month (priority and
+   non-priority), each outlet's latest score coloured by grade, previous vs
+   current audits, breakdowns by department, location, and asset type, time to
+   act, and each person's work.
+   Export PDF and Export Excel follow the page: the same sections, charts,
+   and colours in the same order. The Excel file's Report sheet holds each
+   chart beside the table it reads (edit a number and the chart follows);
+   People and Findings are on their own sheets, ready to filter.
+3. Activity Log (beside Dashboard and Reports, for those with the Reports
+   permission) lists who did what and when: audits, sign-offs, work
+   requests, work orders, and changes, newest first. Filter by dates,
+   outlet, and person, or search. It is not part of the report exports. Reports
+   (and the Location PDF and Excel in History) need the Reports permission on
+   the person's role; without it the Reports button is not shown.
+   Reports also shows how people act:
+   - Time to Act: the average and longest time from starting to completing
+     an audit, from raising a work request to acting on it (a work order
+     created, or declined), from opening a work order to closing it, and from
+     completing an audit to closing it.
+   - People: per person, the audits they started, completed, signed, and
+     closed, the work requests they raised and acted on, the work orders
+     they created and closed, and their average times.
+   - Activity Log: every step with who took it, when, and how long it took;
+     choose a person to see only theirs.
+   These follow the report's dates and outlet, and are in the PDF and Excel
+   exports. Activity from before this log existed is filled in from the
+   records, as far as they show who acted.
+4. Use Export PDF or Excel on an inspection for its detailed audit report,
+   and Location PDF or Excel in History for one location. Use the Reports
+   page export actions for CSV, Excel, or JSON report data. If an export
+   says a package is missing, the server is running without the project's
+   packages; see "Starting the server" in production-readiness.md.
+
+8. SUPER ACCOUNT
+----------------
+The Super account is kept in its own database, separate from every
+organization. It never appears in an organization's Users list, cannot be
+given to an organization user, and its sign-in history and page order are
+kept with it. It has no department, profile picture, or saved signature; draw
+or upload a signature when signing an inspection. Switching to another
+organization keeps the Super account signed in.
+
+The Super account has every page above, plus two restricted pages
+under the page menu: Super Dashboard (users, roles, assets, open findings, and
+the active company database) and Super Settings (company databases, the
+organization theme, priority levels, audit types, scoring, and report
+settings). Switching the company database signs every user out.
+
+Each company database is an organization with its own theme. Under Super
+Settings > Organization theme, choose a palette (Ottotree follows the teal and
+greys of its PM checklist reports), optionally your own accent colour, the font
+(Noto Sans SC matches those reports), corner style, density, the default
+appearance (light, dark, or follow the device), and whether each user may pick
+light or dark for themselves. Changes are previewed as you make them and apply
+to everyone, including the sign-in page and PDF reports, once saved. The report
+logo under Report & System is also shown beside the organization's name.
+
+IMPORTANT NOTES
+---------------
+- Appearance (light, dark, follow device, or the organization's default) and
+  items per page are under Settings. The organization may fix the appearance
+  for everyone, in which case the choice is shown but cannot be changed.
+- Save Progress frequently when working in the field.
+- A failed criterion needs a remark. Every inspected asset needs photo
+  evidence before the inspection can be completed.
+- Priority due dates come from the priority-level setup. The app sends in-app
+  assignment and due-date reminders while the server is running.
+- The web application stores its persistent records and image bytes in SQLite.
+- The Android app currently keeps its own offline local data. Synchronization
+  between Android and the web application is not available yet.
+- AI detection, CMMS, WhatsApp, email, and push integrations are future work
+  and are not part of this workflow.

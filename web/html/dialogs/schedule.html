@@ -1,0 +1,47 @@
+  <dialog id="schedule">
+    <form method="dialog" id="schedule-form">
+      <header><h2>Schedule Audit Visit</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="scheduleId" type="hidden">
+      <label>Outlet<select name="outlet" required><option value="">Select outlet</option></select></label>
+      <div class="form-grid schedule-terms">
+        <label>Scheduled Date<input name="scheduledDate" type="date" required></label>
+        <label>Due Date (optional)<input name="dueDate" type="date"></label>
+        <label>Priority<select name="visitPriority"></select></label>
+        <label>Audit Type<select name="visitAuditType"></select></label>
+      </div>
+      <p class="muted" data-audit-type-hint></p>
+      <fieldset class="assignee-picker">
+        <legend>Assigned to</legend>
+        <p class="muted" data-assignee-hint>Choose an outlet to see who can audit there.</p>
+        <input type="search" data-assignee-search placeholder="Find a person" hidden>
+        <div data-assignee-options></div>
+      </fieldset>
+      <fieldset class="zone-location-picker visit-location-picker visit-scope">
+        <legend>Audit covers</legend>
+        <nav class="sub-tabs scope-tabs" aria-label="Choose the audit by">
+          <button type="button" class="active" data-scope-tab="locations" aria-pressed="true">Locations</button>
+          <button type="button" data-scope-tab="zones" aria-pressed="false">Zones</button>
+          <button type="button" data-scope-tab="assets" aria-pressed="false">Assets</button>
+        </nav>
+        <p class="muted scope-hint" data-scope-hint></p>
+        <div data-scope-panel="locations"><div data-visit-location-options></div></div>
+        <div data-scope-panel="zones" hidden><div data-visit-zone-options></div></div>
+        <div data-scope-panel="assets" hidden>
+          <div class="scope-asset-tools">
+            <input type="search" data-visit-asset-search placeholder="Find an asset by name, code, or location">
+            <span class="muted" data-visit-asset-count></span>
+          </div>
+          <div class="visit-asset-options" data-visit-asset-options></div>
+        </div>
+      </fieldset>
+      <label>Remarks<textarea name="remarks" placeholder="Any notes..."></textarea></label>
+      <p class="form-message" data-schedule-message role="alert"></p>
+      <footer class="form-actions split-actions">
+        <button class="danger" type="button" data-delete-current-schedule hidden>Delete</button>
+        <span class="split-actions-end">
+          <button class="outline" type="submit" value="start" data-schedule-start-now hidden>Schedule and start now</button>
+          <button class="primary" type="submit" value="default">Schedule</button>
+        </span>
+      </footer>
+    </form>
+  </dialog>

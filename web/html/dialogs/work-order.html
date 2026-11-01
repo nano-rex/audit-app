@@ -1,0 +1,41 @@
+  <dialog id="work-order-dialog">
+    <form method="dialog" id="work-order-form">
+      <header><h2>Create Work Order</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="workOrderId" type="hidden">
+      <div class="form-grid">
+        <label data-work-order-only>Outlet<select name="outlet"></select></label>
+        <label data-work-order-only>Location<select name="zone"></select></label>
+        <label>Department<select name="requestType"></select></label>
+        <label>Asset Type<select name="category"></select></label>
+        <label>Priority<select name="priority"></select></label>
+        <label data-work-order-only>Status<select name="status"></select></label>
+        <label data-work-order-only>Assignee<input name="assignee" placeholder="Technical Support"></label>
+        <label>PIC<input name="pic" placeholder="Person in charge"></label>
+        <label data-work-order-only>Due Date<input name="dueDate" type="date"></label>
+        <label data-work-order-only>Vendor<input name="vendor" placeholder="Internal or external vendor"></label>
+        <label data-work-order-only>Cost<input name="cost" type="number" min="0" step="0.01" placeholder="0.00"></label>
+        <label data-work-order-closed hidden>Closed Date<input name="closedAt" type="date" readonly></label>
+      </div>
+      <label data-work-order-only>Issue Title<input name="title" placeholder="What needs follow-up?"></label>
+      <label>Description<textarea name="description" placeholder="Troubleshooting detail, photo note, or outlet confirmation needed"></textarea></label>
+      <label>Cause<textarea name="cause" placeholder="Known or suspected cause"></textarea></label>
+      <label>Recommendation<textarea name="recommendation" placeholder="Suggested correction"></textarea></label>
+      <label>Required Action<textarea name="requiredAction" placeholder="Work required to resolve the issue"></textarea></label>
+      <div class="image-field">
+        <span class="image-field-label">Finding Photos</span>
+        <div class="image-tiles">
+          <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-work-order-evidence-upload aria-label="Add finding photos"><span>Choose file</span></label>
+          <div class="saved-images" data-work-order-evidence data-saved-images></div>
+        </div>
+      </div>
+      <section class="form-section" data-work-order-comments-section hidden>
+        <h3>Comments Timeline</h3>
+        <div class="list compact-list" data-work-order-comments></div>
+        <label>Add Comment<textarea name="timelineComment" placeholder="Add a follow-up note"></textarea></label>
+        <button class="outline" type="button" data-add-work-order-comment>Add Comment</button>
+      </section>
+      <p class="muted" data-work-order-stage-hint role="status"></p>
+      <p class="form-message" data-work-order-message role="alert"></p>
+      <button class="primary" type="submit" value="default">Save Work Order</button>
+    </form>
+  </dialog>

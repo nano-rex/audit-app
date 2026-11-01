@@ -1,0 +1,30 @@
+  <dialog id="finding-dialog">
+    <form method="dialog" id="finding-form">
+      <header><h2>Edit Finding</h2><button type="button" data-close-dialog>x</button></header>
+      <input name="findingId" type="hidden">
+      <p class="muted" data-finding-context></p>
+      <div class="form-grid">
+        <label>Asset Type<select name="category"></select></label>
+        <label>Priority<select name="priority"></select></label>
+        <label>Department<select name="department"></select></label>
+        <label>PIC<input name="pic" placeholder="Person in charge"></label>
+        <label>Due Date<input name="dueDate" type="date"></label>
+      </div>
+      <label>Finding<textarea name="comment" required placeholder="What is wrong"></textarea></label>
+      <label>Cause<textarea name="cause" placeholder="Known or suspected cause"></textarea></label>
+      <label>Recommendation<textarea name="recommendation" placeholder="Suggested correction"></textarea></label>
+      <label>Required Action<textarea name="requiredAction" placeholder="Work required to resolve the issue"></textarea></label>
+      <div class="image-field">
+        <span class="image-field-label">Photos</span>
+        <div class="image-tiles">
+          <label class="image-pick"><input type="file" accept="image/*" multiple capture="environment" data-finding-photos-upload aria-label="Add photos"><span>Choose file</span></label>
+          <div class="saved-images" data-finding-photos data-saved-images></div>
+        </div>
+      </div>
+      <p class="form-message" data-finding-message role="alert"></p>
+      <footer class="form-actions split-actions">
+        <button class="danger" type="button" data-delete-current-finding>Delete Finding</button>
+        <span class="split-actions-end"><button class="primary" type="submit">Save Changes</button></span>
+      </footer>
+    </form>
+  </dialog>
