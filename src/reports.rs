@@ -415,6 +415,7 @@ pub fn report(unit: &str, filters: &Value) -> R<Value> {
             ("kpi", data.at("kpi").clone()),
             ("recent", data.at("recent").clone()),
             ("charts", data.at("charts").clone()),
+            ("outletActivity", data.at("outletActivity").clone()),
         ] {
             result.set(key, value);
         }

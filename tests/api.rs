@@ -580,6 +580,13 @@ fn an_empty_dashboard_invents_nothing_and_the_todo_list_guides() {
     assert_eq!((outlet.at("total").as_i64(), outlet.at("inProgress").as_i64(), outlet.at("completionRate").as_i64()), (Some(1), Some(1), Some(0)));
     assert_eq!(outlet.at("monthly").to_json(), "[0,1]");
     assert_eq!(client.get("/api/dashboard?from=2026-12-01&to=2026-11-01").0, 400);
+    // Reports carries the same figures for its outlet chart, cards, and exports.
+    let (status, report) = client.get("/api/reports?from=2026-10-01&to=2026-11-30");
+    assert_eq!(status, 200);
+    assert_eq!(report.at("outletActivity").to_json(), activity.to_json());
+    for path in ["/api/reports/export.pdf?from=2026-10-01&to=2026-11-30", "/api/reports/export.xlsx?from=2026-10-01&to=2026-11-30"] {
+        assert_eq!(client.raw("GET", path, b"", &[]).status, 200, "{path}");
+    }
     let (_, todo) = client.get("/api/todo");
     assert!(items(&todo).iter().any(|item| item.at("id").as_i64() == Some(session) && item.at("action").as_str() == Some("Continue inspection")));
     // The starter Department/PIC role sees no audit drafts.

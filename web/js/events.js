@@ -842,10 +842,10 @@ document.querySelector("[data-add-work-order-comment]")?.addEventListener("click
   loadWorkOrderComments(id);
 });
 
-document.getElementById("report-filter-form")?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try { await loadReport(); setText("[data-report-filter-message]", "Filters applied."); }
-  catch (error) { setText("[data-report-filter-message]", error.message); }
+// Reports applies its date and outlet filters as soon as they change, like the Dashboard.
+document.getElementById("report-filter-form")?.addEventListener("submit", (event) => event.preventDefault());
+document.getElementById("report-filter-form")?.addEventListener("change", () => {
+  loadReport().catch((error) => setText("[data-report-filter-message]", error.message));
 });
 document.getElementById("report-filter-form")?.addEventListener("reset", () => {
   setTimeout(() => loadReport().catch(showLoadError), 0);

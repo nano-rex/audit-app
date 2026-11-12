@@ -1126,6 +1126,26 @@ pub fn build_summary_report(data: &Value, findings: &[Value], scope: &str, brand
     }
     writer.add(card_grid(cells, 4));
 
+    // Audits by outlet: every audit in the report, whatever its state.
+    let activity = figures::outlet_activity(data);
+    writer.heading("Audits by outlet");
+    writer.text("Every audit in this report by outlet: completed, pending (in progress or not started), average score of completed audits, and open issues.", "Caption");
+    writer.add(Flow::Spacer(4.0));
+    if activity.is_empty() {
+        writer.text("No audits in this period", "Caption");
+    } else {
+        let mut rows = vec![["Outlet", "Audits", "Completed", "Pending", "Done", "Avg score", "Open issues"].iter().map(|name| Value::str(*name)).collect::<Vec<_>>()];
+        let mut pills = Vec::new();
+        for (index, row) in activity.iter().enumerate() {
+            rows.push(vec![
+                Value::str(&row.outlet), Value::Int(row.total), Value::str(format!("{}%", row.rate)), Value::Int(row.pending), Value::Int(row.completed),
+                row.average.map(|value| Value::str(format!("{value}/100"))).unwrap_or_else(|| Value::str("—")), Value::Int(row.open_findings),
+            ]);
+            pills.push(((index + 1, 2), vec![writer.pill(&format!("{}%", row.rate), figures::completion_tone(row.rate))]));
+        }
+        writer.table(&rows, &[150.0, 50.0, 65.0, 55.0, 50.0, 60.0, 60.0], None, &pills, "Caption");
+    }
+
     // Trends.
     let monthly = figures::monthly_audits(charts);
     writer.heading("Audits by month");

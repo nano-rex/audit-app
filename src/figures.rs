@@ -112,6 +112,45 @@ pub fn monthly_findings(charts: &Value) -> Vec<(String, i64, i64)> {
     months.into_iter().map(|(month, (priority, other))| (month, priority, other)).collect()
 }
 
+/// Each outlet's audits in the report: the Reports page's outlet cards as a row.
+pub struct OutletActivity {
+    pub outlet: String,
+    pub total: i64,
+    pub rate: i64,
+    pub pending: i64,
+    pub completed: i64,
+    pub average: Option<i64>,
+    pub open_findings: i64,
+}
+
+pub fn outlet_activity(data: &Value) -> Vec<OutletActivity> {
+    data.at("outletActivity")
+        .at("outlets")
+        .items()
+        .iter()
+        .map(|row| OutletActivity {
+            outlet: row.at("outlet").text(),
+            total: int(row.at("total")),
+            rate: int(row.at("completionRate")),
+            pending: int(row.at("inProgress")) + int(row.at("notStarted")),
+            completed: int(row.at("completed")),
+            average: row.at("average").as_f64().map(|value| py_round(value)),
+            open_findings: int(row.at("openFindings")),
+        })
+        .collect()
+}
+
+/// Green from 75% completed, orange from 50%, red below (as on the page).
+pub fn completion_tone(rate: i64) -> &'static str {
+    if rate >= 75 {
+        "pass"
+    } else if rate >= 50 {
+        "warn"
+    } else {
+        "fail"
+    }
+}
+
 /// (outlet, latest, average, audits, last audit date), as ranked.
 pub fn outlet_scores(data: &Value) -> Vec<(String, i64, i64, i64, String)> {
     data.at("rankings")

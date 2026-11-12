@@ -418,9 +418,20 @@ async function loadReport() {
   for (const key of ["from", "to", "outlet"]) {
     if (form?.elements[key].value) query.set(key, form.elements[key].value);
   }
-  const response = await authFetch(`/api/reports?${query}`);
+  const filtered = [...query.keys()].length > 1;
+  const clear = form?.querySelector(".dash-clear");
+  if (clear) clear.hidden = !filtered;
+  let response;
+  try {
+    response = await authFetch(`/api/reports?${query}`);
+  } catch (error) {
+    // A bad filter (e.g. the start after the end) is shown beside the filters.
+    if (!filtered) throw error;
+    setText("[data-report-filter-message]", error.message);
+    return;
+  }
+  setText("[data-report-filter-message]", "");
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Report could not be loaded");
   document.querySelector("[data-report-critical]").innerHTML = data.criticalIssues.length
     ? data.criticalIssues.map(workOrderRow).join("")
     : `<article><div><b>No critical issues</b><span>High priority work orders will appear here.</span></div></article>`;
@@ -573,9 +584,15 @@ function renderMainDashboard(data) {
   setText('[data-dashboard-note="total"]', `across ${outlets.length} outlet${outlets.length === 1 ? "" : "s"}`);
   setText('[data-dashboard-note="auditsCompleted"]', `${stats.auditsPending || 0} still pending`);
   setHtml('[data-dashboard="completionRate"]', total ? `<span class="${rateClass(rate)}">${rate}%</span>` : "—");
-  setHtml("[data-dashboard-area]", stackedAreaChart(activity.months || [], outlets.map((row, index) => ({
+  renderOutletActivity(activity, "[data-dashboard-area]", "[data-dashboard-outlets]");
+}
+
+// Audits by outlet over the months, and a card per outlet; shared by the Dashboard and Reports.
+function renderOutletActivity(activity, areaSelector, cardsSelector) {
+  const outlets = (activity || {}).outlets || [];
+  setHtml(areaSelector, stackedAreaChart((activity || {}).months || [], outlets.map((row, index) => ({
     label: row.outlet, colour: outletColour(index, outlets.length), values: row.monthly || [] }))));
-  setHtml("[data-dashboard-outlets]", outlets.length ? outlets.map(outletCard).join("")
+  setHtml(cardsSelector, outlets.length ? outlets.map(outletCard).join("")
     : '<article class="panel dash-outlet"><h3>No audits yet</h3><p class="muted">Each outlet appears here once it has an audit in this period.</p></article>');
 }
 

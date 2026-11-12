@@ -10,15 +10,24 @@
           <a class="button-link outline" data-export-xls data-download href="/api/reports/export.xlsx">Export Excel</a>
         </div>
       </section>
-      <form class="panel filter" id="report-filter-form">
-        <label>From<input type="date" name="from"></label>
-        <label>To<input type="date" name="to"></label>
-        <label>Outlet<select name="outlet"><option value="">All outlets</option></select></label>
-        <button type="submit" class="primary">Apply Filters</button>
-        <button type="reset" class="outline">Clear Filters</button>
-        <p data-report-filter-message role="status"></p>
+      <form class="dash-filter" id="report-filter-form" aria-label="Report filters">
+        <div class="dash-pill dash-dates">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"></rect><path d="M2 7h12M5 1.5v3M11 1.5v3"></path></svg>
+          <input type="date" name="from" aria-label="From">
+          <span aria-hidden="true">–</span>
+          <input type="date" name="to" aria-label="To">
+          <button type="reset" class="dash-clear" title="Clear dates and outlet" hidden>Clear</button>
+        </div>
+        <label class="dash-pill"><span class="visually-hidden">Outlet</span><select name="outlet" aria-label="Outlet"><option value="">All outlets</option></select></label>
+        <p class="dash-filter-message" data-report-filter-message role="status"></p>
       </form>
       <section class="report-overview" data-report-overview></section>
+      <section class="panel dash-area-card">
+        <h2>Audits by Outlet</h2>
+        <p class="muted">Audits each month by visit date, stacked by outlet. Includes completed, in-progress, and unstarted audits.</p>
+        <div data-report-area></div>
+      </section>
+      <section class="dash-outlets" data-report-outlets aria-label="Outlets in this report"></section>
       <section class="chart-grid report-trends" data-report-trends></section>
       <section class="chart-grid report-outlets">
         <article class="panel chart-card">

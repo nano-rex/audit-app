@@ -269,6 +269,12 @@ test("dashboard renders actual counts, scaled charts, monthly audits, and empty 
   assert.match(html, /data-dashboard-area/);
   assert.match(html, /data-dashboard-outlets/);
   assert.match(html, /id="dashboard-filter-form"/);
+  const reports = fs.readFileSync(path.join(__dirname, "../web/html/tabs/reports.html"), "utf8");
+  assert.match(reports, /data-report-area/);
+  assert.match(reports, /data-report-outlets/);
+  context.renderOutletActivity({ months: ["2026-03"], outlets: [{ outlet: "C", total: 1, completed: 1, completionRate: 100, monthly: [1] }] }, "[data-report-area]", "[data-report-outlets]");
+  assert.match(rendered["[data-report-area]"], /Mar 2026: 1 audit</);
+  assert.match(rendered["[data-report-outlets]"], /rate-good">100% completed/);
 });
 
 

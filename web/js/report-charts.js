@@ -233,6 +233,7 @@ function renderPeopleChart(people) {
 function renderReportPage(data) {
   reportScoring = { ...reportScoring, ...(data.scoring || {}) };
   renderReportOverview(data);
+  renderOutletActivity(data.outletActivity, "[data-report-area]", "[data-report-outlets]");
   renderReportTrends(data);
   renderReportOutlets(data);
   renderReportBreakdowns(data.charts || {});

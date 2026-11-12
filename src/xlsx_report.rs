@@ -785,6 +785,22 @@ pub fn report_workbook(data: &Value, findings: &[Value], scope: &str, brand: &Va
     }
     sheet.row = deepest + 1;
 
+    // Audits by outlet: every audit in the report, whatever its state.
+    sheet.heading("Audits by outlet");
+    let activity = figures::outlet_activity(data);
+    if activity.is_empty() {
+        sheet.put(sheet.row, 1, "No audits in this period", Put { size: 8.0, colour: MUTED, span: COLUMNS, ..Put::default() });
+        sheet.row += 2;
+    } else {
+        let rows: Vec<Vec<Value>> = activity
+            .iter()
+            .map(|row| vec![Value::str(&row.outlet), Value::Int(row.total), Value::Int(row.rate), Value::Int(row.pending), Value::Int(row.completed), Value::from(row.average), Value::Int(row.open_findings)])
+            .collect();
+        let tones: Vec<((usize, usize), String)> = activity.iter().enumerate().map(|(index, row)| ((index, 2), figures::completion_tone(row.rate).to_string())).collect();
+        sheet.table(&["Outlet", "Audits", "Completed %", "Pending", "Completed", "Avg score", "Open issues"], &rows, &[2, 1, 1, 1, 1, 1, 1], None, &tones, 9.0, 1);
+        sheet.row += 1;
+    }
+
     // Audits by month: columns for the count, a line for the score, and the pass mark.
     sheet.heading("Audits by month");
     let monthly = figures::monthly_audits(charts);
