@@ -264,6 +264,16 @@ An administrator should configure these records before staff begin auditing:
    or ready for you to close, are counted on the Inspections and Sign-off
    tabs. A closed audit is
    read-only.
+   The Dashboard gives the overview at a glance. Its date and outlet filters
+   apply as soon as they change (Clear resets them). Below the scheduled
+   audits are four headline figures (audits, completed, completion rate,
+   average score) and the issue counts. Audits by Outlet then shows audits
+   each month by visit date, stacked by outlet: hover a band for an outlet's
+   total or a month for that month's total. Then there is a card per outlet:
+   its audits and the share completed (green from 75%, orange from 50%, red
+   below), a small curve of audits per month, a bar of completed (green), in
+   progress (blue), and not started (orange), and its pending, completed,
+   average score, and open issues.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
    and charts. Use the date and outlet filters to narrow the report. The page
    opens with four rings (audits, findings, work orders, scheduled tasks)

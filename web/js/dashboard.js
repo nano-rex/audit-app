@@ -37,7 +37,26 @@ async function openAttentionItem(type, id, view = "") {
 }
 
 async function loadDashboard() {
-  const [response] = await Promise.all([authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`), loadAttention()]);
+  const form = document.getElementById("dashboard-filter-form");
+  const outletSelect = form?.elements.outlet;
+  if (outletSelect && outletSelect.options.length <= 1) updateSelectOptions(outletSelect, setupOptions.outlets || [], true, "All outlets");
+  const query = new URLSearchParams({ unit: currentUnit });
+  for (const key of ["from", "to", "outlet"]) {
+    if (form?.elements[key].value) query.set(key, form.elements[key].value);
+  }
+  const clear = form?.querySelector(".dash-clear");
+  const filtered = [...query.keys()].length > 1;
+  if (clear) clear.hidden = !filtered;
+  let response;
+  try {
+    [response] = await Promise.all([authFetch(`/api/dashboard?${query}`), loadAttention()]);
+  } catch (error) {
+    // A bad filter (e.g. the start after the end) is shown beside the filters.
+    if (!filtered) throw error;
+    setText("[data-dashboard-filter-message]", error.message);
+    return;
+  }
+  setText("[data-dashboard-filter-message]", "");
   // Scheduled audits are opened from Inspections; do not offer them to accounts without that page.
   document.querySelectorAll("[data-scheduled-panel]").forEach((node) => { node.hidden = !(currentUser?.permissions || []).includes("inspections"); });
   const data = await response.json();
@@ -441,36 +460,123 @@ function renderPerformance(data) {
     : "<tbody><tr><td>No activity in this period.</td></tr></tbody>");
 }
 
-function auditChart(title, source, score = false) {
-  const entries = (Array.isArray(source) ? source : Object.entries(source).map(([label, count]) => ({ label, count })))
-    .map((row) => ({ label: row.label || row.month || row.outlet || "Unassigned",
-      value: Math.max(0, Number((score ? row.score : row.count ?? row.audits ?? row.average ?? row.score) ?? 0) || 0) }));
-  const maximum = score ? 100 : Math.max(1, ...entries.map((row) => row.value));
-  const hasData = entries.length && (score || entries.some((row) => row.value > 0));
-  return `<article class="panel mini-chart"><h2>${escapeHtml(title)}</h2>
-    <p class="muted">${score === "percent" ? "Closed work orders · 0–100%" : score ? "Average completed audit score · 0–100" : "Number of records"}</p>
-    ${hasData ? `<ol class="audit-chart">${entries.map((row) => `<li>
-      <div class="audit-chart-label"><span>${escapeHtml(row.label)}</span><strong>${row.value}${score === "percent" ? "%" : score ? "/100" : ""}</strong></div>
-      <div class="audit-chart-track" aria-hidden="true"><span style="width:${Math.min(100, row.value * 100 / maximum)}%"></span></div>
-    </li>`).join("")}</ol>` : '<p class="muted">No data yet</p>'}</article>`;
+// ---- The Dashboard: headline figures, audits by outlet over time, and a card per outlet ----
+
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-03" → "Mar 2026".
+function monthLabel(month) {
+  const [year, number] = String(month).split("-");
+  return `${monthNames[Number(number) - 1] || number} ${year}`;
+}
+
+// One colour per outlet, spread round the colour wheel so neighbours differ.
+function outletColour(index, count) {
+  return `hsl(${Math.round((index * 360) / Math.max(1, count) + 350) % 360} 62% 52%)`;
+}
+
+// Green from 75%, orange from 50%, red below.
+function rateClass(rate) {
+  return rate >= 75 ? "rate-good" : rate >= 50 ? "rate-fair" : "rate-poor";
+}
+
+// A smooth line through points that never overshoots them, so stacked layers never cross.
+function smoothPath(points) {
+  return points.map(([x, y], index) => {
+    if (!index) return `M${x.toFixed(1)},${y.toFixed(1)}`;
+    const [px, py] = points[index - 1], mid = ((px + x) / 2).toFixed(1);
+    return `C${mid},${py.toFixed(1)} ${mid},${y.toFixed(1)} ${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+}
+
+// A round top for the scale: 7 → 8, 23 → 25, 112 → 120.
+function niceMax(value) {
+  if (value <= 4) return 4;
+  const magnitude = 10 ** Math.floor(Math.log10(value));
+  const step = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((factor) => factor * magnitude >= value);
+  return step * magnitude;
+}
+
+// Areas stacked over months: series = [{ label, colour, values: [per month] }], the first at the bottom.
+function stackedAreaChart(months, series) {
+  if (!months.length || !series.some((item) => item.values.some(Boolean))) return '<p class="muted chart-empty">No audits in this period</p>';
+  const width = 1000, height = 240, left = 34, right = 12, top = 10, bottom = 26;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const totals = months.map((_, index) => series.reduce((sum, item) => sum + (item.values[index] || 0), 0));
+  const max = niceMax(Math.max(...totals));
+  const x = (index) => left + (months.length === 1 ? plotWidth / 2 : index * plotWidth / (months.length - 1));
+  const y = (value) => top + plotHeight - value * plotHeight / max;
+  const grid = [0, 1, 2, 3, 4].map((step) => max * step / 4).map((tick) => `<line class="chart-grid-line" x1="${left}" x2="${width - right}" y1="${y(tick).toFixed(1)}" y2="${y(tick).toFixed(1)}"></line>
+    <text class="chart-axis" x="${left - 6}" y="${(y(tick) + 4).toFixed(1)}" text-anchor="end">${Math.round(tick * 10) / 10}</text>`).join("");
+  const every = Math.max(1, Math.ceil(months.length / 10));
+  const axis = months.map((month, index) => index % every ? "" : `<text class="chart-axis" x="${x(index).toFixed(1)}" y="${height - 6}" text-anchor="${index === 0 && months.length > 1 ? "start" : index === months.length - 1 && months.length > 1 ? "end" : "middle"}">${escapeHtml(monthLabel(month))}</text>`).join("");
+  let base = months.map(() => 0);
+  const layers = series.map((item) => {
+    const lower = base.map((value, index) => [x(index), y(value)]);
+    base = base.map((value, index) => value + (item.values[index] || 0));
+    const upper = base.map((value, index) => [x(index), y(value)]);
+    const line = smoothPath(upper);
+    const back = smoothPath([...lower].reverse()).replace(/^M/, "L");
+    const total = item.values.reduce((sum, value) => sum + value, 0);
+    return `<g class="area-layer"><title>${escapeHtml(item.label)}: ${total} audit${total === 1 ? "" : "s"}</title>
+      <path d="${line} ${back} Z" style="fill:${item.colour}"></path><path class="area-line" d="${line}" style="stroke:${item.colour}"></path></g>`;
+  }).join("");
+  // An invisible column per month, so hovering anywhere shows that month's total.
+  const columns = months.map((month, index) => {
+    const half = months.length === 1 ? plotWidth / 2 : plotWidth / (months.length - 1) / 2;
+    return `<rect class="area-hover" x="${Math.max(left, x(index) - half).toFixed(1)}" y="${top}" width="${(Math.min(width - right, x(index) + half) - Math.max(left, x(index) - half)).toFixed(1)}" height="${plotHeight}"><title>${escapeHtml(monthLabel(month))}: ${totals[index]} audit${totals[index] === 1 ? "" : "s"}</title></rect>`;
+  }).join("");
+  return `<div class="chart-scroll"><svg class="area-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Audits per month by outlet">${grid}${layers}${columns}${axis}</svg></div>
+    <ul class="dash-legend">${series.map((item) => `<li><i style="background:${item.colour}"></i>${escapeHtml(item.label)}</li>`).join("")}</ul>`;
+}
+
+// One outlet's audits per month as a small filled curve.
+function sparkline(values) {
+  const width = 300, height = 56, pad = 3;
+  if (!values.length || !values.some(Boolean)) return `<svg class="dash-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${width}" y1="${height - pad}" y2="${height - pad}"></line></svg>`;
+  const max = Math.max(...values);
+  const x = (index) => values.length === 1 ? width / 2 : index * width / (values.length - 1);
+  const y = (value) => height - pad - value * (height - pad * 2) / max;
+  const line = smoothPath(values.map((value, index) => [x(index), y(value)]));
+  return `<svg class="dash-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
+    <path class="dash-spark-fill" d="${line} L${x(values.length - 1).toFixed(1)},${height} L${x(0).toFixed(1)},${height} Z"></path><path class="dash-spark-line" d="${line}"></path></svg>`;
+}
+
+function outletCard(row) {
+  const pending = (row.inProgress || 0) + (row.notStarted || 0);
+  const share = (value) => row.total ? value * 100 / row.total : 0;
+  const parts = [["completed", row.completed || 0, "Completed"], ["progress", row.inProgress || 0, "In progress"], ["unstarted", row.notStarted || 0, "Not started"]];
+  return `<article class="panel dash-outlet">
+    <h3>${escapeHtml(row.outlet)}</h3>
+    <p class="dash-outlet-meta"><span>${row.total} audit${row.total === 1 ? "" : "s"}</span><b class="${rateClass(row.completionRate || 0)}">${row.completionRate || 0}% completed</b></p>
+    ${sparkline(row.monthly || [])}
+    <div class="dash-status" role="img" aria-label="${parts.map(([, value, label]) => `${label}: ${value}`).join(", ")}">${parts.map(([key, value, label]) => value
+      ? `<span class="dash-status-${key}" style="width:${share(value)}%" title="${label}: ${value}"></span>` : "").join("")}</div>
+    <dl>
+      <div><dt>Pending</dt><dd>${pending}</dd></div>
+      <div><dt>Completed</dt><dd>${row.completed || 0}</dd></div>
+      <div><dt>Avg score</dt><dd>${row.average == null ? "—" : `${row.average}/100`}</dd></div>
+      <div><dt>Open issues</dt><dd>${row.openFindings || 0}</dd></div>
+    </dl>
+  </article>`;
 }
 
 function renderMainDashboard(data) {
   const stats = data.stats || {};
-  for (const key of ["total", "auditsCompleted", "auditsPending", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"]) {
+  for (const key of ["total", "auditsCompleted", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"]) {
     setText(`[data-dashboard="${key}"]`, stats[key] ?? 0);
   }
   setText('[data-dashboard="overallAuditScore"]', stats.overallAuditScore == null ? "No completed audits" : `${stats.overallAuditScore}/100`);
-  const charts = data.charts || {};
-  const definitions = [
-    ["auditScores", "Audit Scores by Outlet", true],
-    ["priorityVsNonPriority", "Priority vs Non-Priority"],
-    ["findingsByDepartment", "Issues by Department"],
-    ["findingsByArea", "Issues by Area"],
-    ["findingsByCategory", "Issues by Asset Type"],
-    ["monthlyAuditTrend", "Monthly Completed Audit Trend"],
-  ];
-  setHtml("[data-dashboard-charts]", definitions.map(([key, label, score]) => auditChart(label, charts[key] || [], score)).join(""));
+  const activity = data.outletActivity || { months: [], outlets: [] };
+  const outlets = activity.outlets || [];
+  const total = stats.total || 0, completed = stats.auditsCompleted || 0;
+  const rate = total ? Math.round(completed * 100 / total) : 0;
+  setText('[data-dashboard-note="total"]', `across ${outlets.length} outlet${outlets.length === 1 ? "" : "s"}`);
+  setText('[data-dashboard-note="auditsCompleted"]', `${stats.auditsPending || 0} still pending`);
+  setHtml('[data-dashboard="completionRate"]', total ? `<span class="${rateClass(rate)}">${rate}%</span>` : "—");
+  setHtml("[data-dashboard-area]", stackedAreaChart(activity.months || [], outlets.map((row, index) => ({
+    label: row.outlet, colour: outletColour(index, outlets.length), values: row.monthly || [] }))));
+  setHtml("[data-dashboard-outlets]", outlets.length ? outlets.map(outletCard).join("")
+    : '<article class="panel dash-outlet"><h3>No audits yet</h3><p class="muted">Each outlet appears here once it has an audit in this period.</p></article>');
 }
 
 function renderPerformanceDistribution(rows) {

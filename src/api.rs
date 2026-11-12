@@ -466,8 +466,16 @@ fn get(ctx: &Ctx) -> R<Reply> {
     match path {
         "/api/dashboard" => {
             let unit = unit_param(ctx);
-            let filters = obj([("outlets", scope_filter())]);
-            let prepared = crate::db::cached(&format!("dashboard|{unit}|{scope_key}"), || crate::reports::dashboard(&unit, &filters, false))?;
+            let mut filters = obj([("outlets", scope_filter())]);
+            for key in ["outlet", "from", "to"] {
+                filters.set(key, ctx.param(key).unwrap_or_default());
+            }
+            let outlet = filters.at("outlet").text();
+            if !outlet.is_empty() {
+                accounts::require(&viewer, &outlet)?;
+            }
+            let key = format!("dashboard|{unit}|{outlet}|{}|{}|{scope_key}", filters.at("from").text(), filters.at("to").text());
+            let prepared = crate::db::cached(&key, || crate::reports::dashboard(&unit, &filters, false))?;
             return Ok(Reply::Shared(prepared));
         }
         "/api/todo" => return ok(listed(&viewer, &crate::todo::todo_items(&viewer)?, "outlet")),

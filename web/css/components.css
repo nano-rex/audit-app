@@ -2443,3 +2443,269 @@ people view: a card per person {
   padding: 2px 10px;
   font-size: 13px;
 }
+
+/* ---- The Dashboard: filters, headline figures, audits by outlet, and outlet cards ---- */
+.dash-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.dash-pill {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 10px;
+  color: var(--text-soft);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dash-pill svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.4;
+}
+
+.dash-pill input,
+.dash-pill select {
+  min-height: 34px;
+  padding: 0 4px;
+  font-size: 13px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.dash-pill select {
+  min-width: 180px;
+}
+
+.dash-clear {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.dash-filter-message {
+  margin: 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dash-kpis article {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dash-kpis span {
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.dash-kpis strong {
+  color: var(--heading);
+  font-size: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-kpis small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dash-kpis-minor {
+  margin-bottom: 24px;
+}
+
+.dash-kpis-minor article {
+  padding: 12px 18px;
+}
+
+.dash-kpis-minor strong {
+  font-size: 18px;
+}
+
+.rate-good { color: var(--success); }
+.rate-fair { color: var(--orange); }
+.rate-poor { color: var(--red); }
+
+.dash-area-card h2 {
+  margin: 0;
+}
+
+.dash-area-card > .muted {
+  margin: 4px 0 16px;
+  font-size: 13px;
+}
+
+.area-chart {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+  height: auto;
+}
+
+.area-layer path {
+  fill-opacity: 0.32;
+}
+
+.area-layer .area-line {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.area-hover {
+  fill: transparent;
+}
+
+.area-hover:hover {
+  fill: var(--text);
+  fill-opacity: 0.05;
+}
+
+.dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 0;
+  margin: 14px 0 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.dash-legend li {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dash-legend i {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+.dash-outlets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.dash-outlet {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  margin: 0;
+  padding: 18px;
+}
+
+.dash-outlet h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.dash-outlet-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: -4px 0 0;
+  font-size: 13px;
+}
+
+.dash-outlet-meta b {
+  font-weight: 600;
+}
+
+.dash-spark {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+.dash-spark line {
+  stroke: var(--border);
+}
+
+.dash-spark-fill {
+  fill: var(--blue);
+  fill-opacity: 0.25;
+}
+
+.dash-spark-line {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.dash-status {
+  display: flex;
+  height: 6px;
+  overflow: hidden;
+  background: var(--surface-sunken);
+  border-radius: 999px;
+}
+
+.dash-status span { height: 100%; }
+.dash-status-completed { background: var(--success); }
+.dash-status-progress { background: var(--blue); }
+.dash-status-unstarted { background: var(--orange); }
+
+.dash-outlet dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.dash-outlet dt {
+  color: var(--muted);
+}
+
+.dash-outlet dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .dash-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-pill,
+  .dash-pill select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dash-dates input {
+    min-width: 0;
+    flex: 1;
+  }
+}

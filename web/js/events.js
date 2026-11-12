@@ -850,6 +850,12 @@ document.getElementById("report-filter-form")?.addEventListener("submit", async 
 document.getElementById("report-filter-form")?.addEventListener("reset", () => {
   setTimeout(() => loadReport().catch(showLoadError), 0);
 });
+// The Dashboard applies its date and outlet filters as soon as they change.
+document.getElementById("dashboard-filter-form")?.addEventListener("change", () => loadDashboard().catch(showLoadError));
+document.getElementById("dashboard-filter-form")?.addEventListener("submit", (event) => event.preventDefault());
+document.getElementById("dashboard-filter-form")?.addEventListener("reset", () => {
+  setTimeout(() => loadDashboard().catch(showLoadError), 0);
+});
 
 async function showLoginActivity(id, offset = 0) {
   const response = await authFetch(`/api/users/${encodeURIComponent(id)}/activity?offset=${offset}`);

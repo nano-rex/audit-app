@@ -235,25 +235,40 @@ test("dashboard renders actual counts, scaled charts, monthly audits, and empty 
     escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
   });
   vm.runInContext(source("dashboard.js"), context);
-  context.renderMainDashboard({ stats: { total: 8, auditsCompleted: 5, auditsPending: 3, overallAuditScore: 72 }, charts: {
-    monthlyAuditTrend: [{ month: "2026-01", audits: 120 }, { month: "2026-02", audits: 60 }],
-    auditScores: [{ label: "<Outlet>", score: 0 }],
+  context.renderMainDashboard({ stats: { total: 8, auditsCompleted: 5, auditsPending: 3, overallAuditScore: 72 }, outletActivity: {
+    months: ["2026-01", "2026-02"],
+    outlets: [
+      { outlet: "<Outlet>", total: 6, completed: 4, inProgress: 1, notStarted: 1, completionRate: 67, average: 70, openFindings: 2, monthly: [4, 2] },
+      { outlet: "B", total: 2, completed: 1, inProgress: 0, notStarted: 1, completionRate: 50, average: null, openFindings: 0, monthly: [0, 2] },
+    ],
   } });
   assert.equal(rendered['[data-dashboard="total"]'], 8);
   assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "72/100");
-  const charts = rendered["[data-dashboard-charts]"];
-  assert.equal((charts.match(/<article /g) || []).length, 6);
-  assert.match(charts, /2026-01<\/span><strong>120<\/strong>/);
-  assert.match(charts, /width:50%/);
-  assert.match(charts, /&lt;Outlet&gt;/);
-  assert.match(charts, /0\/100/);
-  assert.match(charts, /width:0%/);
+  assert.equal(rendered['[data-dashboard-note="total"]'], "across 2 outlets");
+  assert.equal(rendered['[data-dashboard-note="auditsCompleted"]'], "3 still pending");
+  assert.match(rendered['[data-dashboard="completionRate"]'], /rate-fair">63%/);
+  const area = rendered["[data-dashboard-area]"];
+  assert.equal((area.match(/class="area-layer"/g) || []).length, 2);
+  assert.match(area, /Jan 2026: 4 audits/);
+  assert.match(area, /Feb 2026: 4 audits/);
+  assert.match(area, /&lt;Outlet&gt;/);
+  const cards = rendered["[data-dashboard-outlets]"];
+  assert.equal((cards.match(/class="panel dash-outlet"/g) || []).length, 2);
+  assert.match(cards, /6 audits/);
+  assert.match(cards, /rate-fair">67% completed/);
+  assert.match(cards, /width:50%/);
+  assert.match(cards, /<dt>Pending<\/dt><dd>2<\/dd>/);
+  assert.match(cards, /<dt>Avg score<\/dt><dd>—<\/dd>/);
   context.renderMainDashboard({ stats: { overallAuditScore: null }, charts: {} });
   assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "No completed audits");
-  assert.equal((rendered["[data-dashboard-charts]"].match(/No data yet/g) || []).length, 6);
+  assert.equal(rendered['[data-dashboard="completionRate"]'], "—");
+  assert.match(rendered["[data-dashboard-area]"], /No audits in this period/);
+  assert.match(rendered["[data-dashboard-outlets]"], /No audits yet/);
   const html = fs.readFileSync(path.join(__dirname, "../web/html/tabs/today.html"), "utf8");
   assert.equal((html.match(/data-dashboard="/g) || []).length, 8);
-  assert.match(html, /data-dashboard-charts/);
+  assert.match(html, /data-dashboard-area/);
+  assert.match(html, /data-dashboard-outlets/);
+  assert.match(html, /id="dashboard-filter-form"/);
 });
 
 

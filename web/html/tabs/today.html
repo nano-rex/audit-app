@@ -21,17 +21,36 @@
         <div class="list compact-list" data-today-schedules></div>
       </section>
 
-      <p>All-time audit overview. Pending includes drafts and scheduled work that has not started; each audit is counted once.</p>
-      <section class="stats" aria-label="Audit overview">
-        <article><span>Total Audits</span><strong data-dashboard="total">—</strong></article>
-        <article><span>Audits Completed</span><strong data-dashboard="auditsCompleted">—</strong></article>
-        <article><span>Audits Pending</span><strong data-dashboard="auditsPending">—</strong></article>
-        <article><span>Priority Issues</span><strong data-dashboard="priorityIssues">—</strong></article>
-        <article><span>Non-Priority Issues</span><strong data-dashboard="nonPriorityIssues">—</strong></article>
-        <article><span>Outstanding Issues</span><strong data-dashboard="outstandingFindings">—</strong><small>Findings not yet closed</small></article>
-        <article><span>Closed Work Orders</span><strong data-dashboard="closedWorkOrders">—</strong><small>Work orders that are done</small></article>
-        <article><span>Overall Audit Score</span><strong data-dashboard="overallAuditScore">—</strong><small>Average of completed audits</small></article>
+      <form class="dash-filter" id="dashboard-filter-form" aria-label="Dashboard filters">
+        <div class="dash-pill dash-dates">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"></rect><path d="M2 7h12M5 1.5v3M11 1.5v3"></path></svg>
+          <input type="date" name="from" aria-label="From">
+          <span aria-hidden="true">–</span>
+          <input type="date" name="to" aria-label="To">
+          <button type="reset" class="dash-clear" title="Clear dates and outlet" hidden>Clear</button>
+        </div>
+        <label class="dash-pill"><span class="visually-hidden">Outlet</span><select name="outlet" aria-label="Outlet"><option value="">All outlets</option></select></label>
+        <p class="dash-filter-message" data-dashboard-filter-message role="status"></p>
+      </form>
+
+      <section class="dash-kpis" aria-label="Audit overview">
+        <article><span>Audits</span><strong data-dashboard="total">—</strong><small data-dashboard-note="total">Pending includes drafts and unstarted visits</small></article>
+        <article><span>Completed</span><strong data-dashboard="auditsCompleted">—</strong><small data-dashboard-note="auditsCompleted"></small></article>
+        <article><span>Completion rate</span><strong data-dashboard="completionRate" data-rate>—</strong><small>Completed of all audits</small></article>
+        <article><span>Average score</span><strong data-dashboard="overallAuditScore">—</strong><small>Completed audits only</small></article>
       </section>
-      <section class="chart-grid" data-dashboard-charts aria-label="Audit charts"></section>
+      <section class="dash-kpis dash-kpis-minor" aria-label="Issues overview">
+        <article><span>Priority issues</span><strong data-dashboard="priorityIssues">—</strong></article>
+        <article><span>Non-priority issues</span><strong data-dashboard="nonPriorityIssues">—</strong></article>
+        <article><span>Outstanding issues</span><strong data-dashboard="outstandingFindings">—</strong><small>Findings not yet closed</small></article>
+        <article><span>Closed work orders</span><strong data-dashboard="closedWorkOrders">—</strong><small>Work orders that are done</small></article>
+      </section>
+
+      <section class="panel dash-area-card">
+        <h2>Audits by Outlet</h2>
+        <p class="muted">Audits each month by visit date, stacked by outlet. Includes completed, in-progress, and unstarted audits.</p>
+        <div data-dashboard-area></div>
+      </section>
+      <section class="dash-outlets" data-dashboard-outlets aria-label="Outlets"></section>
 
     </section>

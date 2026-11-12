@@ -115,6 +115,50 @@ fn month_of(created_at: &Value) -> String {
     format!("{:04}-{:02}", at.date.year, at.date.month)
 }
 
+/// Months from the first to the last audit (or the filter's dates), none skipped, and each
+/// outlet's audits by state, completion, average score, open findings, and audits per month.
+fn outlet_activity(activity: &BTreeMap<String, ([i64; 3], BTreeMap<String, i64>)>, filters: &Value, outlet_rows: &[Value], findings: &[Value]) -> Value {
+    let seen: std::collections::BTreeSet<&String> = activity.values().flat_map(|(_, months)| months.keys()).collect();
+    let bound = |key: &str, fallback: Option<&&String>| -> String {
+        let value: String = filters.at(key).text().chars().take(7).collect();
+        if value.is_empty() { fallback.map(|month| month.to_string()).unwrap_or_default() } else { value }
+    };
+    let (first, last) = (bound("from", seen.iter().next()), bound("to", seen.iter().next_back()));
+    let mut months: Vec<String> = Vec::new();
+    if first.len() == 7 && last.len() == 7 && first <= last {
+        let (mut year, mut month): (i64, i64) = (first[..4].parse().unwrap_or(0), first[5..7].parse().unwrap_or(1));
+        loop {
+            let label = format!("{year:04}-{month:02}");
+            if label > last || months.len() >= 120 {
+                break;
+            }
+            months.push(label);
+            if month == 12 { year += 1; month = 1; } else { month += 1; }
+        }
+    }
+    let outlets = activity.iter().map(|(outlet, (states, by_month))| {
+        let [completed, in_progress, not_started] = *states;
+        let total = completed + in_progress + not_started;
+        let average = outlet_rows.iter().find(|row| row.at("outlet").py_str() == *outlet).map(|row| row.at("average").clone()).unwrap_or(Value::Null);
+        let open = findings.iter().filter(|row| {
+            let name = row.at("outlet").text();
+            (if name.is_empty() { "Unassigned".to_string() } else { name }) == *outlet && !is_closed(row)
+        }).count();
+        obj([
+            ("outlet", Value::str(outlet.clone())),
+            ("total", Value::Int(total)),
+            ("completed", Value::Int(completed)),
+            ("inProgress", Value::Int(in_progress)),
+            ("notStarted", Value::Int(not_started)),
+            ("completionRate", Value::Int(if total != 0 { py_round(completed as f64 * 100.0 / total as f64) } else { 0 })),
+            ("average", average),
+            ("openFindings", Value::Int(open as i64)),
+            ("monthly", Value::Array(months.iter().map(|month| Value::Int(by_month.get(month).copied().unwrap_or(0))).collect())),
+        ])
+    }).collect();
+    obj([("months", Value::Array(months.iter().map(|month| Value::str(month.clone())).collect())), ("outlets", Value::Array(outlets))])
+}
+
 pub fn dashboard(unit: &str, filters: &Value, include_room_trends: bool) -> R<Value> {
     let (audit_where, audit_params) = report_scope(unit, "audits", filters)?;
     let audit_where = format!("{audit_where} AND audits.id IN (SELECT audit_id FROM inspection_sessions WHERE status = 'Completed' AND audit_id IS NOT NULL)");
@@ -183,6 +227,30 @@ pub fn dashboard(unit: &str, filters: &Value, include_room_trends: bool) -> R<Va
             &format!("SELECT COUNT(*) FROM schedules WHERE {schedule_where} AND status != 'Completed' AND NOT EXISTS (SELECT 1 FROM inspection_sessions WHERE schedule_id = schedules.id)"),
             &bind(&schedule_params),
         )?;
+        // Every audit by outlet and month, whatever its state, for the dashboard's outlet charts:
+        // (completed, in progress, not started, audits per month).
+        let mut activity: BTreeMap<String, ([i64; 3], BTreeMap<String, i64>)> = BTreeMap::new();
+        let mut tally = |outlet: String, day: String, state: usize| {
+            let outlet = if outlet.is_empty() { "Unassigned".to_string() } else { outlet };
+            let entry = activity.entry(outlet).or_default();
+            entry.0[state] += 1;
+            let month: String = day.chars().take(7).collect();
+            if month.chars().count() == 7 {
+                *entry.1.entry(month).or_default() += 1;
+            }
+        };
+        for row in db.rows(&format!("SELECT outlet, audit_date FROM audits WHERE {audit_where}"), &bind(&audit_params))? {
+            tally(row.str("outlet"), row.str("audit_date"), 0);
+        }
+        for row in db.rows(&format!("SELECT outlet, audit_date FROM inspection_sessions WHERE {session_where} AND status != 'Completed'"), &bind(&session_params))? {
+            tally(row.str("outlet"), row.str("audit_date"), 1);
+        }
+        for row in db.rows(
+            &format!("SELECT outlet, scheduled_date FROM schedules WHERE {schedule_where} AND status != 'Completed' AND NOT EXISTS (SELECT 1 FROM inspection_sessions WHERE schedule_id = schedules.id)"),
+            &bind(&schedule_params),
+        )? {
+            tally(row.str("outlet"), row.str("scheduled_date"), 2);
+        }
         let mut room_groups: BTreeMap<(String, String, String), (i64, i64)> = BTreeMap::new();
         if include_room_trends {
             for session in db.rows(&format!("SELECT outlet, audit_date, items_data_id FROM inspection_sessions WHERE {session_where} AND status = 'Completed'"), &bind(&session_params))? {
@@ -235,6 +303,7 @@ pub fn dashboard(unit: &str, filters: &Value, include_room_trends: bool) -> R<Va
         let scheduled = schedules.iter().map(|row| schedule_view(db, row)).collect::<R<Vec<_>>>()?;
         let classified: Vec<Value> = findings.iter().map(|row| obj([("label", Value::str(format!("{} · {}", month_of(row.at("created_at")), row.at("classification").py_str())))])).collect();
         let months: Vec<Value> = findings.iter().map(|row| obj([("month", Value::str(month_of(row.at("created_at"))))])).collect();
+        let outlet_activity = outlet_activity(&activity, filters, &outlet_rows, &findings);
         Ok(obj([
             ("stats", obj([
                 ("total", Value::Int(completed_audits + pending_audits)),
@@ -253,6 +322,7 @@ pub fn dashboard(unit: &str, filters: &Value, include_room_trends: bool) -> R<Va
                 ("completionRate", Value::Int(if all_orders.is_empty() { 0 } else { py_round(closed_orders.len() as f64 * 100.0 / all_orders.len() as f64) })),
             ])),
             ("outlets", Value::Array(outlet_rows)),
+            ("outletActivity", outlet_activity),
             ("recent", Value::Array(recent_rows)),
             ("rankings", Value::Array(rankings)),
             ("kpi", obj([

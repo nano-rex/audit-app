@@ -571,6 +571,15 @@ fn an_empty_dashboard_invents_nothing_and_the_todo_list_guides() {
     assert_eq!(dashboard.at("stats").at("overallAuditScore"), &Value::Null);
     assert_eq!(dashboard.at("stats").at("auditsCompleted").as_i64(), Some(0));
     let (_, session, _) = audit_setup(&mut client);
+    // The started visit counts as one audit in progress, in its outlet and month.
+    let (status, filtered) = client.get("/api/dashboard?from=2026-10-01&to=2026-11-30");
+    assert_eq!(status, 200, "{}", filtered.to_json());
+    let activity = filtered.at("outletActivity");
+    assert_eq!(activity.at("months").to_json(), r#"["2026-10","2026-11"]"#);
+    let outlet = activity.at("outlets").items().iter().find(|row| row.at("outlet").as_str() == Some("TST")).expect("the TST outlet");
+    assert_eq!((outlet.at("total").as_i64(), outlet.at("inProgress").as_i64(), outlet.at("completionRate").as_i64()), (Some(1), Some(1), Some(0)));
+    assert_eq!(outlet.at("monthly").to_json(), "[0,1]");
+    assert_eq!(client.get("/api/dashboard?from=2026-12-01&to=2026-11-01").0, 400);
     let (_, todo) = client.get("/api/todo");
     assert!(items(&todo).iter().any(|item| item.at("id").as_i64() == Some(session) && item.at("action").as_str() == Some("Continue inspection")));
     // The starter Department/PIC role sees no audit drafts.
