@@ -1,15 +1,14 @@
     <section id="reports" class="tab-panel">
-      <section class="today-hero report-hero">
+      <header class="page-head">
         <div>
-          <span>Reporting</span>
           <h2><span data-unit-text></span> <span data-report-heading>audit report</span></h2>
-          <p>All-time results by default. Use the date and outlet filters to narrow this report.</p>
+          <p class="muted">All time by default; the date and outlet filters narrow it.</p>
         </div>
-        <div class="quick-actions">
+        <div class="page-actions">
           <a class="button-link primary" data-export-pdf data-download href="/api/reports/export.pdf">Export PDF</a>
           <a class="button-link outline" data-export-xls data-download href="/api/reports/export.xlsx">Export Excel</a>
         </div>
-      </section>
+      </header>
       <form class="dash-filter" id="report-filter-form" aria-label="Report filters">
         <div class="dash-pill dash-dates">
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"></rect><path d="M2 7h12M5 1.5v3M11 1.5v3"></path></svg>

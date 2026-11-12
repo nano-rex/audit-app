@@ -1,9 +1,15 @@
+// What waits for the signed-in user (its first items are listed on the Dashboard).
+let attentionItems = [];
+let attentionTotal = 0;
+
 // What waits for the signed-in user: the counts beside each tab, and the unread notifications.
 async function loadAttention() {
   const response = await authFetch("/api/todo");
   const data = await response.json();
   unreadNotifications = data.unreadNotifications || 0;
   attentionCounts = data.counts || {};
+  attentionItems = data.items || [];
+  attentionTotal = data.total || attentionItems.length;
   const outdated = document.querySelector("[data-server-outdated]");
   if (outdated) outdated.hidden = !data.serverOutdated;
   renderUnreadBadge();
@@ -36,34 +42,39 @@ async function openAttentionItem(type, id, view = "") {
   await openWorkOrderEditor(row);
 }
 
+// The Dashboard is the signed-in person's own: their tasks, figures, and activity.
 async function loadDashboard() {
   const form = document.getElementById("dashboard-filter-form");
-  const outletSelect = form?.elements.outlet;
-  if (outletSelect && outletSelect.options.length <= 1) updateSelectOptions(outletSelect, setupOptions.outlets || [], true, "All outlets");
   const query = new URLSearchParams({ unit: currentUnit });
-  for (const key of ["from", "to", "outlet"]) {
+  for (const key of ["from", "to"]) {
     if (form?.elements[key].value) query.set(key, form.elements[key].value);
   }
-  const clear = form?.querySelector(".dash-clear");
   const filtered = [...query.keys()].length > 1;
+  const clear = form?.querySelector(".dash-clear");
   if (clear) clear.hidden = !filtered;
-  let response;
+  // Scheduled audits are opened from Inspections; do not offer them to accounts without that page.
+  const schedules = (currentUser?.permissions || []).includes("inspections");
+  document.querySelectorAll("[data-scheduled-panel]").forEach((node) => { node.hidden = !schedules; });
+  let mine, team;
   try {
-    [response] = await Promise.all([authFetch(`/api/dashboard?${query}`), loadAttention()]);
+    [mine, team] = await Promise.all([
+      authFetch(`/api/my-dashboard?${query}`).then((response) => response.json()),
+      schedules ? authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`).then((response) => response.json()) : null,
+      loadAttention(),
+    ]);
   } catch (error) {
-    // A bad filter (e.g. the start after the end) is shown beside the filters.
+    // A bad period (e.g. the start after the end) is shown beside the dates.
     if (!filtered) throw error;
     setText("[data-dashboard-filter-message]", error.message);
     return;
   }
   setText("[data-dashboard-filter-message]", "");
-  // Scheduled audits are opened from Inspections; do not offer them to accounts without that page.
-  document.querySelectorAll("[data-scheduled-panel]").forEach((node) => { node.hidden = !(currentUser?.permissions || []).includes("inspections"); });
-  const data = await response.json();
-  renderMainDashboard(data);
-
-  dashboardSchedules = data.today.scheduled || [];
-  renderDashboardSchedules();
+  renderMyDashboard(mine, { items: attentionItems, total: attentionTotal, counts: attentionCounts },
+    { from: form?.elements.from.value || "", to: form?.elements.to.value || "" });
+  if (team) {
+    dashboardSchedules = team.today?.scheduled || [];
+    renderDashboardSchedules();
+  }
 }
 
 // Every scheduled visit not yet finished, a page at a time, with their number beside the heading.
@@ -508,8 +519,10 @@ function niceMax(value) {
 }
 
 // Areas stacked over months: series = [{ label, colour, values: [per month] }], the first at the bottom.
-function stackedAreaChart(months, series) {
-  if (!months.length || !series.some((item) => item.values.some(Boolean))) return '<p class="muted chart-empty">No audits in this period</p>';
+// unit names what is counted ("audit" → "3 audits"); empty is shown when nothing was counted.
+function stackedAreaChart(months, series, { unit = "audit", empty = "No audits in this period", label = "Audits per month by outlet" } = {}) {
+  const counted = (count) => `${count} ${unit}${count === 1 ? "" : "s"}`;
+  if (!months.length || !series.some((item) => item.values.some(Boolean))) return `<p class="muted chart-empty">${escapeHtml(empty)}</p>`;
   const width = 1000, height = 240, left = 34, right = 12, top = 10, bottom = 26;
   const plotWidth = width - left - right, plotHeight = height - top - bottom;
   const totals = months.map((_, index) => series.reduce((sum, item) => sum + (item.values[index] || 0), 0));
@@ -528,15 +541,15 @@ function stackedAreaChart(months, series) {
     const line = smoothPath(upper);
     const back = smoothPath([...lower].reverse()).replace(/^M/, "L");
     const total = item.values.reduce((sum, value) => sum + value, 0);
-    return `<g class="area-layer"><title>${escapeHtml(item.label)}: ${total} audit${total === 1 ? "" : "s"}</title>
+    return `<g class="area-layer"><title>${escapeHtml(item.label)}: ${counted(total)}</title>
       <path d="${line} ${back} Z" style="fill:${item.colour}"></path><path class="area-line" d="${line}" style="stroke:${item.colour}"></path></g>`;
   }).join("");
   // An invisible column per month, so hovering anywhere shows that month's total.
   const columns = months.map((month, index) => {
     const half = months.length === 1 ? plotWidth / 2 : plotWidth / (months.length - 1) / 2;
-    return `<rect class="area-hover" x="${Math.max(left, x(index) - half).toFixed(1)}" y="${top}" width="${(Math.min(width - right, x(index) + half) - Math.max(left, x(index) - half)).toFixed(1)}" height="${plotHeight}"><title>${escapeHtml(monthLabel(month))}: ${totals[index]} audit${totals[index] === 1 ? "" : "s"}</title></rect>`;
+    return `<rect class="area-hover" x="${Math.max(left, x(index) - half).toFixed(1)}" y="${top}" width="${(Math.min(width - right, x(index) + half) - Math.max(left, x(index) - half)).toFixed(1)}" height="${plotHeight}"><title>${escapeHtml(monthLabel(month))}: ${counted(totals[index])}</title></rect>`;
   }).join("");
-  return `<div class="chart-scroll"><svg class="area-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Audits per month by outlet">${grid}${layers}${columns}${axis}</svg></div>
+  return `<div class="chart-scroll"><svg class="area-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(label)}">${grid}${layers}${columns}${axis}</svg></div>
     <ul class="dash-legend">${series.map((item) => `<li><i style="background:${item.colour}"></i>${escapeHtml(item.label)}</li>`).join("")}</ul>`;
 }
 
@@ -571,20 +584,111 @@ function outletCard(row) {
   </article>`;
 }
 
-function renderMainDashboard(data) {
-  const stats = data.stats || {};
-  for (const key of ["total", "auditsCompleted", "priorityIssues", "nonPriorityIssues", "outstandingFindings", "closedWorkOrders"]) {
-    setText(`[data-dashboard="${key}"]`, stats[key] ?? 0);
+// Where each kind of waiting work is done: [count key, label, page].
+const TASK_SECTIONS = [
+  ["guided", "audits to carry out", "inspections"],
+  ["signoff", "audits to sign or close", "signoff"],
+  ["findings", "findings need a work request", "findings"],
+  ["requests", "work requests to review", "requests"],
+  ["orders", "work orders to resolve", "orders"],
+  ["approvals", "changes to approve", "approvals"],
+  ["notifications", "unread notifications", "notifications"],
+  ["resets", "password resets", "users"],
+];
+
+function openTaskSection(page) {
+  if (page === "requests" || page === "orders") {
+    showTab("work-orders");
+    showMaintenanceSubtab(page);
+  } else if (["inspections", "signoff", "findings"].includes(page)) {
+    showContextTab(page);
+  } else {
+    showTab(page);
   }
-  setText('[data-dashboard="overallAuditScore"]', stats.overallAuditScore == null ? "No completed audits" : `${stats.overallAuditScore}/100`);
-  const activity = data.outletActivity || { months: [], outlets: [] };
-  const outlets = activity.outlets || [];
-  const total = stats.total || 0, completed = stats.auditsCompleted || 0;
-  const rate = total ? Math.round(completed * 100 / total) : 0;
-  setText('[data-dashboard-note="total"]', `across ${outlets.length} outlet${outlets.length === 1 ? "" : "s"}`);
-  setText('[data-dashboard-note="auditsCompleted"]', `${stats.auditsPending || 0} still pending`);
-  setHtml('[data-dashboard="completionRate"]', total ? `<span class="${rateClass(rate)}">${rate}%</span>` : "—");
-  renderOutletActivity(activity, "[data-dashboard-area]", "[data-dashboard-outlets]");
+}
+
+function greeting(name, hour = new Date().getHours()) {
+  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const first = String(name || "").trim().split(/\s+/)[0];
+  return first ? `${part}, ${first}` : part;
+}
+
+// "2026-03-05" → "5 Mar 2026".
+function dayLabel(day) {
+  const [year, month, date] = String(day).split("-");
+  return `${Number(date)} ${monthNames[Number(month) - 1] || month} ${year}`;
+}
+
+function taskRow(item) {
+  return `<article class="${item.overdue ? "dash-task-overdue" : ""}"><div>
+      <b>${escapeHtml(item.action)}${item.title ? ` · ${escapeHtml(item.title)}` : ""}</b>
+      <span>${escapeHtml(item.detail || "")}${item.overdue ? ' <em class="warn">Overdue</em>' : ""}</span>
+    </div><button type="button" class="outline" data-open-task="${escapeHtml(item.type)}" data-task-id="${escapeHtml(String(item.id))}" data-task-view="${escapeHtml(item.view || "")}">Open</button></article>`;
+}
+
+function recentRow(row) {
+  const took = row.duration_ms != null ? ` | Took ${durationText(Math.round(row.duration_ms / 1000))}` : "";
+  return `<article><div><b>${escapeHtml(row.label || row.action)}${row.record_ref ? ` ${escapeHtml(row.record_ref)}` : ""}</b>
+    <span>${escapeHtml(new Date(row.created_at).toLocaleString())}${row.outlet ? ` | ${escapeHtml(row.outlet)}` : ""}${escapeHtml(took)}</span></div></article>`;
+}
+
+// Your average time for each step beside everyone's, as two bars on one scale.
+function timesChart(mine, team) {
+  const rows = (team || []).map((row) => ({ label: row.label, team: row.averageSeconds, mine: ((mine || []).find((own) => own.key === row.key) || {}).averageSeconds ?? null }))
+    .filter((row) => row.team != null || row.mine != null);
+  if (!rows.length) return '<p class="muted chart-empty">No timed steps in this period</p>';
+  const top = Math.max(1, ...rows.map((row) => Math.max(row.mine || 0, row.team || 0)));
+  const bar = (value, kind) => `<div class="dash-time-row"><small>${kind === "mine" ? "You" : "Everyone"}</small>
+    <div class="bar-list-track"><span class="dash-time-${kind}" style="width:${value == null ? 0 : Math.max(1, value * 100 / top)}%"></span></div>
+    <strong>${value == null ? "—" : escapeHtml(durationText(value))}</strong></div>`;
+  return `<ol class="dash-times">${rows.map((row) => `<li><div class="bar-list-label"><span>${escapeHtml(row.label)}</span>${row.mine != null && row.team != null
+    ? `<em class="${row.mine <= row.team ? "rate-good" : "rate-fair"}">${row.mine <= row.team ? "faster than average" : "slower than average"}</em>` : ""}</div>
+    ${bar(row.mine, "mine")}${bar(row.team, "team")}</li>`).join("")}</ol>`;
+}
+
+function renderMyDashboard(data, todo, period = {}) {
+  data = data || {};
+  const kpi = data.kpi || {};
+  setText("[data-my-greeting]", greeting(data.name));
+  setText("[data-my-role]", [data.role, currentUnit].filter(Boolean).join(" · "));
+  setText("[data-my-period]", period.from || period.to
+    ? `Your figures, ${period.from ? dayLabel(period.from) : "the start"} – ${period.to ? dayLabel(period.to) : "today"}`
+    : "Your figures, all time");
+  const time = (key, words) => kpi[`${key}Seconds`] == null ? "" : `avg ${durationText(kpi[`${key}Seconds`])} ${words}`;
+  const notes = {
+    audits: [kpi.audit_completed || 0, [time("audit", "start to finish"), `${kpi.audit_started || 0} started`].filter(Boolean).join(" · ")],
+    signed: [kpi.audit_signed || 0, `${kpi.audit_closed || 0} closed${kpi.closureSeconds == null ? "" : ` · ${time("closure", "to close")}`}`],
+    requests: [(kpi.order_created || 0) + (kpi.request_declined || 0), [time("request", "to act"), `${kpi.request_raised || 0} raised`].filter(Boolean).join(" · ")],
+    orders: [kpi.order_closed || 0, time("order", "to close") || "None closed yet"],
+  };
+  for (const [key, [value, note]] of Object.entries(notes)) {
+    setText(`[data-my="${key}"]`, value);
+    setText(`[data-my-note="${key}"]`, note);
+  }
+  // Tasks: a chip per kind of waiting work, then the items themselves.
+  const counts = todo.counts || {};
+  const chips = TASK_SECTIONS.filter(([key]) => Number(counts[key]) > 0)
+    .map(([key, label, page]) => `<button type="button" class="dash-chip" data-my-chip="${page}"><b>${Number(counts[key])}</b> ${escapeHtml(label)}</button>`);
+  setHtml("[data-my-task-chips]", chips.join(""));
+  const items = todo.items || [];
+  const shown = items.slice(0, 8);
+  const more = (todo.total || items.length) - shown.length;
+  const count = document.querySelector("[data-my-task-count]");
+  if (count) {
+    count.textContent = String(todo.total || items.length);
+    count.hidden = !(todo.total || items.length);
+  }
+  setHtml("[data-my-tasks]", shown.length
+    ? shown.map(taskRow).join("") + (more > 0 ? `<p class="muted">And ${more} more; the chips above lead to each list.</p>` : "")
+    : `<article><div><b>Nothing waiting for you</b><span>Audits to carry out or sign, work to review, and approvals appear here.</span></div></article>`);
+  const palette = ["var(--accent)", "var(--blue)", "var(--success)", "var(--orange)"];
+  setHtml("[data-my-activity-chart]", stackedAreaChart(data.months || [], (data.series || []).map((item, index) => ({
+    label: item.label, colour: palette[index % palette.length], values: item.values || [] })),
+    { unit: "step", empty: "You have no recorded steps in this period", label: "Your steps per month by kind" }));
+  setHtml("[data-my-times]", timesChart(data.timeToAct, data.teamTimeToAct));
+  const recent = data.recent || [];
+  setHtml("[data-my-recent]", recent.length ? recent.map(recentRow).join("")
+    : `<article><div><b>No activity yet</b><span>Your audits, sign-offs, work requests, and work orders are listed here.</span></div></article>`);
 }
 
 // Audits by outlet over the months, and a card per outlet; shared by the Dashboard and Reports.

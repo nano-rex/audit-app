@@ -226,49 +226,59 @@ test("pagination handles navigation, filtering, page sizes, and record deletion"
   }
 });
 
-test("dashboard renders actual counts, scaled charts, monthly audits, and empty states", () => {
+test("the dashboard shows the signed-in person's tasks, figures, activity, and times; outlets stay on Reports", () => {
   const rendered = {};
   const context = vm.createContext({
     ...shared(),
+    currentUnit: "Ottotree",
     setText: (selector, value) => { rendered[selector] = value; },
     setHtml: (selector, value) => { rendered[selector] = value; },
-    escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;"),
+    escapeHtml: (value) => String(value).replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;"),
   });
   vm.runInContext(source("dashboard.js"), context);
-  context.renderMainDashboard({ stats: { total: 8, auditsCompleted: 5, auditsPending: 3, overallAuditScore: 72 }, outletActivity: {
-    months: ["2026-01", "2026-02"],
-    outlets: [
-      { outlet: "<Outlet>", total: 6, completed: 4, inProgress: 1, notStarted: 1, completionRate: 67, average: 70, openFindings: 2, monthly: [4, 2] },
-      { outlet: "B", total: 2, completed: 1, inProgress: 0, notStarted: 1, completionRate: 50, average: null, openFindings: 0, monthly: [0, 2] },
-    ],
-  } });
-  assert.equal(rendered['[data-dashboard="total"]'], 8);
-  assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "72/100");
-  assert.equal(rendered['[data-dashboard-note="total"]'], "across 2 outlets");
-  assert.equal(rendered['[data-dashboard-note="auditsCompleted"]'], "3 still pending");
-  assert.match(rendered['[data-dashboard="completionRate"]'], /rate-fair">63%/);
-  const area = rendered["[data-dashboard-area]"];
-  assert.equal((area.match(/class="area-layer"/g) || []).length, 2);
-  assert.match(area, /Jan 2026: 4 audits/);
-  assert.match(area, /Feb 2026: 4 audits/);
-  assert.match(area, /&lt;Outlet&gt;/);
-  const cards = rendered["[data-dashboard-outlets]"];
-  assert.equal((cards.match(/class="panel dash-outlet"/g) || []).length, 2);
-  assert.match(cards, /6 audits/);
-  assert.match(cards, /rate-fair">67% completed/);
-  assert.match(cards, /width:50%/);
-  assert.match(cards, /<dt>Pending<\/dt><dd>2<\/dd>/);
-  assert.match(cards, /<dt>Avg score<\/dt><dd>—<\/dd>/);
-  context.renderMainDashboard({ stats: { overallAuditScore: null }, charts: {} });
-  assert.equal(rendered['[data-dashboard="overallAuditScore"]'], "No completed audits");
-  assert.equal(rendered['[data-dashboard="completionRate"]'], "—");
-  assert.match(rendered["[data-dashboard-area]"], /No audits in this period/);
-  assert.match(rendered["[data-dashboard-outlets]"], /No audits yet/);
+  assert.equal(context.greeting("Rex Tan", 9), "Good morning, Rex");
+  assert.equal(context.greeting("", 20), "Good evening");
+  context.renderMyDashboard({
+    name: "Rex", role: "Auditor",
+    kpi: { audit_started: 4, audit_completed: 3, auditSeconds: 7200, audit_signed: 2, audit_closed: 1, request_raised: 5, order_created: 2, request_declined: 1, requestSeconds: 90000, order_closed: 0 },
+    months: ["2026-10", "2026-11"],
+    series: [{ label: "Audits", values: [2, 5] }, { label: "Work requests", values: [0, 3] }, { label: "Work orders", values: [0, 0] }, { label: "Findings", values: [0, 1] }],
+    timeToAct: [{ key: "audit", label: "Start to completion of an audit", averageSeconds: 7200 }],
+    teamTimeToAct: [{ key: "audit", label: "Start to completion of an audit", averageSeconds: 14400 }, { key: "order", label: "Work order opened to closed", averageSeconds: null }],
+    recent: [{ label: "Completed audit", record_ref: "AUDIT-<1>", created_at: 0, outlet: "TST", duration_ms: 60000 }],
+  }, {
+    items: [{ type: "work_order", id: 7, action: "Resolve work order", title: "WO-7 Fix", detail: "TST | Due 2026-11-01", overdue: true }],
+    total: 1, counts: { orders: 1, signoff: 0, notifications: 3 },
+  }, { from: "2026-10-01", to: "" });
+  assert.equal(rendered["[data-my-greeting]"].split(",")[1].trim(), "Rex");
+  assert.equal(rendered["[data-my-role]"], "Auditor · Ottotree");
+  assert.equal(rendered["[data-my-period]"], "Your figures, 1 Oct 2026 – today");
+  assert.equal(rendered['[data-my="audits"]'], 3);
+  assert.equal(rendered['[data-my-note="audits"]'], "avg 2 h 0 m start to finish · 4 started");
+  assert.equal(rendered['[data-my="requests"]'], 3);
+  assert.equal(rendered['[data-my-note="orders"]'], "None closed yet");
+  const chips = rendered["[data-my-task-chips]"];
+  assert.match(chips, /data-my-chip="orders"><b>1<\/b> work orders to resolve/);
+  assert.match(chips, /<b>3<\/b> unread notifications/);
+  assert.doesNotMatch(chips, /sign or close/);
+  assert.match(rendered["[data-my-tasks]"], /dash-task-overdue/);
+  assert.match(rendered["[data-my-tasks]"], /data-open-task="work_order" data-task-id="7"/);
+  assert.match(rendered["[data-my-activity-chart]"], /Nov 2026: 9 steps/);
+  assert.match(rendered["[data-my-activity-chart]"], /Audits: 7 steps/);
+  const times = rendered["[data-my-times]"];
+  assert.match(times, /faster than average/);
+  assert.match(times, /width:50%/);
+  assert.equal((times.match(/<li>/g) || []).length, 1);
+  assert.match(rendered["[data-my-recent]"], /AUDIT-&lt;1&gt;/);
+  assert.match(rendered["[data-my-recent]"], /Took 1 m/);
+  context.renderMyDashboard({}, { items: [], counts: {} });
+  assert.equal(rendered["[data-my-period]"], "Your figures, all time");
+  assert.match(rendered["[data-my-tasks]"], /Nothing waiting for you/);
+  assert.match(rendered["[data-my-activity-chart]"], /no recorded steps/);
+  assert.match(rendered["[data-my-times]"], /No timed steps/);
   const html = fs.readFileSync(path.join(__dirname, "../web/html/tabs/today.html"), "utf8");
-  assert.equal((html.match(/data-dashboard="/g) || []).length, 8);
-  assert.match(html, /data-dashboard-area/);
-  assert.match(html, /data-dashboard-outlets/);
-  assert.match(html, /id="dashboard-filter-form"/);
+  for (const hook of ["data-my-tasks", "data-my-activity-chart", "data-my-times", "data-my-recent", 'id="dashboard-filter-form"', "data-today-schedules"]) assert.match(html, new RegExp(hook));
+  assert.doesNotMatch(html, /today-hero|data-dashboard-area|data-dashboard-outlets/);
   const reports = fs.readFileSync(path.join(__dirname, "../web/html/tabs/reports.html"), "utf8");
   assert.match(reports, /data-report-area/);
   assert.match(reports, /data-report-outlets/);

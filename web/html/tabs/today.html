@@ -4,53 +4,62 @@
         <button type="button" data-context-tab="reports">Reports</button>
         <button type="button" data-context-tab="activity">Activity Log</button>
       </nav>
-      <section class="today-hero">
+      <header class="page-head">
         <div>
-          <span>Main Dashboard</span>
-          <h2><span data-unit-text></span> audit dashboard</h2>
+          <h2 data-my-greeting>My dashboard</h2>
+          <p class="muted" data-my-role></p>
         </div>
-        <div class="quick-actions">
-          <!--<button class="primary" data-jump-tab="inspections">Start Inspection</button>-->
-          <!--<button class="outline">Scan QR</button>-->
+        <div class="page-actions">
           <button class="primary" data-open="schedule" data-scheduled-panel>Schedule Visit</button>
         </div>
-      </section>
+      </header>
 
-      <section class="panel scheduled-panel" data-scheduled-panel>
-        <h2>Scheduled audits <span class="count-pill" data-scheduled-count hidden></span></h2>
-        <div class="list compact-list" data-today-schedules></div>
-      </section>
-
-      <form class="dash-filter" id="dashboard-filter-form" aria-label="Dashboard filters">
+      <form class="dash-filter" id="dashboard-filter-form" aria-label="Period of your figures">
         <div class="dash-pill dash-dates">
           <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="11" rx="2"></rect><path d="M2 7h12M5 1.5v3M11 1.5v3"></path></svg>
           <input type="date" name="from" aria-label="From">
           <span aria-hidden="true">–</span>
           <input type="date" name="to" aria-label="To">
-          <button type="reset" class="dash-clear" title="Clear dates and outlet" hidden>Clear</button>
+          <button type="reset" class="dash-clear" title="Show all time" hidden>Clear</button>
         </div>
-        <label class="dash-pill"><span class="visually-hidden">Outlet</span><select name="outlet" aria-label="Outlet"><option value="">All outlets</option></select></label>
+        <p class="muted dash-filter-note" data-my-period>Your figures, all time</p>
         <p class="dash-filter-message" data-dashboard-filter-message role="status"></p>
       </form>
 
-      <section class="dash-kpis" aria-label="Audit overview">
-        <article><span>Audits</span><strong data-dashboard="total">—</strong><small data-dashboard-note="total">Pending includes drafts and unstarted visits</small></article>
-        <article><span>Completed</span><strong data-dashboard="auditsCompleted">—</strong><small data-dashboard-note="auditsCompleted"></small></article>
-        <article><span>Completion rate</span><strong data-dashboard="completionRate" data-rate>—</strong><small>Completed of all audits</small></article>
-        <article><span>Average score</span><strong data-dashboard="overallAuditScore">—</strong><small>Completed audits only</small></article>
-      </section>
-      <section class="dash-kpis dash-kpis-minor" aria-label="Issues overview">
-        <article><span>Priority issues</span><strong data-dashboard="priorityIssues">—</strong></article>
-        <article><span>Non-priority issues</span><strong data-dashboard="nonPriorityIssues">—</strong></article>
-        <article><span>Outstanding issues</span><strong data-dashboard="outstandingFindings">—</strong><small>Findings not yet closed</small></article>
-        <article><span>Closed work orders</span><strong data-dashboard="closedWorkOrders">—</strong><small>Work orders that are done</small></article>
+      <section class="dash-kpis" aria-label="Your figures">
+        <article><span>Audits completed</span><strong data-my="audits">—</strong><small data-my-note="audits"></small></article>
+        <article><span>Audits signed</span><strong data-my="signed">—</strong><small data-my-note="signed"></small></article>
+        <article><span>Work requests acted on</span><strong data-my="requests">—</strong><small data-my-note="requests"></small></article>
+        <article><span>Work orders closed</span><strong data-my="orders">—</strong><small data-my-note="orders"></small></article>
       </section>
 
-      <section class="panel dash-area-card">
-        <h2>Audits by Outlet</h2>
-        <p class="muted">Audits each month by visit date, stacked by outlet. Includes completed, in-progress, and unstarted audits.</p>
-        <div data-dashboard-area></div>
-      </section>
-      <section class="dash-outlets" data-dashboard-outlets aria-label="Outlets"></section>
+      <div class="dash-split">
+        <section class="panel dash-tasks">
+          <h2>My tasks <span class="count-pill" data-my-task-count hidden></span></h2>
+          <div class="dash-chips" data-my-task-chips></div>
+          <div class="list compact-list" data-my-tasks></div>
+        </section>
+        <section class="panel dash-area-card">
+          <h2>My activity</h2>
+          <p class="muted">Your steps each month, by kind.</p>
+          <div data-my-activity-chart></div>
+        </section>
+      </div>
 
+      <div class="dash-split">
+        <section class="panel">
+          <h2>Time to act</h2>
+          <p class="muted">Your average time for each step, beside everyone's in the same period.</p>
+          <div data-my-times></div>
+        </section>
+        <section class="panel">
+          <h2>Recent activity</h2>
+          <div class="list compact-list" data-my-recent></div>
+        </section>
+      </div>
+
+      <section class="panel scheduled-panel" data-scheduled-panel>
+        <h2>Scheduled audits <span class="count-pill" data-scheduled-count hidden></span></h2>
+        <div class="list compact-list" data-today-schedules></div>
+      </section>
     </section>

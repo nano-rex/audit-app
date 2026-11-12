@@ -237,6 +237,19 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  // The Dashboard's tasks: open one, or a chip's whole list.
+  const openTaskButton = event.target.closest("[data-open-task]");
+  if (openTaskButton) {
+    const { openTask, taskId, taskView } = openTaskButton.dataset;
+    await openAttentionItem(openTask, Number(taskId), taskView).catch(showLoadError);
+    return;
+  }
+  const taskChip = event.target.closest("[data-my-chip]");
+  if (taskChip) {
+    openTaskSection(taskChip.dataset.myChip);
+    return;
+  }
+
   const openNotificationButton = event.target.closest("[data-open-notification]");
   if (openNotificationButton) {
     const row = notificationCache.find((item) => String(item.id) === openNotificationButton.dataset.openNotification);

@@ -2709,3 +2709,134 @@ people view: a card per person {
     flex: 1;
   }
 }
+
+/* A page's title and its actions on one line, in place of the coloured banner. */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin: 4px 0 14px;
+}
+
+.page-head h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.page-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dash-filter-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* The personal Dashboard: two panels side by side on wide screens. */
+.dash-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dash-split > .panel {
+  margin: 0;
+}
+
+.dash-split h2 {
+  margin: 0 0 4px;
+}
+
+.dash-split .panel > .muted {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.dash-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 12px;
+}
+
+.dash-chips:empty {
+  display: none;
+}
+
+.dash-chip {
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--text-soft);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.dash-chip b {
+  color: var(--accent);
+}
+
+.dash-tasks .list article {
+  align-items: center;
+}
+
+.dash-tasks .list button {
+  min-height: 30px;
+  padding: 2px 12px;
+  font-size: 13px;
+}
+
+.dash-task-overdue {
+  border-left: 3px solid var(--red);
+}
+
+.dash-times {
+  display: grid;
+  gap: 14px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.dash-times em {
+  font-size: 12px;
+  font-style: normal;
+}
+
+.dash-time-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 84px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.dash-time-row small {
+  color: var(--muted);
+}
+
+.dash-time-row strong {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-time-mine { background: var(--accent); }
+.dash-time-team { background: var(--border-strong); }
+
+@media (max-width: 900px) {
+  .dash-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

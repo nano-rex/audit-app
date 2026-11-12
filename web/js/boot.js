@@ -75,7 +75,7 @@ async function loadTabData(tabId) {
   showTabLoading(tabId);
   const loaders = {
     today: loadDashboard,
-    reports: async () => { await loadDashboard(); await loadReport(); },
+    reports: async () => { await loadAttention(); await loadReport(); },
     activity: () => loadActivityLog(),
     history: loadInspectionHistory,
     findings: loadFindings,

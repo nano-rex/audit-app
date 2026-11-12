@@ -478,6 +478,13 @@ fn get(ctx: &Ctx) -> R<Reply> {
             let prepared = crate::db::cached(&key, || crate::reports::dashboard(&unit, &filters, false))?;
             return Ok(Reply::Shared(prepared));
         }
+        "/api/my-dashboard" => {
+            let mut filters = obj([("outlets", scope_filter())]);
+            for key in ["from", "to"] {
+                filters.set(key, ctx.param(key).unwrap_or_default());
+            }
+            return ok(crate::reports::my_dashboard(&unit_param(ctx), &filters, &viewer)?);
+        }
         "/api/todo" => return ok(listed(&viewer, &crate::todo::todo_items(&viewer)?, "outlet")),
         "/api/schedules" => return ok(listed(&viewer, &crate::inspections::schedule_items()?, "outlet")),
         "/api/schedules/assignees" => {

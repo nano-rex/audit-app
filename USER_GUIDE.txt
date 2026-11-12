@@ -264,23 +264,30 @@ An administrator should configure these records before staff begin auditing:
    or ready for you to close, are counted on the Inspections and Sign-off
    tabs. A closed audit is
    read-only.
-   The Dashboard gives the overview at a glance. Its date and outlet filters
-   apply as soon as they change (Clear resets them). Below the scheduled
-   audits are four headline figures (audits, completed, completion rate,
-   average score) and the issue counts. Audits by Outlet then shows audits
-   each month by visit date, stacked by outlet: hover a band for an outlet's
-   total or a month for that month's total. Then there is a card per outlet:
-   its audits and the share completed (green from 75%, orange from 50%, red
-   below), a small curve of audits per month, a bar of completed (green), in
-   progress (blue), and not started (orange), and its pending, completed,
-   average score, and open issues.
+   The Dashboard is your own page; the whole organization's figures are on
+   Reports. It shows:
+   - Four figures for the period chosen with the dates beside them (all time
+     when empty; Clear resets it): audits you completed (and your average
+     time from start to finish), audits you signed and closed, work requests
+     you acted on (and your average time to act), and work orders you closed.
+   - My tasks: what waits for you, with a chip per kind (for example "2 work
+     orders to resolve") that opens that list; Open on a task goes straight
+     to it. Overdue work orders are marked.
+   - My activity: your steps each month (audits, work requests, work orders,
+     findings), and Recent activity: your latest steps.
+   - Time to act: your average time for each step beside everyone's in the
+     same period.
+   - Scheduled audits, for those who carry out audits.
 2. Open Reports to review scores, findings, overdue work, outlet comparisons,
-   and charts. Use the date and outlet filters to narrow the report; like the
-   Dashboard's, they apply as soon as they change. The page
+   and charts. Use the date and outlet filters to narrow the report; they
+   apply as soon as they change (Clear resets them). The page
    opens with four rings (audits, findings, work orders, scheduled tasks)
-   showing each figure's parts and share; then Audits by Outlet and a card
-   per outlet, as on the Dashboard but for the report's period (the exports
-   show these as an Audits by outlet table); then audits by month with their
+   showing each figure's parts and share; then Audits by Outlet (audits each
+   month by visit date, stacked by outlet; hover for totals) and a card per
+   outlet: its audits and share completed (green from 75%, orange from 50%,
+   red below), audits per month, a completed / in progress / not started
+   bar, and its pending, completed, average score, and open issues (the
+   exports show these as an Audits by outlet table); then audits by month with their
    average score against the pass mark, findings by month (priority and
    non-priority), each outlet's latest score coloured by grade, previous vs
    current audits, breakdowns by department, location, and asset type, time to

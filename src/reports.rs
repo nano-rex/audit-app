@@ -115,10 +115,10 @@ fn month_of(created_at: &Value) -> String {
     format!("{:04}-{:02}", at.date.year, at.date.month)
 }
 
-/// Months from the first to the last audit (or the filter's dates), none skipped, and each
-/// outlet's audits by state, completion, average score, open findings, and audits per month.
-fn outlet_activity(activity: &BTreeMap<String, ([i64; 3], BTreeMap<String, i64>)>, filters: &Value, outlet_rows: &[Value], findings: &[Value]) -> Value {
-    let seen: std::collections::BTreeSet<&String> = activity.values().flat_map(|(_, months)| months.keys()).collect();
+/// Months ("YYYY-MM") from the filter's start (or the first month seen) to its end (or the last
+/// month seen), none skipped, at most ten years.
+fn month_range<'a>(filters: &Value, seen: impl Iterator<Item = &'a String>) -> Vec<String> {
+    let seen: std::collections::BTreeSet<&String> = seen.collect();
     let bound = |key: &str, fallback: Option<&&String>| -> String {
         let value: String = filters.at(key).text().chars().take(7).collect();
         if value.is_empty() { fallback.map(|month| month.to_string()).unwrap_or_default() } else { value }
@@ -136,6 +136,12 @@ fn outlet_activity(activity: &BTreeMap<String, ([i64; 3], BTreeMap<String, i64>)
             if month == 12 { year += 1; month = 1; } else { month += 1; }
         }
     }
+    months
+}
+
+/// Each outlet's audits by state, completion, average score, open findings, and audits per month.
+fn outlet_activity(activity: &BTreeMap<String, ([i64; 3], BTreeMap<String, i64>)>, filters: &Value, outlet_rows: &[Value], findings: &[Value]) -> Value {
+    let months = month_range(filters, activity.values().flat_map(|(_, months)| months.keys()));
     let outlets = activity.iter().map(|(outlet, (states, by_month))| {
         let [completed, in_progress, not_started] = *states;
         let total = completed + in_progress + not_started;
@@ -429,5 +435,64 @@ pub fn activity_items(unit: &str, filters: &Value) -> R<Value> {
     with_db(|db| {
         let performance = kpi_report(db, &where_clause, &values, 500)?;
         Ok(obj([("items", performance.at("activity").clone()), ("total", performance.at("activityTotal").clone())]))
+    })
+}
+
+/// What the signed-in person did in the period: their counts and times to act beside everyone's
+/// (within their outlets), their steps each month by kind, and their latest steps.
+pub fn my_dashboard(unit: &str, filters: &Value, user: &Value) -> R<Value> {
+    let (team_where, team_params) = report_scope(unit, "activity_log", filters)?;
+    // A person's own steps count wherever they were taken.
+    let mut own_filters = filters.clone();
+    own_filters.set("outlets", Value::Null);
+    let (own_where, mut own_params) = report_scope(unit, "activity_log", &own_filters)?;
+    let own_where = format!("{own_where} AND activity_log.user_id = ?");
+    own_params.push(user.at("id").clone());
+    with_db(|db| {
+        let team = kpi_report(db, &team_where, &team_params, 0)?;
+        let mine = kpi_report(db, &own_where, &own_params, 12)?;
+        let mut kpi = mine.at("people").items().first().cloned().unwrap_or_else(|| {
+            let mut empty = Value::object();
+            for action in crate::activity::COUNTED {
+                empty.set(action, Value::Int(0));
+            }
+            empty
+        });
+        kpi.set("total", mine.at("activityTotal").clone());
+        // Each step by month, in four kinds.
+        let kind = |action: &str| -> usize {
+            if action.starts_with("audit_") {
+                0
+            } else if action.starts_with("request_") || action == "order_created" {
+                1
+            } else if action.starts_with("order_") {
+                2
+            } else {
+                3
+            }
+        };
+        let mut by_month: BTreeMap<String, [i64; 4]> = BTreeMap::new();
+        for row in db.rows(&format!("SELECT created_at, action FROM activity_log WHERE {own_where}"), &bind(&own_params))? {
+            by_month.entry(month_of(&row.value("created_at"))).or_default()[kind(&row.str("action"))] += 1;
+        }
+        let months = month_range(filters, by_month.keys());
+        let series = ["Audits", "Work requests", "Work orders", "Findings"]
+            .iter()
+            .enumerate()
+            .map(|(index, label)| obj([
+                ("label", (*label).into()),
+                ("values", Value::Array(months.iter().map(|month| Value::Int(by_month.get(month).map(|counts| counts[index]).unwrap_or(0))).collect())),
+            ]))
+            .collect();
+        Ok(obj([
+            ("name", user.at("name").clone()),
+            ("role", user.at("role").clone()),
+            ("kpi", kpi),
+            ("timeToAct", mine.at("timeToAct").clone()),
+            ("teamTimeToAct", team.at("timeToAct").clone()),
+            ("months", Value::Array(months.iter().map(|month| Value::str(month.clone())).collect())),
+            ("series", Value::Array(series)),
+            ("recent", mine.at("activity").clone()),
+        ]))
     })
 }

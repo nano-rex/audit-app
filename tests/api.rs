@@ -587,6 +587,19 @@ fn an_empty_dashboard_invents_nothing_and_the_todo_list_guides() {
     for path in ["/api/reports/export.pdf?from=2026-10-01&to=2026-11-30", "/api/reports/export.xlsx?from=2026-10-01&to=2026-11-30"] {
         assert_eq!(client.raw("GET", path, b"", &[]).status, 200, "{path}");
     }
+    // The Dashboard is personal: this person's own steps, figures, and times beside everyone's.
+    let (status, mine) = client.get("/api/my-dashboard");
+    assert_eq!(status, 200, "{}", mine.to_json());
+    assert_eq!(mine.at("kpi").at("audit_started").as_i64(), Some(1));
+    assert_eq!(mine.at("recent").items()[0].at("action").as_str(), Some("audit_started"));
+    let audits: i64 = mine.at("series").items()[0].at("values").items().iter().filter_map(Value::as_i64).sum();
+    assert_eq!((mine.at("series").items()[0].at("label").as_str(), audits), (Some("Audits"), 1));
+    assert_eq!(mine.at("series").items().len(), 4);
+    assert!(mine.at("teamTimeToAct").items().len() == 4 && mine.at("name").truthy());
+    let (_, nothing) = client.get("/api/my-dashboard?from=2000-01-01&to=2000-12-31");
+    assert_eq!(nothing.at("kpi").at("audit_started").as_i64(), Some(0));
+    assert_eq!(nothing.at("months").items().len(), 12);
+    assert_eq!(client.get("/api/my-dashboard?from=2026-12-01&to=2026-11-01").0, 400);
     let (_, todo) = client.get("/api/todo");
     assert!(items(&todo).iter().any(|item| item.at("id").as_i64() == Some(session) && item.at("action").as_str() == Some("Continue inspection")));
     // The starter Department/PIC role sees no audit drafts.
