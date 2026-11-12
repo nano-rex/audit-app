@@ -279,6 +279,10 @@ test("the dashboard shows the signed-in person's tasks, figures, activity, and t
   const html = fs.readFileSync(path.join(__dirname, "../web/html/tabs/today.html"), "utf8");
   for (const hook of ["data-my-tasks", "data-my-activity-chart", "data-my-times", "data-my-recent", 'id="dashboard-filter-form"', "data-today-schedules"]) assert.match(html, new RegExp(hook));
   assert.doesNotMatch(html, /today-hero|data-dashboard-area|data-dashboard-outlets/);
+  // Every page uses the compact header; the coloured banner is gone.
+  for (const name of fs.readdirSync(path.join(__dirname, "../web/html/tabs"))) {
+    assert.doesNotMatch(fs.readFileSync(path.join(__dirname, "../web/html/tabs", name), "utf8"), /today-hero/, name);
+  }
   const reports = fs.readFileSync(path.join(__dirname, "../web/html/tabs/reports.html"), "utf8");
   assert.match(reports, /data-report-area/);
   assert.match(reports, /data-report-outlets/);

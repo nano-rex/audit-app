@@ -222,16 +222,6 @@
     font-size: 20px;
   }
 
-  .today-hero {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 18px;
-  }
-
-  .today-hero h2 {
-    font-size: 20px;
-  }
-
   .quick-actions,
   .form-actions,
   .split-actions,
@@ -392,5 +382,15 @@
   .org-row .org-avatar {
     width: 52px;
     height: 52px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-head h2 {
+    font-size: 19px;
+  }
+
+  .page-actions {
+    width: 100%;
   }
 }
