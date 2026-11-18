@@ -618,10 +618,9 @@ pub fn delete_user(ctx: &Ctx, _payload: &Value) -> R<Reply> {
                 protect_last_super(db, record_id)?;
             }
         }
-        if db.exists("SELECT 1 FROM user_login_activity WHERE user_id = ? LIMIT 1", params![record_id])? || db.exists("SELECT 1 FROM inspection_sessions WHERE owner_user_id = ? LIMIT 1", params![record_id])? {
-            return Err(status(409, "This account has login or audit history. Deactivate it to retain that history."));
-        }
-        for (table, column) in [("user_navigation", "user_id"), ("auth_sessions", "user_id"), ("password_reset_requests", "user_id"), ("notifications", "recipient_user_id"), ("due_notification_events", "user_id")] {
+        // Audits, the activity log, and work records keep the person's name as text, and user ids are
+        // never reused, so they stay as they are. The account's own sign-in log goes with it.
+        for (table, column) in [("user_navigation", "user_id"), ("auth_sessions", "user_id"), ("password_reset_requests", "user_id"), ("notifications", "recipient_user_id"), ("due_notification_events", "user_id"), ("user_login_activity", "user_id")] {
             db.exec(&format!("DELETE FROM {table} WHERE {column} = ?"), params![record_id])?;
         }
         if db.exec("DELETE FROM users WHERE id = ?", params![record_id])? == 0 {

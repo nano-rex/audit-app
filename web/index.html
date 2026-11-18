@@ -8,20 +8,22 @@
   <link rel="stylesheet" href="css/layout.css?v=20261020-no-flicker">
   <link rel="stylesheet" href="css/components.css?v=20261020-no-flicker">
   <link rel="stylesheet" href="css/responsive.css?v=20261020-no-flicker">
+  <link rel="stylesheet" href="css/shell.css?v=20261020-no-flicker">
   <script src="js/theme.js?v=20261020-no-flicker"></script>
 </head>
 <body>
   <header class="app-header">
+    <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="app-nav" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
     <div class="brand">
       <img class="brand-logo" data-brand-logo alt="" hidden>
       <h1 data-brand-title>Audit App</h1>
       <p data-brand-subtitle>Facilities audit workspace</p>
     </div>
-    <div class="account-strip" data-account-strip hidden>
-      <button class="account-chip" type="button" data-jump-tab="account" title="Open your account" data-auth-user></button>
-    </div>
-    <div class="nav-row">
-      <nav class="tabs" aria-label="Audit sections">
+    <p class="page-title" data-page-title aria-hidden="true"></p>
+    <div class="nav-row" id="app-nav">
+      <nav class="tabs" aria-label="Pages">
         <button class="active" data-tab="today">Dashboard</button>
         <button data-tab="inspections">Inspections</button>
         <button data-tab="history" data-nested-only hidden>History</button>
@@ -40,14 +42,20 @@
         <button data-tab="super-dashboard">Super Dashboard</button>
         <button data-tab="super-settings">Super Settings</button>
       </nav>
-      <button class="menu-button" type="button" data-menu-toggle aria-expanded="false" aria-controls="tab-menu" aria-label="Open tab menu">☰</button>
+      <div class="nav-footer">
+        <div class="account-strip" data-account-strip hidden>
+          <button class="account-chip" type="button" data-jump-tab="account" title="Open your account" data-auth-user></button>
+        </div>
+        <button class="nav-reorder" type="button" data-reorder-toggle aria-expanded="false" aria-controls="tab-menu">Reorder pages</button>
+      </div>
       <div class="tab-menu" id="tab-menu" hidden>
-        <h2>Pages</h2>
-        <p>Move pages up or down. The first pages appear on the bar as space allows.</p>
+        <h2>Reorder pages</h2>
+        <p>Move pages up or down. The order is saved to your account.</p>
         <p data-navigation-status role="status" aria-live="polite"></p>
         <div data-menu-tabs></div>
       </div>
     </div>
+    <div class="nav-scrim" data-nav-scrim></div>
   </header>
 
   <div class="server-outdated" data-server-outdated role="alert" hidden>

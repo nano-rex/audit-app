@@ -355,7 +355,7 @@ function setEquipmentFormKind(kind) {
   const variable = kind === "fixture";
   form.elements.name.placeholder = variable ? "Wall, floor, sofa, wash basin, fire extinguisher" : "Speaker, TV, amplifier, furniture";
   setText("[data-condition-label]", "Operational Status");
-  const types = variable ? setupOptions.variableTypes || [] : [...new Set(equipmentCache.filter((row) => (row.kind || "asset") === "asset").map((row) => row.type || "").filter(Boolean))].sort();
+  const types = variable ? setupOptions.variableTypes || [] : (equipmentAssetTypes.length ? equipmentAssetTypes : setupOptions.assetTypes || []);
   setHtml("#equipment-type-options", types.map((type) => `<option value="${escapeAttr(type)}"></option>`).join(""));
 }
 

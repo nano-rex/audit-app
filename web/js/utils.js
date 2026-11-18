@@ -265,15 +265,8 @@ function updateEquipmentFilterSelects() {
   updateSelectOptions(document.getElementById("equipment-filter-outlet"), setupOptions.outlets, true, "All outlets");
   const outlet = equipmentFilters.outlet;
   if (outlet) document.getElementById("equipment-filter-outlet").value = outlet;
-  const locations = [...new Set(equipmentCache
-    .filter((row) => !outlet || row.outlet === outlet)
-    .map((row) => row.location || row.zone || "")
-    .filter(Boolean))].sort();
-  // Choices come from the items of the tab shown: fixed assets, or variable assets.
-  const items = equipmentCache.filter((row) => (row.kind || "asset") === equipmentFilters.kind);
-  const types = [...new Set(items.map((row) => row.type || row.equipment_type || "").filter(Boolean))].sort();
-  const brands = [...new Set(items.map((row) => row.brand || "").filter(Boolean))].sort();
-  const statuses = [...new Set(items.map((row) => row.operational_status || row.health_status || "").filter(Boolean))].sort();
+  // Choices come from the server for the tab shown (fixed or variable assets) and the outlet.
+  const { locations = [], types = [], brands = [], statuses = [] } = equipmentFacets;
   updateSelectOptions(document.getElementById("equipment-filter-location"), locations, true, "All locations");
   updateSelectOptions(document.getElementById("equipment-filter-type"), types, true, "All types");
   updateSelectOptions(document.getElementById("equipment-filter-brand"), brands, true, "All brands");
@@ -573,4 +566,36 @@ function updateAuditTypeHint() {
   setText("[data-audit-type-hint]", style === "Casual"
     ? "Casual: assets with the same name in a location are checked once, and the grade applies to all of them."
     : "Detailed: every asset is checked and graded on its own.");
+}
+
+// On a phone a filter row shows only its first field (usually search) and a Filters button that
+// opens the rest and counts how many of them are set.
+function filterToggleCount(container) {
+  return [...container.querySelectorAll(":scope > label:not(:first-child) select, :scope > label:not(:first-child) input")]
+    .filter((field) => field.type !== "checkbox" ? field.value : field.checked).length;
+}
+
+function updateFilterToggle(container) {
+  const button = container.querySelector(":scope > .filter-toggle");
+  if (!button) return;
+  const count = filterToggleCount(container);
+  button.textContent = count ? `Filters (${count})` : "Filters";
+  button.setAttribute("aria-expanded", String(container.classList.contains("filters-open")));
+}
+
+if (typeof document !== "undefined" && document.querySelectorAll) {
+  document.querySelectorAll(".filter").forEach((container) => {
+    if (container.querySelectorAll(":scope > label").length < 3) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "outline filter-toggle";
+    button.addEventListener("click", () => {
+      container.classList.toggle("filters-open");
+      updateFilterToggle(container);
+    });
+    container.classList.add("has-toggle");
+    container.firstElementChild.after(button);
+    container.addEventListener("change", () => updateFilterToggle(container));
+    updateFilterToggle(container);
+  });
 }

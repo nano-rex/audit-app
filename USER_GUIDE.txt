@@ -5,6 +5,15 @@ This guide describes the normal web workflow from account setup through audit
 closure and reporting. The pages available to you depend on your role and the
 permissions assigned to your account.
 
+Finding your way: on a computer every page you can open is listed in the
+sidebar on the left; on a phone or tablet, press the menu button at the top
+left to open the same list. A number beside a page shows how much waits for
+you there. Pages with sections (Dashboard, Inspections, Maintenance, Assets,
+Outlets, Users) show them as tabs at the top of the page. Reorder pages, at
+the bottom of the list, moves pages up or down and saves the order to your
+account. On a phone, lists show only their search box until you press
+Filters; the button shows how many filters are in use.
+
 1. SIGN IN AND SET UP YOUR ACCOUNT
 ----------------------------------
 1. Open the Audit App website and sign in with the account provided by your
@@ -257,8 +266,8 @@ An administrator should configure these records before staff begin auditing:
 8. The Notifications page shows relevant progress, assignment,
    due-soon, and overdue notices. Open goes to the inspection or work order a
    notice is about and marks it read; Mark all read clears the rest. The
-   number of unread notices is shown on the Notifications button, or on the
-   page menu when that button does not fit.
+   number of unread notices is shown beside Notifications in the page list,
+   and on the menu button on a phone.
 
 7. CLOSE AN AUDIT AND REVIEW REPORTS
 -----------------------------------
@@ -336,7 +345,7 @@ or upload a signature when signing an inspection. Switching to another
 organization keeps the Super account signed in.
 
 The Super account has every page above, plus two restricted pages
-under the page menu: Super Dashboard (users, roles, assets, open findings, and
+at the end of the page list: Super Dashboard (users, roles, assets, open findings, and
 the active company database) and Super Settings (company databases, the
 organization theme, priority levels, audit types, scoring, and report
 settings). Switching the company database signs every user out.

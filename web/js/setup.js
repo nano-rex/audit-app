@@ -46,7 +46,7 @@ function renderZones() {
 
 async function populateLocationEquipmentSelect(locationName = "") {
   const form = document.getElementById("location-form");
-  const response = await authFetch(`/api/equipment?outlet=${encodeURIComponent(selectedLocationOutlet)}`);
+  const response = await authFetch(`/api/equipment?view=brief&outlet=${encodeURIComponent(selectedLocationOutlet)}`);
   const data = await response.json();
   const here = (item) => (item.location || item.zone || "") === locationName;
   // Items already in this location first, then the rest by name.

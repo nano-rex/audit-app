@@ -95,16 +95,17 @@ function renderDashboardSchedules() {
 async function loadSuperDashboard() {
   const targets = ["[data-super-rankings]", "[data-super-database]"];
   targets.forEach((selector) => setLoading(selector, "Loading super dashboard…"));
-  const [dashboardResponse, usersResponse, rolesResponse, findingsResponse, equipmentResponse, databaseResponse] = await Promise.all([
-    authFetch(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`),
-    authFetch("/api/users"),
-    authFetch("/api/roles"),
-    authFetch("/api/findings"),
-    authFetch("/api/equipment"),
-    authFetch("/api/account/databases"),
-  ]);
-  const [dashboard, users, roles, findings, equipment, databases] = await Promise.all([
-    dashboardResponse.json(), usersResponse.json(), rolesResponse.json(), findingsResponse.json(), equipmentResponse.json(), databaseResponse.json(),
+  const json = (url) => authFetch(url).then((response) => response.json());
+  // The register is counted by asking for one item of each kind and reading the totals.
+  const assetCount = (kind) => json(`/api/equipment?page=1&size=1&kind=${kind}`).then((data) => data.total || 0);
+  const [dashboard, users, roles, findings, assets, fixtures, databases] = await Promise.all([
+    json(`/api/dashboard?unit=${encodeURIComponent(currentUnit)}`),
+    json("/api/users"),
+    json("/api/roles"),
+    json("/api/findings"),
+    assetCount("asset"),
+    assetCount("fixture"),
+    json("/api/account/databases"),
   ]);
   const activeUsers = (users.items || []).filter((user) => user.active).length;
   const setStat = (name, value) => setText(`[data-super-stat="${name}"]`, value);
@@ -112,7 +113,7 @@ async function loadSuperDashboard() {
   setStat("activeUsers", activeUsers);
   setStat("roles", (roles.items || []).length);
   setStat("departments", (setupOptions.departments || []).length);
-  setStat("assets", (equipment.items || []).length);
+  setStat("assets", assets + fixtures);
   setStat("findings", (findings.items || []).filter((row) => row.status !== "Closed").length);
   setHtml("[data-super-rankings]", (dashboard.rankings || []).length
     ? dashboard.rankings.map((row, index) => rankingRow(row, index + 1)).join("")
@@ -314,16 +315,60 @@ function setEquipmentKind(kind) {
   // Both kinds have the same details; the choices in each filter follow the tab shown.
   equipmentFilters.status = equipmentFilters.type = equipmentFilters.brand = "";
   if (typeof updateEquipmentFilterSelects === "function" && document.getElementById("equipment-filter-status")) updateEquipmentFilterSelects();
-  if (equipmentCache.length) renderEquipment();
+  if (equipmentFilterKey) renderEquipment();
 }
 
-async function loadEquipment() {
-  const response = await authFetch("/api/equipment");
-  const data = await response.json();
-  equipmentCache = data.items;
-  updateEquipmentFilterSelects();
-  updateEquipmentNameOptions();
-  renderEquipment();
+// The register is paged on the server: only the page shown is fetched, with the filter choices
+// for the kind and outlet shown. A newer request cancels an older one, and search waits for a
+// pause in typing.
+let equipmentRequest = null;
+let equipmentSearchTimer = 0;
+let equipmentFacetKey = "";
+let equipmentFacets = { locations: [], types: [], brands: [], statuses: [], names: [] };
+let equipmentAssetTypes = [];
+let equipmentTotal = 0;
+let equipmentPages = 1;
+const equipmentFilterKeys = ["search", "outlet", "location", "type", "brand", "status", "warranty", "expiry"];
+
+// Opening the page (or reloading after a save) refreshes the filter choices too; paging and
+// filtering refresh them only when the kind or outlet changes.
+async function loadEquipment({ refreshFacets = true } = {}) {
+  clearTimeout(equipmentSearchTimer);
+  const filterKey = JSON.stringify(equipmentFilters);
+  if (filterKey !== equipmentFilterKey) {
+    equipmentPage = 1;
+    equipmentFilterKey = filterKey;
+  }
+  const kind = equipmentFilters.kind || "asset";
+  const facetKey = `${kind}|${equipmentFilters.outlet || ""}`;
+  const query = new URLSearchParams({ page: equipmentPage, size: getPaginationSize(), kind });
+  equipmentFilterKeys.forEach((key) => { if (equipmentFilters[key]) query.set(key, equipmentFilters[key].trim?.() ?? equipmentFilters[key]); });
+  if (refreshFacets || facetKey !== equipmentFacetKey) query.set("facets", "1");
+  equipmentRequest?.abort?.();
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const request = {};
+  equipmentRequest = controller || request;
+  if (!equipmentCache.length) setLoading("[data-equipment]", "Loading assets…");
+  let data;
+  try {
+    data = await (await authFetch(`/api/equipment?${query}`, controller ? { signal: controller.signal } : {})).json();
+  } catch (error) {
+    if (error?.name === "AbortError") return;
+    throw error;
+  }
+  if (equipmentRequest !== (controller || request)) return;
+  equipmentCache = data.items || [];
+  equipmentTotal = data.total || 0;
+  equipmentPages = data.pages || 1;
+  equipmentPage = data.page || 1;
+  if (data.facets) {
+    equipmentFacets = data.facets;
+    equipmentFacetKey = facetKey;
+    if (kind === "asset" && !equipmentFilters.outlet) equipmentAssetTypes = data.facets.types;
+    updateEquipmentFilterSelects();
+    updateEquipmentNameOptions();
+  }
+  drawEquipment();
 }
 
 // Item dates are typed as text: 2026-10-09, 09.10.2026, 9/10/2026, or 09-10-2026 (day first).
@@ -354,69 +399,45 @@ function matchesDateFilter(text, filter) {
   return days >= 0 && days <= Number(filter);
 }
 
-function renderEquipment() {
-  const filterKey = JSON.stringify(equipmentFilters);
-  if (filterKey !== equipmentFilterKey) {
-    equipmentPage = 1;
-    equipmentFilterKey = filterKey;
-  }
-  const search = equipmentFilters.search.toLowerCase();
-  const rows = equipmentCache.filter((row) => {
-    const location = row.location || row.zone || "";
-    const type = row.type || row.equipment_type || "";
-    const brand = row.brand || "";
-    const haystack = [
-      row.name,
-      row.description,
-      type,
-      row.operational_status || row.health_status,
-      row.code || row.asset_id,
-      row.model,
-      row.serial_number,
-      brand,
-      row.outlet,
-      location,
-      row.category,
-    ].join(" ").toLowerCase();
-    return (!search || haystack.includes(search))
-      && (!equipmentFilters.kind || (row.kind || "asset") === equipmentFilters.kind)
-      && (!equipmentFilters.outlet || row.outlet === equipmentFilters.outlet)
-      && (!equipmentFilters.location || location === equipmentFilters.location)
-      && (!equipmentFilters.type || type === equipmentFilters.type)
-      && (!equipmentFilters.brand || brand === equipmentFilters.brand)
-      && (!equipmentFilters.status || (row.operational_status || row.health_status || "") === equipmentFilters.status)
-      && matchesDateFilter(row.warranty_date, equipmentFilters.warranty)
-      && matchesDateFilter(row.expiry_date, equipmentFilters.expiry);
-  });
-  const pageSize = getPaginationSize();
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
-  equipmentPage = Math.max(1, Math.min(equipmentPage, pages));
-  const visible = rows.slice((equipmentPage - 1) * pageSize, equipmentPage * pageSize);
-  setHtml("[data-equipment]", rows.length
-    ? visible.map(equipmentRow).join("") + `<nav aria-label="Fixed asset pages">
+// Show the register for the current filters and page. Typing in search waits for a pause.
+function renderEquipment({ debounce = false } = {}) {
+  clearTimeout(equipmentSearchTimer);
+  const load = () => loadEquipment({ refreshFacets: false }).catch((error) => setHtml("[data-equipment]", `<article><div><b>Assets could not be loaded</b><span>${escapeHtml(error.message)}</span></div></article>`));
+  if (debounce) equipmentSearchTimer = setTimeout(load, 250);
+  else load();
+}
+
+function drawEquipment() {
+  const kindLabel = equipmentFilters.kind === "fixture" ? "variable asset" : "fixed asset";
+  setHtml("[data-equipment]", equipmentTotal
+    ? equipmentCache.map(equipmentRow).join("") + `<nav aria-label="Asset pages">
         <button type="button" data-equipment-page="${equipmentPage - 1}" ${equipmentPage === 1 ? "disabled" : ""}>Previous</button>
-        <span>Page ${equipmentPage} of ${pages} · ${rows.length} items</span>
-        <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === pages ? "disabled" : ""}>Next</button>
+        <span>Page ${equipmentPage} of ${equipmentPages} · ${equipmentTotal.toLocaleString()} ${equipmentTotal === 1 ? kindLabel : `${kindLabel}s`}</span>
+        <button type="button" data-equipment-page="${equipmentPage + 1}" ${equipmentPage === equipmentPages ? "disabled" : ""}>Next</button>
       </nav>`
     : `<article><div><b>Nothing found</b><span>Adjust search or filters, or add a fixed asset or a variable asset.</span></div></article>`);
 }
 
 window.addEventListener("pagination-size-changed", () => {
   equipmentPage = 1;
-  if (typeof renderEquipment === "function" && equipmentCache.length) renderEquipment();
+  if (typeof renderEquipment === "function" && equipmentFilterKey) renderEquipment();
 });
 
 function updateEquipmentNameOptions() {
   const datalist = document.getElementById("equipment-name-options");
   if (!datalist) return;
-  const names = [...new Set(equipmentCache.map((row) => row.name || row.asset_id || "").filter(Boolean))].sort();
+  const names = equipmentFacets.names || [];
   datalist.innerHTML = names.map((name) => `<option value="${escapeAttr(name)}"></option>`).join("");
 }
 
-function applyEquipmentTemplate(name) {
+// Typing a known name fills the asset type, brand, description, and criteria from an item of
+// that name.
+async function applyEquipmentTemplate(name) {
   const form = document.getElementById("equipment-form");
-  const template = equipmentCache.find((row) => (row.name || row.asset_id || "") === name);
-  if (!form || !template) return;
+  if (!form || !name || !(equipmentFacets.names || []).includes(name)) return;
+  const query = new URLSearchParams({ page: 1, size: 1, kind: form.elements.kind.value || "asset", name });
+  const template = ((await (await authFetch(`/api/equipment?${query}`)).json()).items || [])[0];
+  if (!template || form.elements.name.value.trim() !== name) return;
   form.elements.type.value = template.type || template.equipment_type || "";
   form.elements.brand.value = template.brand || "";
   form.elements.description.value = template.description || template.notes || "";

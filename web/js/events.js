@@ -10,7 +10,7 @@ document.querySelectorAll("[data-open]").forEach((button) => {
 
 document.addEventListener("click", async (event) => {
   try {
-  if (!event.target.closest(".nav-row")) closeNavigationMenu();
+  if (!event.target.closest(".nav-row, [data-menu-toggle]")) closeNavigationMenu();
   const findingLink = event.target.closest("[data-view-inspection-findings]");
   const allFindings = event.target.closest("[data-all-inspection-findings]");
   if (findingLink || allFindings) {
@@ -56,10 +56,15 @@ document.addEventListener("click", async (event) => {
   }
   const menuButton = event.target.closest("[data-menu-toggle]");
   if (menuButton) {
+    setNavigationDrawer(!document.body.classList.contains("nav-open"));
+    return;
+  }
+
+  const reorderButton = event.target.closest("[data-reorder-toggle]");
+  if (reorderButton) {
     const menu = document.getElementById("tab-menu");
-    const open = menu.hidden;
-    menu.hidden = !open;
-    menuButton.setAttribute("aria-expanded", String(open));
+    menu.hidden = !menu.hidden;
+    reorderButton.setAttribute("aria-expanded", String(!menu.hidden));
     return;
   }
 
@@ -72,8 +77,7 @@ document.addEventListener("click", async (event) => {
   const menuOpenTab = event.target.closest("[data-menu-open-tab]");
   if (menuOpenTab) {
     openTab(menuOpenTab.dataset.menuOpenTab);
-    document.getElementById("tab-menu").hidden = true;
-    document.querySelector("[data-menu-toggle]")?.setAttribute("aria-expanded", "false");
+    closeNavigationMenu();
     return;
   }
 
@@ -210,7 +214,7 @@ document.addEventListener("click", async (event) => {
   }
 
   const userButton = event.target.closest("[data-delete-user]");
-  if (userButton && confirm("Delete this user?")) {
+  if (userButton && confirm("Delete this user? They can no longer sign in, and their sign-in log is removed. Audits and work they recorded stay, under their name. To keep the account for later, edit it and untick Active user instead.")) {
     await requestJson(`/api/users/${userButton.dataset.deleteUser}`, "DELETE");
     loadUsers();
     return;
@@ -689,7 +693,7 @@ checklistContainer?.addEventListener("input", (event) => {
 
 document.getElementById("equipment-search")?.addEventListener("input", (event) => {
   equipmentFilters.search = event.target.value;
-  renderEquipment();
+  renderEquipment({ debounce: true });
 });
 
 document.getElementById("equipment-filter-outlet")?.addEventListener("change", (event) => {

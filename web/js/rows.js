@@ -15,7 +15,7 @@ function outletRow(row) {
   return `
     <li>
       <b>${escapeHtml(row.code)}</b>
-      <span>${escapeHtml(row.location || "No location")} | ${escapeHtml(row.description || "No description")}</span>
+      <span>${escapeHtml(row.location || "No location")} · ${escapeHtml(row.description || "No description")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-outlet='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         <button type="button" class="danger" data-delete-outlet="${row.id}">Delete</button>
@@ -30,7 +30,7 @@ function roleRow(row) {
       <b>${escapeHtml(row.name)}${row.protected ? " - Protected" : ""}</b>
       <span>${escapeHtml(row.description || "No description")}</span>
       <span>Access: ${escapeHtml((row.permissions || []).length ? row.permissions.join(", ") : "none selected")}</span>
-      <span>${escapeHtml(row.department || "No department")} | Reports to ${escapeHtml(roleCache.find((role) => role.id === row.reports_to_id)?.name || "nobody")}</span>
+      <span>${escapeHtml(row.department || "No department")} · Reports to ${escapeHtml(roleCache.find((role) => role.id === row.reports_to_id)?.name || "nobody")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-role='${escapeAttr(JSON.stringify(row))}' ${row.protected ? "disabled" : ""}>Edit</button>
         <button type="button" class="danger" data-delete-role="${row.id}" ${row.protected ? "disabled" : ""}>Delete</button>
@@ -44,7 +44,7 @@ function priorityRow(row) {
     <article>
       <div>
         <b>${escapeHtml(row.name)}</b>
-        <span>${escapeHtml(row.classification)} | Due in ${escapeHtml(row.due_days)} day(s) | ${row.active ? "Active" : "Inactive"}</span>
+        <span>${escapeHtml(row.classification)} · Due in ${escapeHtml(row.due_days)} day(s) · ${row.active ? "Active" : "Inactive"}</span>
       </div>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-priority='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -59,7 +59,7 @@ function auditTypeRow(row) {
     <article>
       <div>
         <b>${escapeHtml(row.name)}</b>
-        <span>${escapeHtml(row.description || "No description")} | ${escapeHtml(row.style || "Detailed")} grading | ${row.active ? "Active" : "Inactive"}</span>
+        <span>${escapeHtml(row.description || "No description")} · ${escapeHtml(row.style || "Detailed")} grading · ${row.active ? "Active" : "Inactive"}</span>
       </div>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-audit-type='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -89,7 +89,7 @@ function notificationRow(row) {
       <div>
         <b>${escapeHtml(row.title)}</b>
         <span>${escapeHtml(row.message || "No message")}</span>
-        <span>${escapeHtml(row.channel || "In-App")} | ${escapeHtml(created)} | ${escapeHtml(row.related_type || "General")}</span>
+        <span>${escapeHtml(row.channel || "In-App")} · ${escapeHtml(created)} · ${escapeHtml(row.related_type || "General")}</span>
       </div>
       <span class="row-actions">
         <span class="status-pill ${row.status === "Unread" ? "status-progress" : "status-none"}">${escapeHtml(row.status || "Unread")}</span>
@@ -125,8 +125,8 @@ function locationRow(row) {
   return `
     <li>
       <b>${escapeHtml(row.name)}</b>
-      <span>${escapeHtml(row.floor || "No floor")} | ${escapeHtml(row.area || "No area")} | Order ${escapeHtml(row.display_order || 0)}</span>
-      <span>QR: ${escapeHtml(row.qr_code || "Not assigned")} | ${escapeHtml(row.size || "No size")}</span>
+      <span>${escapeHtml(row.floor || "No floor")} · ${escapeHtml(row.area || "No area")} · Order ${escapeHtml(row.display_order || 0)}</span>
+      <span>QR: ${escapeHtml(row.qr_code || "Not assigned")} · ${escapeHtml(row.size || "No size")}</span>
       <span>${escapeHtml(row.equipment || "No fixed assets assigned")}</span>
       <span class="row-actions">
         <button type="button" class="outline" data-edit-location='${escapeAttr(JSON.stringify(row))}'>Edit</button>
@@ -159,13 +159,13 @@ function equipmentRow(row) {
   const code = row.code || row.asset_id || "";
   const location = row.location || row.zone || "No location";
   // Items sharing this name and asset type, edited together with Bulk Edit.
-  const group = typeof equipmentGroup === "function" ? equipmentGroup(row).length : 0;
-  const detail = `${row.brand || "No brand"} ${row.model || ""}`.trim() + (row.serial_number ? ` | S/N ${row.serial_number}` : "");
+  const group = Number(row.group_size) || 0;
+  const detail = `${row.brand || "No brand"} ${row.model || ""}`.trim() + (row.serial_number ? ` · S/N ${row.serial_number}` : "");
   return `
     <article>
       <div>
         <b>${escapeHtml(name)} <span class="kind-pill">${fixture ? "Variable asset" : "Fixed asset"}</span></b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(location)} | ${escapeHtml(row.type || row.equipment_type || "No asset type")}${fixture ? "" : ` | Code: ${escapeHtml(code)}`}</span>
+        <span>${escapeHtml(row.outlet)} · ${escapeHtml(location)} · ${escapeHtml(row.type || row.equipment_type || "No asset type")}${fixture ? "" : ` · Code: ${escapeHtml(code)}`}</span>
         <span>${escapeHtml(detail)}</span>
       </div>
       <span class="row-actions">
@@ -189,15 +189,15 @@ function workOrderRow(row) {
   const closed = row.status === "Closed";
   const reference = row.work_order_ref || `#${row.id}`;
   const pic = row.pic || row.assignee || "No PIC";
-  const closedOn = row.closed_at ? ` | Closed ${row.closed_at}` : "";
+  const closedOn = row.closed_at ? ` · Closed ${row.closed_at}` : "";
   const sla = row.sla_status || "No SLA";
   const due = row.due_date ? `Due ${row.due_date}` : "No due date";
   return `
     <article>
       <div>
         <b>${escapeHtml(reference)} ${escapeHtml(row.title)}</b>
-        <span>${escapeHtml(row.outlet)} | ${escapeHtml(row.zone)} | ${escapeHtml(row.request_type)} | ${escapeHtml(row.category || "No asset type")} | ${escapeHtml(row.assignee)}</span>
-        <span>${escapeHtml(pic)} | ${escapeHtml(due)} | ${escapeHtml(closed ? closedOn.replace(" | ", "") : sla)}</span>
+        <span>${escapeHtml(row.outlet)} · ${escapeHtml(row.zone)} · ${escapeHtml(row.request_type)} · ${escapeHtml(row.category || "No asset type")} · ${escapeHtml(row.assignee)}</span>
+        <span>${escapeHtml(pic)} · ${escapeHtml(due)} · ${escapeHtml(closed ? closedOn.replace(" · ", "") : sla)}</span>
       </div>
       <span class="row-actions">
         <strong class="${row.priority === "High" || sla === "Overdue" ? "warn" : ""}">${escapeHtml(row.priority)}<small>${escapeHtml(row.status)}</small></strong>
@@ -221,7 +221,7 @@ function findingItemRow(group) {
     <article class="finding-item">
       <div>
         <b>${escapeHtml(group.item_name || "Item")} <small class="muted">${escapeHtml(kind)}</small></b>
-        <span>${escapeHtml(group.audit_ref || `Audit ${group.audit_id}`)} | ${escapeHtml(group.outlet)} | ${escapeHtml(group.location)} | ${escapeHtml(group.department || "No department")} | ${escapeHtml(group.priority || "")}</span>
+        <span>${escapeHtml(group.audit_ref || `Audit ${group.audit_id}`)} · ${escapeHtml(group.outlet)} · ${escapeHtml(group.location)} · ${escapeHtml(group.department || "No department")} · ${escapeHtml(group.priority || "")}</span>
         <ul class="finding-checks">${group.findings.map((row) => `<li><span class="status-pill ${row.status === "Closed" ? "status-complete" : "status-untouched"}">${escapeHtml(row.status)}</span>
           <span class="finding-check-text">${escapeHtml(row.criterion || "Check")}${row.comment && row.comment !== row.criterion ? ` — ${escapeHtml(row.comment)}` : ""}
             <small class="muted">${escapeHtml([row.priority, row.category, row.assigned_department, row.pic && `PIC ${row.pic}`, row.due_date && `Due ${row.due_date}`].filter(Boolean).join(" · "))}</small></span>
@@ -273,8 +273,8 @@ function scheduleRow(row) {
     <article data-schedule-id="${row.id}">
       <div data-open-schedule='${escapeAttr(JSON.stringify(row))}'>
         <b>${escapeHtml(auditTitle(session, `${row.outlet} · ${row.scheduled_date}`))}</b>
-        <span>${escapeHtml(row.scheduled_date)}${row.due_date ? ` | <span class="${overdue ? "warn" : ""}">Due ${escapeHtml(row.due_date)}${overdue ? " (overdue)" : ""}</span>` : ""} | ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
-        <span>${escapeHtml(shown.outlet)} | ${escapeHtml(shown.zone || "No location")}${row.audit_type ? ` | ${escapeHtml(row.audit_type)}${typeof auditStyleOf === "function" && auditStyleOf(row.audit_type) === "Casual" && row.audit_type !== "Casual" ? " (casual)" : ""}` : ""} | ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} | ${escapeHtml(scheduleLabel(row.id))}</span>
+        <span>${escapeHtml(row.scheduled_date)}${row.due_date ? ` · <span class="${overdue ? "warn" : ""}">Due ${escapeHtml(row.due_date)}${overdue ? " (overdue)" : ""}</span>` : ""} · ${escapeHtml(matchingSession ? lastSaved(matchingSession) : "Not started")}</span>
+        <span>${escapeHtml(shown.outlet)} · ${escapeHtml(shown.zone || "No location")}${row.audit_type ? ` · ${escapeHtml(row.audit_type)}${typeof auditStyleOf === "function" && auditStyleOf(row.audit_type) === "Casual" && row.audit_type !== "Casual" ? " (casual)" : ""}` : ""} · ${escapeHtml(matchingSession ? `Audited by ${shown.auditor || "nobody"}` : `Assigned to ${row.auditor && row.auditor !== "Unassigned" ? row.auditor : "nobody yet"}`)} · ${escapeHtml(scheduleLabel(row.id))}</span>
       </div>
       <span class="row-actions">
         ${row.priority ? `<span class="status-pill ${urgent ? "status-untouched" : "priority-pill"}">${escapeHtml(row.priority)}</span>` : ""}

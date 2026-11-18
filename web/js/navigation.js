@@ -1,8 +1,45 @@
 document.querySelectorAll("[data-tab]").forEach((button) => {
   button.addEventListener("click", () => {
     openTab(button.dataset.tab);
+    closeNavigationMenu();
   });
 });
+
+// A line icon for each page in the sidebar, drawn with currentColor so it follows the theme.
+const NAV_ICONS = {
+  today: "M4 13h6V4H4zM14 20h6v-9h-6zM14 4v4h6V4zM4 20h6v-3H4z",
+  inspections: "M9 4h6v3H9zM7 5H5v15h14V5h-2M8.5 13l2.5 2.5 4.5-5",
+  "work-orders": "M14.5 5.5a4 4 0 0 0-5.2 5.2L4 16l4 4 5.3-5.3a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.5-.6-.6-2.5z",
+  notifications: "M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0",
+  approvals: "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6zM8.5 12l2.5 2.5 4.5-5",
+  categories: "M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9",
+  outlets: "M4 20V9l8-5 8 5v11M9 20v-6h6v6M3 20h18",
+  users: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M16 4.5a3.5 3.5 0 0 1 0 6.5M18 14c2 .8 3 3 3 6",
+  settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12l2-1.5-2-3.5-2.4.8a7 7 0 0 0-1.6-.9L14.5 4h-5L9 6.9a7 7 0 0 0-1.6.9L5 7 3 10.5 5 12l-2 1.5L5 17l2.4-.8a7 7 0 0 0 1.6.9l.5 2.9h5l.5-2.9a7 7 0 0 0 1.6-.9L19 17l2-3.5z",
+  account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0-4.4 3.6-8 8-8s8 3.6 8 8",
+  "super-dashboard": "M4 20V10M10 20V4M16 20v-7M22 20H2",
+  "super-settings": "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0M16 4v4M10 10v4M18 16v4",
+};
+
+document.querySelectorAll(".tabs [data-tab]").forEach((button) => {
+  const path = NAV_ICONS[button.dataset.tab];
+  if (!path || button.querySelector(".nav-icon")) return;
+  const label = document.createElement("span");
+  label.className = "nav-label";
+  label.textContent = button.textContent.trim();
+  button.textContent = "";
+  button.insertAdjacentHTML("afterbegin", `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`);
+  button.appendChild(label);
+});
+
+// On a narrow screen the page list is a drawer opened from the menu button.
+function setNavigationDrawer(open) {
+  document.body.classList.toggle("nav-open", open);
+  const button = document.querySelector("[data-menu-toggle]");
+  button?.setAttribute("aria-expanded", String(open));
+  button?.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+  if (open) (document.querySelector(".tabs .active:not([hidden])") || document.querySelector(".tabs [data-tab]:not([hidden])"))?.focus();
+}
 
 // Entry from the bar or the page menu: some pages open on their most-used sub-page.
 function openTab(tabId) {
@@ -52,14 +89,14 @@ function setBadge(host, count, label) {
 
 function renderUnreadBadge() {
   attentionCounts.notifications = unreadNotifications;
-  let offBar = 0;
+  let total = 0;
   document.querySelectorAll(".tabs [data-tab]").forEach((button) => {
     const count = tabAttention(button.dataset.tab);
     setBadge(button, count, "waiting");
-    // A tab that does not fit on the bar passes its count to the menu button.
-    if (button.hidden && !button.hasAttribute("data-nested-only") && allowedAppTabs().some((tab) => tab.id === button.dataset.tab)) offBar += count;
+    if (!button.hidden && !button.hasAttribute("data-nested-only")) total += count;
   });
-  setBadge(document.querySelector("[data-menu-toggle]"), offBar, "waiting in the menu");
+  // The menu button shows only while the page list is a closed drawer; it carries the sum.
+  setBadge(document.querySelector("[data-menu-toggle]"), total, "waiting");
   document.querySelectorAll("[data-menu-open-tab]").forEach((button) => setBadge(button, tabAttention(button.dataset.menuOpenTab), "waiting"));
   SUBTAB_ATTENTION.forEach(([selector, key]) => {
     document.querySelectorAll(selector).forEach((button) => setBadge(button, Number(attentionCounts[key]) || 0, "waiting"));
@@ -96,7 +133,11 @@ function showTab(tabId) {
   const barTabId = contextParents[tabId] || tabId;
   document.querySelectorAll("[data-tab]").forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.tab === barTabId);
+    if (tab.dataset.tab === barTabId) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
   });
+  const barTab = [...allTabs, ...superTabs].find((tab) => tab.id === barTabId);
+  setText("[data-page-title]", barTab?.label || "");
   document.querySelectorAll("[data-context-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.contextTab === panelId);
   });
@@ -168,30 +209,16 @@ function orderedAppTabs() {
   return ids.map((id) => available.find((tab) => tab.id === id)).filter(Boolean);
 }
 
-function navbarVisibleCount(widths, availableWidth, viewportWidth, gap = 8) {
-  const limit = viewportWidth <= 480 ? 2 : widths.length;
-  let used = 0, count = 0;
-  for (const width of widths.slice(0, limit)) {
-    const next = used + (count ? gap : 0) + width;
-    if (next > availableWidth && count) break;
-    used = next;
-    count++;
-  }
-  return count;
-}
-
+// The sidebar (or drawer) lists every page the account may open, in the account's order.
 function layoutNavbar() {
   const nav = document.querySelector(".tabs");
-  if (!nav || !nav.clientWidth) return;
+  if (!nav) return;
   const buttons = orderedAppTabs().map((tab) => nav.querySelector(`[data-tab="${tab.id}"]`)).filter(Boolean);
   nav.querySelectorAll("[data-tab]").forEach((button) => { button.hidden = true; });
   for (const button of buttons) {
     nav.appendChild(button);
     button.hidden = false;
   }
-  const gap = Number.parseFloat(getComputedStyle(nav).columnGap) || 0;
-  const count = navbarVisibleCount(buttons.map((button) => button.getBoundingClientRect().width), nav.clientWidth, window.innerWidth, gap);
-  buttons.forEach((button, index) => { button.hidden = index >= count; });
   renderUnreadBadge();
 }
 
@@ -263,22 +290,19 @@ function applyNavbarTabs() {
 function closeNavigationMenu() {
   const menu = document.getElementById("tab-menu");
   if (menu) menu.hidden = true;
-  document.querySelector("[data-menu-toggle]")?.setAttribute("aria-expanded", "false");
+  document.querySelector("[data-reorder-toggle]")?.setAttribute("aria-expanded", "false");
+  if (document.body?.classList.contains("nav-open")) setNavigationDrawer(false);
 }
 
 if (typeof window !== "undefined") {
   window.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !document.getElementById("tab-menu")?.hidden) {
+    const drawer = document.body.classList.contains("nav-open");
+    if (event.key === "Escape" && (drawer || !document.getElementById("tab-menu")?.hidden)) {
       closeNavigationMenu();
-      document.querySelector("[data-menu-toggle]")?.focus();
+      if (drawer) document.querySelector("[data-menu-toggle]")?.focus();
     }
   });
-  window.addEventListener("resize", layoutNavbar);
-  if (typeof ResizeObserver !== "undefined") {
-    const nav = document.querySelector(".tabs");
-    if (nav) new ResizeObserver(layoutNavbar).observe(nav);
-  }
-  document.fonts?.ready.then(layoutNavbar);
+  document.querySelector("[data-nav-scrim]")?.addEventListener("click", closeNavigationMenu);
 }
 
 function allowedAppTabs() {

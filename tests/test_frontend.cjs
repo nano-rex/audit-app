@@ -57,26 +57,40 @@ test("startup loads only the active tab and coalesces duplicate requests", async
   assert.deepEqual(calls.sort(), ["loadGuidedSchedules", "loadInspectionHistory"].sort());
 });
 
-test("equipment renders one page of rows and resets pagination on filtering", () => {
+test("the asset register asks the server for one page and resets to page 1 on filtering", async () => {
   let rendered = "";
+  const urls = [];
   const context = vm.createContext({
-    equipmentCache: Array.from({ length: 2330 }, (_, id) => ({ id, name: `Asset ${id}`, outlet: id < 3 ? "Small" : "Large" })),
-    equipmentFilters: { search: "", outlet: "", location: "", type: "", brand: "" },
     ...shared(),
+    URLSearchParams, Promise, clearTimeout, setTimeout,
+    equipmentCache: [],
+    equipmentFilters: { kind: "asset", search: "", outlet: "", location: "", type: "", brand: "", status: "", warranty: "", expiry: "" },
     equipmentPage: 1, equipmentFilterKey: "", getPaginationSize: () => 30,
     setHtml: (_, html) => { rendered = html; },
+    escapeHtml: (value) => String(value),
+    updateEquipmentFilterSelects() {}, updateEquipmentNameOptions() {},
     equipmentRow: () => "<article></article>",
+    authFetch: async (url) => {
+      urls.push(new URL(url, "http://app"));
+      const page = Number(urls.at(-1).searchParams.get("page"));
+      return { json: async () => ({ items: Array.from({ length: page === 78 ? 20 : 30 }, (_, id) => ({ id })), total: 2330, pages: 78, page, facets: { names: [], types: [] } }) };
+    },
   });
   vm.runInContext(source("dashboard.js"), context);
-  context.renderEquipment();
+  await context.loadEquipment();
   assert.equal((rendered.match(/<article>/g) || []).length, 30);
-  context.equipmentPage = 78;
-  context.renderEquipment();
+  assert.match(rendered, /Page 1 of 78 · 2,330 fixed assets/);
+  assert.equal(urls[0].searchParams.get("facets"), "1");
+  vm.runInContext("equipmentPage = 78", context);
+  await context.loadEquipment({ refreshFacets: false });
+  assert.equal(urls[1].searchParams.get("page"), "78");
+  assert.equal(urls[1].searchParams.get("facets"), null);
   assert.equal((rendered.match(/<article>/g) || []).length, 20);
   context.equipmentFilters.outlet = "Small";
-  context.renderEquipment();
-  assert.equal(context.equipmentPage, 1);
-  assert.equal((rendered.match(/<article>/g) || []).length, 3);
+  await context.loadEquipment({ refreshFacets: false });
+  assert.equal(urls[2].searchParams.get("page"), "1");
+  assert.equal(urls[2].searchParams.get("outlet"), "Small");
+  assert.equal(urls[2].searchParams.get("facets"), "1", "a new outlet brings its own filter choices");
 });
 
 test("asset date filters read the date formats people type", () => {
@@ -292,7 +306,7 @@ test("the dashboard shows the signed-in person's tasks, figures, activity, and t
 });
 
 
-test("navigation follows account order and fits the available navbar width", () => {
+test("the sidebar lists every allowed page in the account's order", () => {
   const context = vm.createContext({
     ...shared(),
     currentUser: { id: 1, permissions: ["today", "inspections", "work-orders"], navigationOrder: ["work-orders", "today"] },
@@ -301,10 +315,6 @@ test("navigation follows account order and fits the available navbar width", () 
   });
   vm.runInContext(source("navigation.js"), context);
   assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["work-orders","today","inspections","account","notifications"]');
-  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 400, 390), 2);
-  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 320, 900), 3);
-  assert.equal(context.navbarVisibleCount([90, 100, 110, 120], 600, 1400), 4);
-  assert.equal(context.navbarVisibleCount([90, 100], 70, 280), 1);
   context.currentUser = { id: 2, permissions: ["today"], navigationOrder: ["inspections", "account"] };
   assert.equal(JSON.stringify(context.orderedAppTabs().map((tab) => tab.id)), '["account","today","notifications"]');
 });

@@ -503,6 +503,34 @@ fn get(ctx: &Ctx) -> R<Reply> {
             if let Some(outlet) = &outlet {
                 accounts::require(&viewer, outlet)?;
             }
+            let text = |key: &str| ctx.param(key).unwrap_or_default();
+            let number = |key: &str, default: i64| ctx.param(key).and_then(|value| value.parse().ok()).unwrap_or(default);
+            if ctx.param("groups").is_some() {
+                return ok(catalog::asset_groups(scope.as_deref(), &text("kind"))?);
+            }
+            if ctx.param("view").as_deref() == Some("brief") {
+                let outlet = outlet.ok_or_else(|| bad("Choose an outlet"))?;
+                return ok(catalog::asset_briefs(&outlet)?);
+            }
+            if ctx.param("page").is_some() {
+                let query = catalog::AssetQuery {
+                    kind: text("kind"),
+                    search: text("search"),
+                    outlet: outlet.unwrap_or_default(),
+                    location: text("location"),
+                    asset_type: text("type"),
+                    brand: text("brand"),
+                    status: text("status"),
+                    warranty: text("warranty"),
+                    expiry: text("expiry"),
+                    name: ctx.param("name"),
+                    group_type: ctx.param("groupType"),
+                    page: number("page", 1),
+                    size: number("size", 30),
+                    facets: ctx.param("facets").as_deref() == Some("1"),
+                };
+                return ok(catalog::asset_page(scope.as_deref(), &query)?);
+            }
             let compact = ctx.param("view").as_deref() == Some("inspection");
             let data = catalog::equipment_items(outlet.as_deref(), compact)?;
             return Ok(if scope.is_none() { Reply::Shared(data) } else { Reply::Json(200, listed(&viewer, &data.data, "outlet")) });

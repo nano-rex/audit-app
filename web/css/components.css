@@ -876,17 +876,6 @@ dialog header h2 {
   vertical-align: middle;
 }
 
-.menu-button {
-  position: relative;
-}
-
-.menu-button .tab-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  margin: 0;
-}
-
 .count-pill {
   display: inline-block;
   margin-left: 6px;
@@ -919,7 +908,6 @@ dialog header h2 {
 #change-password-dialog:not([data-forced="true"]) [data-forced-logout] {
   display: none;
 }
-
 
 /* Fixtures and finishes have no code, serial, or warranty details. */
 #equipment-form[data-kind="fixture"] [data-asset-only] {

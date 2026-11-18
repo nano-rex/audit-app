@@ -23,11 +23,6 @@ function equipmentGroupKey(row) {
   return [row.kind === "fixture" ? "fixture" : "asset", row.name || row.asset_id || "", row.type || row.equipment_type || ""].join("\u0001");
 }
 
-function equipmentGroup(row) {
-  const key = equipmentGroupKey(row);
-  return equipmentCache.filter((item) => equipmentGroupKey(item) === key);
-}
-
 // ---- Adding at several outlets and locations. ----
 
 function equipmentAddCount(form) {
@@ -79,29 +74,27 @@ function markMixed(field, mixed) {
   field.value = "";
 }
 
-function bulkGroupOptions(kind) {
-  const groups = new Map();
-  equipmentCache.filter((row) => (row.kind === "fixture" ? "fixture" : "asset") === kind).forEach((row) => {
-    const key = equipmentGroupKey(row);
-    groups.set(key, [...(groups.get(key) || []), row]);
-  });
-  return [...groups.entries()].filter(([, rows]) => rows.length > 1)
-    .sort(([, a], [, b]) => (a[0].name || "").localeCompare(b[0].name || "") || (a[0].type || "").localeCompare(b[0].type || ""));
+// Groups of two or more items sharing a name and asset type, counted on the server.
+async function bulkGroupOptions(kind) {
+  const data = await (await authFetch(`/api/equipment?groups=1&kind=${kind}`)).json();
+  return (data.items || []).map((group) => ({ ...group, key: equipmentGroupKey({ kind, name: group.name, type: group.type }) }));
 }
 
 async function openEquipmentBulkEditor(kind, key = "") {
-  const groups = bulkGroupOptions(kind);
+  const groups = await bulkGroupOptions(kind);
   if (!groups.length) {
     showNotice(`No ${itemKinds[kind].plural} share a name and asset type yet.`);
     return;
   }
-  const chosen = groups.find(([groupKey]) => groupKey === key) || groups[0];
+  const chosen = groups.find((group) => group.key === key) || groups[0];
+  const query = new URLSearchParams({ page: 1, size: chosen.size, kind, name: chosen.name, groupType: chosen.type });
+  const rows = (await (await authFetch(`/api/equipment?${query}`)).json()).items || [];
   const form = document.getElementById("equipment-form");
   resetEquipmentForm(kind, "bulk");
-  form.querySelector("[data-bulk-group]").innerHTML = groups.map(([groupKey, rows]) =>
-    `<option value="${escapeAttr(groupKey)}">${escapeHtml(rows[0].name || rows[0].asset_id)} · ${escapeHtml(rows[0].type || rows[0].equipment_type || "No asset type")} (${rows.length})</option>`).join("");
-  form.querySelector("[data-bulk-group]").value = chosen[0];
-  fillEquipmentBulkEditor(form, chosen[1]);
+  form.querySelector("[data-bulk-group]").innerHTML = groups.map((group) =>
+    `<option value="${escapeAttr(group.key)}">${escapeHtml(group.name)} · ${escapeHtml(group.type || "No asset type")} (${group.size})</option>`).join("");
+  form.querySelector("[data-bulk-group]").value = chosen.key;
+  fillEquipmentBulkEditor(form, rows);
   const dialog = document.getElementById("equipment-dialog");
   if (!dialog.open) dialog.showModal();
 }
@@ -179,11 +172,13 @@ document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-bulk-edit-equipment]");
   if (!button) return;
   const row = equipmentCache.find((item) => String(item.id) === button.dataset.bulkEditEquipment);
-  openEquipmentBulkEditor(row ? (row.kind === "fixture" ? "fixture" : "asset") : equipmentFilters.kind || "asset", row ? equipmentGroupKey(row) : "");
+  openEquipmentBulkEditor(row ? (row.kind === "fixture" ? "fixture" : "asset") : equipmentFilters.kind || "asset", row ? equipmentGroupKey(row) : "")
+    .catch((error) => showNotice(error.message));
 });
 
 document.querySelector("[data-bulk-group]")?.addEventListener("change", (event) => {
-  openEquipmentBulkEditor(document.getElementById("equipment-form").elements.kind.value, event.target.value);
+  openEquipmentBulkEditor(document.getElementById("equipment-form").elements.kind.value, event.target.value)
+    .catch((error) => showNotice(error.message));
 });
 
 document.querySelector("[data-bulk-all]")?.addEventListener("change", (event) => {

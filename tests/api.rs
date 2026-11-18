@@ -415,6 +415,21 @@ fn outlet_limited_accounts_and_held_changes() {
     let (_, register) = clara.get("/api/equipment");
     assert!(items(&register).iter().all(|row| row.at("outlet").as_str() == Some("TST")));
     assert_eq!(clara.get("/api/equipment?outlet=STP").0, 403);
+    // The paged register, its filter choices, Bulk Edit groups, and the location list keep to her outlets.
+    assert_eq!(admin.post("/api/equipment", obj([("name", "Speaker".into()), ("outlet", "STP".into()), ("serialNumber", "SN-2".into())])).0, 200);
+    let (status, page) = clara.get("/api/equipment?page=1&size=10&kind=asset&facets=1");
+    assert_eq!(status, 200, "{}", page.to_json());
+    assert!(items(&page).iter().all(|row| row.at("outlet").as_str() == Some("TST")));
+    assert_eq!(page.at("total").as_i64(), Some(items(&page).len() as i64));
+    assert!(items(&page).iter().all(|row| row.at("group_size").as_i64() == Some(1)), "STP's speaker is not counted in her groups");
+    let (_, everywhere) = admin.get("/api/equipment?page=1&size=10&kind=asset&search=speak");
+    assert_eq!(everywhere.at("total").as_i64(), Some(2));
+    assert!(items(&everywhere).iter().all(|row| row.at("group_size").as_i64() == Some(2)));
+    let (_, groups) = admin.get("/api/equipment?groups=1&kind=asset");
+    assert_eq!(items(&groups).iter().map(|row| row.at("size").as_i64()).collect::<Vec<_>>(), vec![Some(2)]);
+    assert!(items(&clara.get("/api/equipment?groups=1&kind=asset").1).is_empty());
+    assert_eq!(clara.get("/api/equipment?page=1&kind=asset&outlet=STP").0, 403);
+    assert_eq!(clara.get("/api/equipment?view=brief&outlet=STP").0, 403);
     assert_eq!(clara.get("/api/users").0, 403);
     assert_eq!(clara.post("/api/equipment", obj([("name", "Fan".into()), ("outlet", "STP".into())])).0, 403);
     let (status, held) = clara.post("/api/equipment", obj([("name", "Fan".into()), ("outlet", "TST".into()), ("location", "Lobby".into())]));
@@ -429,6 +444,15 @@ fn outlet_limited_accounts_and_held_changes() {
     assert!(items(&register).iter().any(|row| row.at("name").as_str() == Some("Fan")));
     let (_, notices) = clara.get("/api/notifications");
     assert!(items(&notices).iter().any(|row| row.at("title").as_str() == Some("Your change was approved")));
+    // An account with sign-in history can be deleted; the audits recorded so far stay.
+    let (_, users) = admin.get("/api/users");
+    let clara_id = items(&users).iter().find(|row| row.at("email").as_str() == Some("clara@example.com")).and_then(|row| row.at("id").as_i64()).unwrap();
+    let (_, before) = admin.get("/api/inspection-sessions");
+    let (status, body) = admin.delete(&format!("/api/users/{clara_id}"));
+    assert_eq!(status, 200, "{}", body.to_json());
+    assert!(!items(&admin.get("/api/users").1).iter().any(|row| row.at("id").as_i64() == Some(clara_id)));
+    assert_eq!(server.client().post("/api/auth/login", obj([("identifier", "clara@example.com".into()), ("password", "Clara-pass-1".into())])).0, 401);
+    assert_eq!(items(&admin.get("/api/inspection-sessions").1).len(), items(&before).len());
 }
 
 #[test]
