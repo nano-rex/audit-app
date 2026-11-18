@@ -171,6 +171,7 @@ function equipmentRow(row) {
       <span class="row-actions">
         <strong class="${statusClass}">${escapeHtml(status)}<small>${escapeHtml(row.installation_date || row.last_checked || "No date")}</small></strong>
         ${photoSetButton(parseStoredImages(row.photos || "[]"), "Photos")}
+        ${!fixture && typeof assetQrValue === "function" && assetQrValue(row) ? `<button type="button" class="outline" data-asset-qr='${escapeAttr(JSON.stringify({ name, code: assetQrValue(row), outlet: row.outlet || "", location: row.location || row.zone || "" }))}' aria-label="QR code for ${escapeAttr(name)}">QR</button>` : ""}
         <button type="button" class="outline" data-edit-equipment='${escapeAttr(JSON.stringify(row))}'>Edit</button>
         ${group > 1 ? `<button type="button" class="outline" data-bulk-edit-equipment="${row.id}" title="Edit every ${escapeAttr(name)} of type ${escapeAttr(row.type || row.equipment_type || "unset")}">Edit all ${group}</button>` : ""}
         <button type="button" class="danger" data-delete-equipment="${row.id}">Delete</button>

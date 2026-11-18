@@ -75,6 +75,11 @@ An administrator should configure these records before staff begin auditing:
      left blank where the items differ keeps each item's own value. Codes (also
      the QR label) and serial numbers must be unique, so set them per item in
      the table at the bottom.
+   - Press QR on a fixed asset to show its QR code (it carries the asset's
+     code). Save image downloads a PNG label with the asset name and code
+     under the symbol, ready to print. Share sends the image to other apps
+     (messages, email, photos) on devices whose browser supports sharing;
+     sharing needs the app to be opened over HTTPS or on localhost.
    - Filter the list by outlet, location, asset type, brand, status,
      and warranty or expiry date (expired, ending within 30 or 90 days, still
      valid, or not recorded).

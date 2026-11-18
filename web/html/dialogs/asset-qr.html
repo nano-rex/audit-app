@@ -1,0 +1,12 @@
+  <dialog id="asset-qr-dialog" class="asset-qr-dialog" aria-labelledby="asset-qr-title">
+    <form method="dialog">
+      <header><h2 id="asset-qr-title" data-qr-title>QR Code</h2><button type="button" data-close-dialog aria-label="Close">x</button></header>
+      <div class="asset-qr-image" data-qr-image></div>
+      <p class="asset-qr-value"><strong data-qr-value></strong><small class="muted" data-qr-detail></small></p>
+      <p class="muted" data-qr-status role="status" aria-live="polite"></p>
+      <div class="asset-qr-actions">
+        <button type="button" class="primary" data-qr-save>Save image</button>
+        <button type="button" class="outline" data-qr-share hidden>Share</button>
+      </div>
+    </form>
+  </dialog>

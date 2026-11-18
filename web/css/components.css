@@ -2840,3 +2840,51 @@ people view: a card per person {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Asset QR dialog: the symbol stays black on white in both themes so it scans from the screen. */
+.asset-qr-dialog {
+  width: min(420px, 94vw);
+}
+
+.asset-qr-image {
+  justify-self: center;
+  width: min(280px, 100%);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+.asset-qr-image svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.asset-qr-value {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.asset-qr-value small:empty,
+.asset-qr-dialog [data-qr-status]:empty {
+  display: none;
+}
+
+.asset-qr-dialog [data-qr-status] {
+  margin: 0;
+  text-align: center;
+}
+
+.asset-qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.asset-qr-actions button {
+  flex: 1 1 140px;
+}

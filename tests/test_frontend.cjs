@@ -462,3 +462,30 @@ test("the organization theme sets the page attributes and a custom accent derive
   assert.equal(root.dataset.palette, "default", "an unsaved preview is undone");
   assert.equal(style.values["--accent"], "#ffd400");
 });
+
+test("fixed assets get a real QR code; variable assets get none", () => {
+  const context = vm.createContext({ ...shared(), escapeAttr: (value) => String(value), escapeHtml: (value) => String(value) });
+  vm.runInContext(source("qr-code.js"), context);
+  const finder = (modules, left, top) => [0, 1, 2, 3, 4, 5, 6].every((y) => [0, 1, 2, 3, 4, 5, 6].every((x) => {
+    const ring = Math.max(Math.abs(x - 3), Math.abs(y - 3));
+    return modules[top + y][left + x] === (ring !== 2);
+  }));
+  for (const [text, version] of [["FA-0001", 1], ["STP-AV-000123-SPEAKER-LEFT-HALL", 3], ["x".repeat(300), 13]]) {
+    const modules = context.qrEncode(text);
+    const size = version * 4 + 17;
+    assert.equal(modules.length, size, text);
+    assert.ok(modules.every((row) => row.length === size));
+    assert.ok(finder(modules, 0, 0) && finder(modules, size - 7, 0) && finder(modules, 0, size - 7));
+    for (let i = 8; i < size - 8; i++) assert.equal(modules[6][i], i % 2 === 0);
+    assert.equal(modules[size - 8][8], true);
+  }
+  // Reed-Solomon check bytes of the ISO/IEC 18004 annex I example "01234567" (version 1-M).
+  assert.deepEqual(context.qrReedSolomon([16, 32, 12, 86, 97, 128, 236, 17, 236, 17, 236, 17, 236, 17, 236, 17], 10), [165, 36, 212, 193, 237, 54, 199, 135, 44, 85]);
+  assert.equal(context.qrFileName("STP / AV 01"), "QR-STP-AV-01.png");
+  assert.equal(context.assetQrValue({ code: "FA-1", qr_code: "" }), "FA-1");
+
+  const rows = vm.createContext({ ...shared(), assetQrValue: context.assetQrValue, escapeAttr: (value) => String(value), escapeHtml: (value) => String(value), photoSetButton: () => "", parseStoredImages: () => [] });
+  vm.runInContext(source("rows.js"), rows);
+  assert.match(rows.equipmentRow({ id: 1, name: "Speaker", code: "FA-1", qr_code: "FA-1", outlet: "STP" }), /data-asset-qr='\{"name":"Speaker","code":"FA-1"/);
+  assert.doesNotMatch(rows.equipmentRow({ id: 2, name: "Carpet", kind: "fixture", outlet: "STP" }), /data-asset-qr/);
+});
